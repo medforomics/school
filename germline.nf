@@ -178,13 +178,16 @@ process seqqc {
   set pair_id, file(sbam),file(idx) from aligned
   output:
   file("${pair_id}.flagstat.txt") into alignstats
+  file("${pair_id}.subset.libcomplex.txt") into subsetlibcomplex
   file("${pair_id}.libcomplex.txt") into libcomplex
   file("${pair_id}.ontarget.flagstat.txt") into ontarget
   set pair_id, file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into targetbam
   set pair_id, file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into ssbam
-  file("${pair_id}.ontarget.bam.bai") into ssidx
   file("${pair_id}.genomecov.txt") into genomecov
   file("${pair_id}.mapqualcov.txt") into mapqualcov
+  file("${pair_id}.dedupcov.txt") into dedupcov
+  file("${pair_id}..meanmap.txt") into meanmap
+  file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
   set file("${pair_id}_fastqc.zip"),file("${pair_id}_fastqc.html") into fastqc
 
   script:
@@ -196,9 +199,13 @@ process seqqc {
   sambamba flagstat -t 30 ${pair_id}.ontarget.bam > ${pair_id}.ontarget.flagstat.txt
   bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b ${pair_id}.ontarget.bam -a ${capture_bed} | grep ^all >  ${pair_id}.genomecov.txt
   samtools view -b -q 1 ${pair_id}.ontarget.bam | bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b stdin -a ${capture_bed}  >  ${pair_id}.mapqualcov.txt
+  samtools view -b -F 1024 ${pair_id}.ontarget.bam | bedtools coverage -sorted -g  ${index_path}/genomefile.txt -a ${capture_bed} -b stdin -hist | grep ^all > ${pair_id}.dedupcov.txt 
   perl $baseDir/scripts/subset_bam.pl ${pair_id}.ontarget.bam ${pair_id}.ontarget.flagstat.txt ${capture_bed}
-  java -Xmx8g -jar \$PICARD/picard.jar EstimateLibraryComplexity INPUT=${pair_id}.subset.bam OUTPUT=${pair_id}.libcomplex.txt
-  """
+  java -Xmx8g -jar \$PICARD/picard.jar EstimateLibraryComplexity INPUT=${pair_id}.subset.bam OUTPUT=${pair_id}.subset.libcomplex.txt
+  java -Xmx8g -jar \$PICARD/picard.jar EstimateLibraryComplexity INPUT=${pair_id}.ontarget.bam OUTPUT=${pair_id}.libcomplex.txt
+  java -Xmx8g -jar \$PICARD/picard.jar CollectAlignmentSummaryMetrics R=${gatkref} I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.alignmentsummarymetrics.txt
+  samtools view -F 1024 ${pair_id}.ontarget.bam | awk '{sum+=\$5} END { print "Mean MAPQ =",sum/NR}' > ${pair_id}.meanmap.txt
+ """
 }
 
 process parse_stat {
@@ -208,11 +215,15 @@ process parse_stat {
   input:
   file(txt) from alignstats.toList()
   file(lc) from libcomplex.toList()
+  file(sc) from subsetlibcomplex.toList()
   file(is) from insertsize.toList()
   file(gc) from genomecov.toList()
   file(on) from ontarget.toList()
   file(tr) from trimstat.toList()
   file(mq) from mapqualcov.toList()
+  file(de) from dedupcov.toList()
+  file(mm) from meanmap.toList()
+  file(asmet) from alignmentsummarymetrics.toList()
   
   output:
   file('sequence.stats.txt')
@@ -236,7 +247,7 @@ process svcall {
   script:
   """
   module load samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 speedseq/20160506 vcftools/0.1.14
-  speedseq sv -t 30 -o ${pair_id}.sssv -R ${gatkref} -B ${ssbam} -D ${discordbam} -S ${splitters}
+  speedseq sv -t 30 -o ${pair_id}.sssv -R ${gatkref} -B ${ssbam} -D ${discordbam} -S ${splitters} -x ${index_path}/exclude_alt.bed
   perl $baseDir/scripts/parse_svresults.pl -i ${pair_id}.sssv.sv.vcf.gz -r ${index_path}
   """
 }
@@ -440,6 +451,7 @@ process annot {
   file("${fname}.statplot*") into plotstats
 
   script:
+  """
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3
   tabix ${unionvcf}
   bcftools annotate -Oz -a ${index_path}/ExAC.vcf.gz -o ${fname}.exac.vcf.gz --columns CHROM,POS,AC_Het,AC_Hom,AC_Hemi,AC_Adj,AN_Adj,AC_POPMAX,AN_POPMAX,POPMAX ${unionvcf}
@@ -452,7 +464,7 @@ process annot {
   tabix ${fname}.annot.vcf.gz
   bcftools stats ${fname}.annot.vcf.gz > ${fname}.stats.txt
   plot-vcfstats -s -p ${fname}.statplot ${fname}.stats.txt
-  zcat ${fname}.annot.vcf.gz | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl | java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS ID ANN[*].GENE ANN[*].HGVS_P GEN[0].AD GEN[0].DP MQ CallSet AC_POPMAX AN_POPMAX ANN[*].EFFECT ANN[*].IMPACT CNT[*]| uniq |grep "HIGH\|MODERATE" |uniq > ${fname}.coding.txt
-  java -jar \$SNPEFF_HOME/SnpSift.jar filter "(DP > 49 & ANN[*].IMPACT = 'HIGH' & ANN[*].IMPACT = 'MODERATE')" ${fname}.annot.vcf.gz | bgzip > ${fname}.coding.vcf.gz
+  zcat ${fname}.annot.vcf.gz | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl | java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS ID ANN[*].GENE ANN[*].HGVS_P GEN[0].AD GEN[0].DP MQ CallSet AC_POPMAX AN_POPMAX ANN[*].EFFECT ANN[*].IMPACT CNT[*]| uniq |grep -v "MODIFIER" |uniq > ${fname}.coding.txt
+  java -jar \$SNPEFF_HOME/SnpSift.jar filter "(GEN[0].DP > 49 & (ANN[*].IMPACT = 'HIGH' | ANN[*].IMPACT = 'MODERATE'))" ${fname}.annot.vcf.gz | bgzip > ${fname}.coding.vcf.gz
   """
 }

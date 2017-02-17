@@ -24,18 +24,6 @@ design_file = file(params.design)
 gtf_file = file("$params.genome/gencode.gtf")
 genenames = file("$params.genome/genenames.txt")
 geneset = file("$params.genome/gsea_gmt/$params.geneset")
-dbsnp="$params.genome/dbSnp.vcf.gz"
-indel="$params.genome/GoldIndels.vcf.gz"
-knownindel=file(indel)
-dbsnp=file(dbsnp)
-
-snpeff_vers = 'GRCh38.82';
-if (params.genome == '/project/shared/bicf_workflow_ref/GRCm38') {
-   snpeff_vers = 'GRCm38.82';
-}
-if (params.genome == '/project/shared/bicf_workflow_ref/GRCh37') {
-   snpeff_vers = 'GRCh37.75';
-}
 
 // params genome is the directory
 // base name for the index is always genome
@@ -257,8 +245,8 @@ process markdups {
   output:
   set pair_id, file("${pair_id}.dedup.bam") into deduped1
   set pair_id, file("${pair_id}.dedup.bam") into deduped2
-  set pair_id, file("${pair_id}.dedup.bam"), file("${pair_id}.dedup.bam.bai") into deduped3
-  script:
+  set pair_id, file("${pair_id}.dedup.bam") into deduped3
+script:
   if (params.markdups == 'mark')
   """
   module load picard/1.127 speedseq/20160506
@@ -267,7 +255,6 @@ process markdups {
   else
   """
   cp ${sbam} ${pair_id}.dedup.bam
-  samtools index ${pair_id}.dedup.bam
   """
 }
 
@@ -281,7 +268,6 @@ process gatkbam {
   set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
   set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into sambam
   set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into hsbam
-  set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into ssbam
   when:
   params.variant == "detect"
   script:
@@ -289,10 +275,9 @@ process gatkbam {
   module load gatk/3.5 samtools/intel/1.3 speedseq/20160506 picard/1.127
   java -Xmx4g -jar \$PICARD/picard.jar CleanSam INPUT=${rbam} O=${pair_id}.clean.bam
   java -Xmx4g -jar \$PICARD/picard.jar AddOrReplaceReadGroups INPUT=${pair_id}.clean.bam O=${pair_id}.rg_added_sorted.bam SO=coordinate RGID=${pair_id} RGLB=tx RGPL=illumina RGPU=barcode RGSM=${pair_id}
-  sambamba index ${pair_id}.rg_added_sorted.bam
-  java -Xmx4g -jar \$GATK_JAR -T SplitNCigarReads -R ${index_path}/hisat_genome.fa -I ${pair_id}.rg_added_sorted.bam -o ${pair_id}.split.bam -rf ReassignOneMappingQuality -RMQF 255 -RMQT 60 -U ALLOW_N_CIGAR_READS
-  java -Xmx4g -jar \$GATK_JAR -l INFO -R ${index_path}/hisat_genome.fa --knownSites ${dbsnp} -I ${pair_id}.split.bam -T BaseRecalibrator -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov ContextCovariate -o ${pair_id}.recal_data.grp -nt 1 -nct 30
-  java -Xmx4g -jar \$GATK_JAR -T PrintReads -R ${index_path}/hisat_genome.fa -I ${pair_id}.split.bam -BQSR ${pair_id}.recal_data.grp -o ${pair_id}.final.bam -nt 1 -nct 8
+  java -Xmx4g -jar \$GATK_JAR -T SplitNCigarReads -R ${gatkref} -I ${pair_id}.rg_added_sorted.bam -o ${pair_id}.split.bam -rf ReassignOneMappingQuality -RMQF 255 -RMQT 60 -U ALLOW_N_CIGAR_READS
+  java -Xmx4g -jar \$GATK_JAR -l INFO -R ${gatkref} --knownSites ${dbsnp} -I ${pair_id}.split.bam -T BaseRecalibrator -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov ContextCovariate -o ${pair_id}.recal_data.grp -nt 1 -nct 30
+  java -Xmx4g -jar \$GATK_JAR -T PrintReads -R ${gatkref} -I ${pair_id}.split.bam -BQSR ${pair_id}.recal_data.grp -o ${pair_id}.final.bam -nt 1 -nct 8
   """
 }
 process mpileup {
@@ -303,14 +288,15 @@ process mpileup {
   input:
   set pair_id,file(gbam),file(gidx) from sambam
   output:
+  file("${pair_id}.sampanel.vcf.gz") into samfilt
   set pair_id,file("${pair_id}.sam.vcf.gz") into samvcf
   when:
   params.variant == "detect"
   script:
   """
   module load python/2.7.x-anaconda samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 vcftools/0.1.14
-  samtools mpileup -t 'AD,DP,INFO/AD' -ug -Q20 -C50 -f ${index_path}/hisat_genome.fa ${gbam} | bcftools call -vmO z -o ${pair_id}.sam.ori.vcf.gz
-  vcf-concat ${pair_id}.sam.ori.vcf.gz | vcf-sort |vcf-annotate -n --fill-type | bcftools norm -c s -f ${index_path}/hisat_genome.fa -w 10 -O z -o ${pair_id}.sam.vcf.gz -
+  samtools mpileup -t 'AD,DP,INFO/AD' -ug -Q20 -C50 -f ${gatkref} ${gbam} | bcftools call -vmO z -o ${pair_id}.sam.ori.vcf.gz
+  vcf-concat ${pair_id}.sam.ori.vcf.gz | vcf-sort |vcf-annotate -n --fill-type | bcftools norm -c s -f ${gatkref} -w 10 -O z -o ${pair_id}.sam.vcf.gz -
   """
 }
 process hotspot {
@@ -326,8 +312,8 @@ process hotspot {
   script:
   """
   module load python/2.7.x-anaconda samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 vcftools/0.1.14
-  samtools mpileup -d 99999 -t 'AD,DP,INFO/AD' -uf ${index_path}/hisat_genome.fa ${gbam} > ${pair_id}.mpi
-  bcftools filter -i "AD[1]/DP > 0.01" ${pair_id}.mpi | bcftools filter -i "DP > 50" | bcftools call -m -A |vcf-annotate -n --fill-type |  bcftools norm -c s -f /project/shared/bicf_workflow_ref/GRCh38/hisat_genome.fa -w 10 -O z -o ${pair_id}.lowfreq.vcf.gz -
+  samtools mpileup -d 99999 -t 'AD,DP,INFO/AD' -uf ${gatkref} ${gbam} > ${pair_id}.mpi
+  bcftools filter -i "AD[1]/DP > 0.01" ${pair_id}.mpi | bcftools filter -i "DP > 50" | bcftools call -m -A |vcf-annotate -n --fill-type |  bcftools norm -c s -f /project/shared/bicf_workflow_ref/GRCh38/genome.fa -w 10 -O z -o ${pair_id}.lowfreq.vcf.gz -
   java -jar \$SNPEFF_HOME/SnpSift.jar annotate ${index_path}/cosmic.vcf.gz ${pair_id}.lowfreq.vcf.gz | java -jar \$SNPEFF_HOME/SnpSift.jar filter "(CNT[*] >0)" - |bgzip > ${pair_id}.hotspot.vcf.gz
   """
 }
@@ -338,19 +324,19 @@ process speedseq {
   input:
   set pair_id,file(gbam),file(gidx) from ssbam
   output:
+  file("${pair_id}.sspanel.vcf.gz") into ssfilt
   set pair_id,file("${pair_id}.ssvar.vcf.gz") into ssvcf
   when:
   params.variant == "detect"
   script:
   """
   module load python/2.7.x-anaconda samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 speedseq/20160506 vcftools/0.1.14
-  speedseq var -t \$SLURM_CPUS_ON_NODE -o ssvar ${index_path}/hisat_genome.fa ${gbam}
-  tabix -f ssvar.vcf.gz
-  bcftools norm -c s -f /project/shared/bicf_workflow_ref/GRCh38/hisat_genome.fa -w 10 -O v ssvar.vcf.gz 2> bcftools.err | vcf-annotate -n --fill-type |bgzip > ${pair_id}.ssvar.vcf.gz
+  speedseq var -t \$SLURM_CPUS_ON_NODE -o ssvar ${gatkref} ${gbam}
+  vcf-annotate -n --fill-type ssvar.vcf.gz| bcftools norm -c s -f ${gatkref} -w 10 -O z -o ${pair_id}.ssvar.vcf.gz -
   """
 }
 
-process gatkgvcf {
+process gatkvcf {
 
   publishDir "$params.output", mode: 'copy'
   cpus 30
@@ -358,17 +344,17 @@ process gatkgvcf {
   input:
   set pair_id,file(gbam),file(gidx) from gatkbam
   output:
-  set pair_id, file("${pair_id}.gatk.vcf.gz") into gatkvcf
+  set pair_id, file("${pair_id}.gatk.g.vcf") into gatkgvcf
   when:
   params.variant == "detect"
   script:
   """
   module load python/2.7.x-anaconda gatk/3.5 bedtools/2.25.0 snpeff/4.2 vcftools/0.1.14 
-  java -Xmx32g -jar \$GATK_JAR -R ${index_path}/hisat_genome.fa -D ${dbsnp} -T HaplotypeCaller -stand_call_conf 30 -stand_emit_conf 10.0 -A FisherStrand -A QualByDepth -A VariantType -A DepthPerAlleleBySample -A HaplotypeScore -A AlleleBalance -variant_index_type LINEAR -variant_index_parameter 128000 --emitRefConfidence GVCF -I ${gbam} -o ${pair_id}.gatk.g.vcf -nct 2
-  java -Xmx32g -jar \$GATK_JAR -R ${index_path}/hisat_genome.fa -D ${dbsnp} -T GenotypeGVCFs -o gatk.vcf -nt 4 --variant ${pair_id}.gatk.g.vcf
-  vcf-annotate -n --fill-type gatk.vcf | bcftools norm -c s -f ${index_path}/hisat_genome.fa -w 10 -O z -o ${pair_id}.gatk.vcf.gz - &> bcftools.out
-  tabix ${pair_id}.gatk.vcf.gz
-   """
+  java -Xmx32g -jar \$GATK_JAR -R ${gatkref} -D ${dbsnp} -T HaplotypeCaller -stand_call_conf 20 -stand_emit_conf 20.0 -dontUseSoftClippedBases -A FisherStrand -A QualByDepth -A VariantType -A DepthPerAlleleBySample -A HaplotypeScore -A AlleleBalance -variant_index_type LINEAR -variant_index_parameter 128000 --emitRefConfidence GVCF -I ${gbam} -o ${pair_id}.gatk.g.vcf -nct 2
+  java -Xmx16g -jar \$GATK_JAR -R ${gatkref} -D ${dbsnp} -T GenotypeGVCFs -o final.gatk.vcf -nt 4 --variant ${pair_id}.gatk.g.vcf
+  java -Xmx16g -jar \$GATK_JAR -R ${gatkref} -T VariantFiltration -V final.gatk.vcf -window 35 -cluster 3 -filterName FS -filter "FS > 30.0" -filterName QD -filter "QD < 2.0" -o final.filtgatk.vcf 
+  vcf-annotate -n --fill-type final.filtgatk.vcf | java -jar \$SNPEFF_HOME/SnpSift.jar filter '((QUAL >= 10) & (MQ > 40) & (DP >= 10))' |bgzip > final.gatkpanel.vcf.gz
+  """
 }
 
 if (params.variant == "detect") {
@@ -380,7 +366,7 @@ if (params.variant == "detect") {
       .set { threevcf }
    if (params.cancer == "detect") {
       threevcf .phase(hsvcf)
-  	.map {p,q -> [p[0],p[1],p[2],p[3],q[1]]}
+  	.map {p,q -> [p[0],p[1],p[2],p[3],p[4],q[1]]}
       	.set { vcflist }
    }
    else {
@@ -404,13 +390,14 @@ process integrate {
   if (params.cancer == "detect")
   """
   module load gatk/3.5 python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3 vcftools/0.1.14
-  bedtools multiinter -i ${gatk} ${sam} ${ss} ${hs} -names gatk sam ssvar hotspot |cut -f 1,2,3,5 | bedtools sort -i stdin | bedtools merge -c 4 -o distinct >  ${fname}_integrate.bed
-  bedtools intersect -header -v -a ${hs} -b ${sam} |bedtools intersect -header -v -a stdin -b ${gatk} | bedtools intersect -header -v -a stdin -b ${ss} | bgzip > ${fname}.hotspot.nooverlap.vcf.gz
+  bedtools multiinter -i ${gatk} ${sam} ${ss} ${plat} ${hs} -names gatk sam ssvar platypus hotspot |cut -f 1,2,3,5 | bedtools sort -i stdin | bedtools merge -c 4 -o distinct >  ${fname}_integrate.bed
+  bedtools intersect -header -v -a ${hs} -b ${sam} |bedtools intersect -header -v -a stdin -b ${gatk} | bedtools intersect -header -v -a stdin -b ${ss} |  bedtools intersect -header -v -a stdin -b ${plat} | bgzip > ${fname}.hotspot.nooverlap.vcf.gz
   tabix ${fname}.hotspot.nooverlap.vcf.gz
   tabix ${gatk}
   tabix ${sam}
   tabix ${ss}
-  java -Xmx32g -jar \$GATK_JAR -R ${index_path}/hisat_genome.fa -T CombineVariants --filteredrecordsmergetype KEEP_UNCONDITIONAL --variant:gatk ${gatk} --variant:sam ${sam} --variant:ssvar ${ss} --variant:hotspot ${fname}.hotspot.nooverlap.vcf.gz -genotypeMergeOptions PRIORITIZE -priority sam,ssvar,gatk,hotspot -o ${fname}.int.vcf
+  tabix ${plat}
+  java -Xmx32g -jar \$GATK_JAR -R ${gatkref} -T CombineVariants --filteredrecordsmergetype KEEP_UNCONDITIONAL --variant:gatk ${gatk} --variant:sam ${sam} --variant:ssvar ${ss} --variant:platypus ${plat} --variant:hotspot ${fname}.hotspot.nooverlap.vcf.gz -genotypeMergeOptions PRIORITIZE -priority sam,ssvar,gatk,platypus,hotspot -o ${fname}.int.vcf
   perl $baseDir/scripts/uniform_integrated_vcf.pl ${fname}.int.vcf
   bgzip ${fname}_integrate.bed
   tabix ${fname}_integrate.bed.gz
@@ -422,8 +409,8 @@ process integrate {
   """
   module load gatk/3.5 python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3
   module load vcftools/0.1.14
-  bedtools multiinter -i ${gatk} ${sam} ${ss} -names gatk sam ssvar platypus |cut -f 1,2,3,5 | bedtools sort -i stdin | bedtools merge -c 4 -o distinct >  ${fname}_integrate.bed
-  java -Xmx32g -jar \$GATK_JAR -R ${index_path}/hisat_genome.fa -T CombineVariants --filteredrecordsmergetype KEEP_UNCONDITIONAL -genotypeMergeOptions PRIORITIZE --variant:gatk ${gatk} --variant:sam ${sam} --variant:ssvar ${ss} -priority sam,ssvar,gatk -o ${fname}.int.vcf
+  bedtools multiinter -i ${gatk} ${sam} ${ss} ${plat} -names gatk sam ssvar platypus |cut -f 1,2,3,5 | bedtools sort -i stdin | bedtools merge -c 4 -o distinct >  ${fname}_integrate.bed
+  java -Xmx32g -jar \$GATK_JAR -R ${gatkref} -T CombineVariants --filteredrecordsmergetype KEEP_UNCONDITIONAL -genotypeMergeOptions PRIORITIZE --variant:gatk ${gatk} --variant:sam ${sam} --variant:ssvar ${ss} --variant:platypus ${plat} -priority sam,ssvar,gatk,platypus -o ${fname}.int.vcf
   perl $baseDir/scripts/uniform_integrated_vcf.pl ${fname}.int.vcf
   bgzip ${fname}_integrate.bed
   tabix ${fname}_integrate.bed.gz
@@ -522,7 +509,7 @@ process statanal {
    file "*" into txtfiles
  
    script:
-   if (params.dea == 'detect')
+   if (params.dea = 'detect')
    """
    module load R/3.2.1-intel
    perl $baseDir/scripts/concat_cts.pl -o ./ *.cts

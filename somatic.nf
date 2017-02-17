@@ -1,10 +1,10 @@
 #!/usr/bin/env nextflow
 
 // Default parameter values to run tests
-params.input = './fastq'
+params.input = './'
 params.output = './'
 
-params.fastqs="$params.input/*.fastq.gz"
+params.bams="$params.input/*.bam"
 params.design="$params.input/design.txt"
 
 params.genome="/project/shared/bicf_workflow_ref/GRCh38"
@@ -207,6 +207,7 @@ process annot {
   file("${fname}.statplot*") into plotstats
 
   script:
+  """
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3
   tabix ${unionvcf}
   bcftools annotate -Oz -a ${index_path}/ExAC.vcf.gz -o ${fname}.exac.vcf.gz --columns CHROM,POS,AC_Het,AC_Hom,AC_Hemi,AC_Adj,AN_Adj,AC_POPMAX,AN_POPMAX,POPMAX ${unionvcf}
@@ -218,7 +219,7 @@ process annot {
   tabix ${fname}.annot.vcf.gz
   bcftools stats ${fname}.annot.vcf.gz > ${fname}.stats.txt
   plot-vcfstats -s -p ${fname}.statplot ${fname}.stats.txt
-  zcat ${fname}.annot.vcf.gz | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl | java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS ID ANN[*].GENE ANN[*].HGVS_P GEN[0].AD GEN[0].DP MQ CallSet AC_POPMAX AN_POPMAX ANN[*].EFFECT ANN[*].IMPACT CNT[*]| uniq |grep "HIGH\|MODERATE" |uniq > ${fname}.coding.txt
-  java -jar \$SNPEFF_HOME/SnpSift.jar filter "(DP > 49 & ANN[*].IMPACT = 'HIGH' & ANN[*].IMPACT = 'MODERATE')" ${fname}.annot.vcf.gz | bgzip > ${fname}.coding.vcf.gz
+  java -jar \$SNPEFF_HOME/SnpSift.jar filter "(DP[0] > 49 & (ANN[*].IMPACT = 'HIGH' | ANN[*].IMPACT = 'MODERATE')" ${fname}.annot.vcf.gz | bgzip > ${fname}.coding.vcf.gz
+  zcat ${fname}.coding.vcf.gz | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl | java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS ID ANN[*].GENE ANN[*].HGVS_P GEN[0].AD GEN[0].DP MQ CallSet AC_POPMAX AN_POPMAX ANN[*].EFFECT ANN[*].IMPACT CNT[*]| uniq |grep -v "MODIFIER" |uniq > ${fname}.coding.txt
   """
 }
