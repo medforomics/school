@@ -12,7 +12,7 @@ print OUT join("\t",'Sample','total.raw','total.trimmed','pairs','maprate','prop
 my @statfiles = @ARGV;
 
 foreach $sfile (@statfiles) {
-  $sfile =~ m/(\S+)\.libcomplex.txt/;
+  $sfile =~ m/(\S+)\.genomecov.txt/;
   my $prefix = $1;
   my %hash;
   open FLAG, "<$prefix\.trimreport.txt" or die $!;
@@ -179,7 +179,7 @@ foreach $sfile (@statfiles) {
   }
   my $dedup_avgdepth = sprintf("%.0f",$sumdepth/$totalbases);
   my @depths = sort {$a <=> $b} keys %dedup_cov;
-  my @perc = @cov{@depths};
+  my @perc = @dedup_cov{@depths};
   my @cum_sum = cumsum(@perc);
   my $dedup_median = 0;
   foreach my $i (0..$#cum_sum) {
