@@ -56,6 +56,8 @@ new File(params.design).withReader { reader ->
     	   def row = line.split("\t")
 	   if (fileMap.get(row[oneidx]) != null) {
 	      prefix << tuple(row[tidx],row[nidx],fileMap.get(row[oneidx]),fileMap.get(row[twoidx]))
+	      println row[oneidx]
+	      println row[twoidx]
 	   }
 	  
 } 

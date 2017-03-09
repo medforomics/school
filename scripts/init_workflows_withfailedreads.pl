@@ -59,7 +59,7 @@ print CAS "#!/bin/bash\n#SBATCH --job-name bcl2fastq\n#SBATCH -N 1\n";
 print CAS "#SBATCH -t 1-0:0:00\n#SBATCH -o job_%j.out\n#SBATCH -e job_%j.err\n";
 print CAS "#SBATCH --mail-type ALL\n#SBATCH --mail-user brandi.cantarel\@utsouthwestern.edu\n";
 print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.20.1\n";
-print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --ignore-missing-positions --no-lane-splitting --ignore-missing-bcls --runfolder-dir /project/PHG/PHG_Illumina/BioCenter/$prjid --sample-sheet /project/PHG/PHG_Illumina/sample_sheets/$prjid\.csv &> /project/PHG/PHG_Illumina/logs/run_casava_$prjid\.log\n";
+print CAS "bcl2fastq --barcode-mismatches 1 --with-failed-reads -o /project/PHG/PHG_Clinical/illumina/$prjid --ignore-missing-positions --min-log-level DEBUG --no-lane-splitting --ignore-missing-bcls --runfolder-dir /project/PHG/PHG_Illumina/BioCenter/$prjid --sample-sheet /project/PHG/PHG_Illumina/sample_sheets/$prjid\.csv &> /project/PHG/PHG_Illumina/logs/run_casava_$prjid\.log\n";
 print CAS "/project/PHG/PHG_Illumina/scripts/parse_conversion.stats.pl /project/PHG/PHG_Clinical/illumina/$prjid\n";
 foreach $dtype (keys %samples) {
   my $outdir = "/project/PHG/PHG_Clinical\/$dtype\/fastq/";

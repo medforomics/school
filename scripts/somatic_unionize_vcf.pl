@@ -11,11 +11,11 @@ my @vcffiles = @ARGV;
 chomp(@vcffiles);
 open SH, ">integrate.sh" or die $!;
 print SH "module load gatk/3.5 python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 platypus/gcc/0.8.1  bcftools/intel/1.3 samtools/intel/1.3 jags/4.2.0 vcftools/0.1.14\n";
-#system("module load gatk/3.5 python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 platypus/gcc/0.8.1  bcftools/intel/1.3 samtools/intel/1.3 jags/4.2.0");
 
 foreach $vcf (@vcffiles) {
     ($prefix,$caller,$ext) = split(/\./,$vcf);
     system("zgrep CHROM $vcf > $vcf.chrline.txt");
+    system("zgrep -v '#' $vcf > $vcf.countmut.txt");
     if ($caller eq 'sspanel') {
 	$shuff = "ssvar.shuff.vcf.gz";
 	print SH "ln -s $vcf $shuff\n";
@@ -23,7 +23,7 @@ foreach $vcf (@vcffiles) {
 	push @nonevcfs, $shuff;
 	push @callers, $caller;
 	push @combvars, "--variant:".$caller." ".$shuff;
-    }elsif (-s "$vcf.chrline.txt") {
+    }elsif (-s "$vcf.chrline.txt" && -s "$vcf.countmut.txt") {
 	my $shuff = "$caller\.shuff.vcf.gz";
 	if ($caller eq 'varscan') {
 	    print SH "tabix $vcf\n";

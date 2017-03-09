@@ -8,7 +8,7 @@ params.fastqs="$params.input/*.fastq.gz"
 params.design="$params.input/design.txt"
 
 params.genome="/project/shared/bicf_workflow_ref/GRCh38/"
-params.markdups="mark"
+params.markdups="skip"
 params.stranded="0"
 params.pairs="pe"
 params.geneset = 'h.all.v5.1.symbols.gmt'
@@ -22,6 +22,7 @@ design_file = file(params.design)
 fastqs=file(params.fastqs)
 design_file = file(params.design)
 gtf_file = file("$params.genome/gencode.gtf")
+stringtie_gtf=file("$params.genome/gencode.chrrm.gtf")
 genenames = file("$params.genome/genenames.txt")
 geneset = file("$params.genome/gsea_gmt/$params.geneset")
 dbsnp="$params.genome/dbSnp.vcf.gz"
@@ -500,14 +501,15 @@ process stringtie {
 
   input:
   set pair_id, file(dbam) from deduped2
-  file gtf_file
+  file stringtie_gtf
   output:
   file("${pair_id}_stringtie") into strcts
+  file("${pair_id}.fpkm.txt") into fpkm
   """
   module load stringtie/1.1.2-intel
   mkdir ${pair_id}_stringtie
   cd ${pair_id}_stringtie
-  stringtie ../${dbam} -p 30 -G ../${gtf_file} -B -e -o denovo.gtf -A ../geneabund.stringtie.tab
+  stringtie ../${dbam} -p 30 -G ../${stringtie_gtf} -B -e -o denovo.gtf -A ../${pair_id}.fpkm.txt
   """
 }
 

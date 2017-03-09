@@ -38,6 +38,8 @@ fastqs.each {
     fileMap[fileName] = it
 }
 def prefix = []
+def read1_files = []
+def read2_files = []
 new File(params.design).withReader { reader ->
     def hline = reader.readLine()
     def header = hline.split("\t")
@@ -46,132 +48,111 @@ new File(params.design).withReader { reader ->
     twoidx = header.findIndexOf{it == 'FullPathToFqR2'};
     if (twoidx == -1) {
        twoidx = oneidx
-       }      
+       }
     while (line = reader.readLine()) {
     	   def row = line.split("\t")
-	   if (fileMap.get(row[oneidx]) != null) {
-	      prefix << tuple(row[prefixidx],fileMap.get(row[oneidx]),fileMap.get(row[twoidx]))
+    if (fileMap.get(row[oneidx]) != null) {
+        prefix << row[prefixidx]
+        read1_files << fileMap.get(row[oneidx])
+        read2_files << fileMap.get(row[twoidx])
 	   }
-	  
-} 
-}
 
-if( ! prefix) {
-error "Didn't match any input files with entries in the design file"
 }
+}
+if( ! prefix) { error "Didn't match any input files with entries in the design file" }
 
-if (params.pairs == 'pe') {
+Channel
+  .from(read1_files)
+  .set { read1 }
+
+Channel
+  .from(read2_files)
+  .set { read2 }
+
 Channel
   .from(prefix)
   .set { read_pe }
+
 Channel
-  .empty()
-  .set { read_se } 
-}
-if (params.pairs == 'se') {
-Channel
-  .from(prefix)
-  .into { read_se }
-Channel
-  .empty()
-  .set { read_pe }
-}
+  .from(1..10)
+  .set {counter}
 
 process trimpe {
   publishDir "$params.output", mode: 'copy'
   input:
-  set pair_id, file(read1), file(read2) from read_pe
+  val pair_ids from read_pe.buffer(size: 30, remainder: true)
+  file(read1s) from read1.buffer(size: 30, remainder: true)
+  file(read2s) from read2.buffer(size: 30, remainder: true)
+  val ct from counter
+  
   output:
-  set pair_id, file("${read1.baseName.split("\\.fastq")[0]}_val_1.fq.gz"), file("${read2.baseName.split("\\.fastq")[0]}_val_2.fq.gz") into trimpe
-  file("${pair_id}.trimreport.txt") into trimstatpe
+  file("*_val_1.fq.gz") into trimpe_r1s mode flatten
+  file("*_val_2.fq.gz") into trimpe_r2s mode flatten
+  file("trimreport_${ct}.txt") into trimstat mode flatten
   script:
+  assert pair_ids.size() == read1s.size()
+  assert pair_ids.size() == read2s.size()
+  def cmd = ''
+  for( int i=0; i<pair_ids.size(); i++){
+    cmd +="mv ${read1s[i]} ${pair_ids[i]}.R1.fq.gz\n"
+    cmd +="mv ${read2s[i]} ${pair_ids[i]}.R2.fq.gz\n"
+    cmd +="trim_galore --paired --stringency 3 -q 25 --illumina --gzip --length 35 ${pair_ids[i]}.R1.fq.gz  ${pair_ids[i]}.R2.fq.gz &\n"
+  }
+
   """
   module load trimgalore/0.4.1 cutadapt/1.9.1
-  trim_galore --paired -q 25 --illumina --gzip --length 35 ${read1} ${read2}
-  perl $baseDir/scripts/parse_trimreport.pl ${pair_id}.trimreport.txt ${read1}_trimming_report.txt ${read2}_trimming_report.txt
+  ${cmd}
+  wait
+  perl $baseDir/scripts/parse_trimreport.pl trimreport_${ct}.txt *trimming_report.txt
   """
 }
-process trimse {
-  publishDir "$params.output", mode: 'copy'
-  input:
-  set pair_id, file(read1) from read_se
-  output:
-  set pair_id, file("${read1.baseName.split("\\.fastq.gz")[0]}_trimmed.fq.gz") into trimse
-  file("${pair_id}.trimreport.txt") into trimstatse
-  script:
-  """
-  module load trimgalore/0.4.1 cutadapt/1.9.1
-  trim_galore -q 25 --illumina --gzip --length 35 ${read1}
-  perl $baseDir/scripts/parse_trimreport.pl ${pair_id}.trimreport.txt ${read1}_trimming_report.txt
-  """
-}
+trimpe_r1s
+  .map { it -> [it.getFileName().toString() - '.R1_val_1.fq.gz', it]  }
+  .set { trimpe_r1_tuples}
+trimpe_r2s
+  .map { it -> [it.getFileName().toString() - '.R2_val_2.fq.gz', it]  }
+  .set { trimpe_r2_tuples }
+
+trimpe_r1_tuples
+  .mix(trimpe_r2_tuples)
+  .groupTuple(by: 0, sort:true )
+  .map { it -> it.flatten() }
+  .set { trimpe }
 
 process alignpe {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
-  cpus 32
 
   input:
   set pair_id, file(fq1), file(fq2) from trimpe
   output:
-  set pair_id, file("${pair_id}.bam"), file("${pair_id}.bam.bai") into alignpe
+  set pair_id, file("${pair_id}.bam"), file("${pair_id}.bam.bai") into aligned
   set pair_id,file("${pair_id}.bam"),file("${pair_id}.discordants.bam"),file("${pair_id}.splitters.bam") into svbam
   file("${pair_id}.hist.txt") into insertsize
   file("${pair_id}.hla.top") into hlape
+  file("${pair_id}.libcomplex.txt") into libcomplex
   when:
   params.pairs == 'pe'
   script:
   """
   module load bwakit/0.7.15 seqtk/1.2-r94 samtools/intel/1.3 speedseq/20160506 picard/1.127
-  seqtk mergepe ${fq1} ${fq2} | bwa mem -M -p -t 30 -R '@RG\\tID:${pair_id}\\tLB:tx\\tPL:illumina\\tPU:barcode\\tSM:${pair_id}' ${gatkref} - 2> log.bwamem | k8 /cm/shared/apps/bwakit/0.7.15/bwa-postalt.js -p ${pair_id}.hla ${gatkref}.alt | samtools view -1 - > output.unsort.bam
+  seqtk mergepe ${fq1} ${fq2} | bwa mem -M -p -t \$SLURM_CPUS_ON_NODE -R '@RG\\tID:${pair_id}\\tLB:tx\\tPL:illumina\\tPU:barcode\\tSM:${pair_id}' ${gatkref} - 2> log.bwamem | k8 /cm/shared/apps/bwakit/0.7.15/bwa-postalt.js -p ${pair_id}.hla ${gatkref}.alt | samtools view -1 - > output.unsort.bam
   run-HLA ${pair_id}.hla > ${pair_id}.hla.top 2> ${pair_id}.log.hla
   touch ${pair_id}.hla.HLA-dummy.gt
   cat ${pair_id}.hla.HLA*.gt | grep ^GT | cut -f2- > ${pair_id}.hla.all
-  sambamba sort -t 30 -o output.dups.bam output.unsort.bam
-  sambamba markdup -t 20 output.dups.bam ${pair_id}.bam
+  sambamba sort -t \$SLURM_CPUS_ON_NODE -o output.dups.bam output.unsort.bam
+  java -Xmx20g -jar \$PICARD/picard.jar MarkDuplicatesWithMateCigar I=output.dups.bam O=${pair_id}.bam M=${pair_id}.libcomplex.txt ASSUME_SORTED=true MINIMUM_DISTANCE=150
+  sambamba index -t 20 ${pair_id}.bam
   sambamba view -h output.unsort.bam | samblaster -M -a --excludeDups --addMateTags --maxSplitCount 2 --minNonOverlap 20 -d discordants.sam -s splitters.sam > temp.sam
   gawk '{ if (\$0~"^@") { print; next } else { \$10="*"; \$11="*"; print } }' OFS="\\t" splitters.sam | samtools  view -S -b - | samtools sort -o ${pair_id}.splitters.bam -
   gawk '{ if (\$0~"^@") { print; next } else { \$10="*"; \$11="*"; print } }' OFS="\\t" discordants.sam | samtools  view -S  -b - | samtools sort -o ${pair_id}.discordants.bam -
-  java -Xmx4g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${pair_id}.bam HISTOGRAM_FILE=${pair_id}.hist.ps REFERENCE_SEQUENCE=${gatkref} OUTPUT=${pair_id}.hist.txt
+  java -Xmx16g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${pair_id}.bam HISTOGRAM_FILE=${pair_id}.hist.ps REFERENCE_SEQUENCE=${gatkref} OUTPUT=${pair_id}.hist.txt
   """
 }
-process alignse {
-
-  //publishDir $outDir, mode: 'copy'
-  cpus 32
-
-  input:
-  set pair_id, file(fq1),file(fq2) from trimse
-  output:
-  set pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai") into alignse
-  file("${pair_id}.hla.top") into hlase
-  when:
-  params.pairs == 'se'
-  script:
-  """
-  module load bwakit/0.7.15 bwa/intel/0.7.15 samtools/intel/1.3 picard/1.127 speedseq/20160506
-  bwa mem -M -t 30 -R '@RG\\tLB:tx\\tPL:illumina\\tID:${pair_id}\\tPU:barcode\\tSM:${pair_id}' ${gatkref} ${fq1} 2> log.bwamem | k8 /cm/shared/apps/bwakit/0.7.15/bwa-postalt.js -p ${pair_id}.hla ${gatkref}.alt | samtools view -1 - > output.unsort.bam
-  run-HLA ${pair_id}.hla > ${pair_id}.hla.top 2> ${pair_id}.log.hla
-  touch ${pair_id}.hla.HLA-dummy.gt
-  cat ${pair_id}.hla.HLA*.gt | grep ^GT | cut -f2- > ${pair_id}.hla.all
-  sambamba sort -t 30 -o output.dups.bam output.unsort.bam
-  sambamba markdup -t 20 output.dups.bam ${pair_id}.bam
-  """
-}
-
-Channel
-  .empty()
-  .mix(alignse, alignpe)
-  .set { aligned }
-
-Channel
-  .empty()
-  .mix(trimstatse, trimstatpe)
-  .set { trimstat }
 
 // Calculate Metrics of Quality of Alignment
 process seqqc {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
@@ -179,14 +160,14 @@ process seqqc {
   output:
   file("${pair_id}.flagstat.txt") into alignstats
   file("${pair_id}.subset.libcomplex.txt") into subsetlibcomplex
-  file("${pair_id}.libcomplex.txt") into libcomplex
   file("${pair_id}.ontarget.flagstat.txt") into ontarget
   set pair_id, file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into targetbam
   set pair_id, file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into ssbam
   file("${pair_id}.genomecov.txt") into genomecov
   file("${pair_id}.mapqualcov.txt") into mapqualcov
   file("${pair_id}.dedupcov.txt") into dedupcov
-  file("${pair_id}..meanmap.txt") into meanmap
+  file("${pair_id}.covhist.txt") into covhist
+  file("${pair_id}.meanmap.txt") into meanmap
   file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
   set file("${pair_id}_fastqc.zip"),file("${pair_id}_fastqc.html") into fastqc
 
@@ -197,19 +178,19 @@ process seqqc {
   sambamba flagstat -t 30 ${sbam} > ${pair_id}.flagstat.txt
   sambamba view -t 30 -f bam -L  ${capture_bed} -o ${pair_id}.ontarget.bam ${sbam}
   sambamba flagstat -t 30 ${pair_id}.ontarget.bam > ${pair_id}.ontarget.flagstat.txt
-  bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b ${pair_id}.ontarget.bam -a ${capture_bed} | grep ^all >  ${pair_id}.genomecov.txt
+  bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b ${pair_id}.ontarget.bam -a ${capture_bed} | grep ^all >  ${pair_id}.covhist.txt
+  grep ^all ${pair_id}.covhist.txt >  ${pair_id}.genomecov.txt
   samtools view -b -q 1 ${pair_id}.ontarget.bam | bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b stdin -a ${capture_bed}  >  ${pair_id}.mapqualcov.txt
   samtools view -b -F 1024 ${pair_id}.ontarget.bam | bedtools coverage -sorted -g  ${index_path}/genomefile.txt -a ${capture_bed} -b stdin -hist | grep ^all > ${pair_id}.dedupcov.txt 
   perl $baseDir/scripts/subset_bam.pl ${pair_id}.ontarget.bam ${pair_id}.ontarget.flagstat.txt ${capture_bed}
   java -Xmx8g -jar \$PICARD/picard.jar EstimateLibraryComplexity INPUT=${pair_id}.subset.bam OUTPUT=${pair_id}.subset.libcomplex.txt
-  java -Xmx8g -jar \$PICARD/picard.jar EstimateLibraryComplexity INPUT=${pair_id}.ontarget.bam OUTPUT=${pair_id}.libcomplex.txt
-  java -Xmx8g -jar \$PICARD/picard.jar CollectAlignmentSummaryMetrics R=${gatkref} I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.alignmentsummarymetrics.txt
+  java -Xmx20g -jar \$PICARD/picard.jar CollectAlignmentSummaryMetrics R=${gatkref} I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.alignmentsummarymetrics.txt
   samtools view -F 1024 ${pair_id}.ontarget.bam | awk '{sum+=\$5} END { print "Mean MAPQ =",sum/NR}' > ${pair_id}.meanmap.txt
  """
 }
 
 process parse_stat {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
@@ -230,14 +211,14 @@ process parse_stat {
   file('*.png')
   script:
   """
-  perl $baseDir/scripts/parse_seqqc.pl *.libcomplex.txt
+  perl $baseDir/scripts/parse_seqqc_bulktrim.pl *.genomecov.txt
   perl $baseDir/scripts/covstats.pl *.mapqualcov.txt
   Rscript $baseDir/scripts/plot_hist_genocov.R
   """
 }
 
 process svcall {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
   input:
   set pair_id,file(ssbam),file(discordbam),file(splitters) from svbam
@@ -253,7 +234,7 @@ process svcall {
 }
 
 process gatkbam {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
@@ -277,7 +258,7 @@ process gatkbam {
 }
 
 process gatkgvcf {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
   cpus 30
 
@@ -300,7 +281,7 @@ process gatkgvcf {
 }
 
 process mpileup {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
   cpus 32
 
@@ -318,7 +299,7 @@ process mpileup {
   """
 }
 process hotspot {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
@@ -336,7 +317,7 @@ process hotspot {
   """
 }
 process speedseq {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
@@ -354,6 +335,7 @@ process speedseq {
   """
 }
 process platypus {
+  errorStrategy 'ignore'
 
   publishDir "$params.output", mode: 'copy'
   cpus 32
@@ -397,6 +379,7 @@ else {
 }
 
 process integrate {
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
@@ -439,6 +422,7 @@ process integrate {
 }
 
 process annot {
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:

@@ -27,6 +27,9 @@ while (my $line = <IN>) {
     my ($key,$val) = split(/=/,$a);
     $hash{$key} = $val unless ($hash{$key});
   }
+  if ($pos == 119923535) {
+      warn "Stop\n";
+  }
   my $evid = (split(/_/,$id))[0];
   $hash{'END'} = $pos+1 unless $hash{'END'};
   print BED join("\t",$chrom,$pos,$hash{'END'},$id),"\n";
