@@ -10,8 +10,8 @@ my $vcf = $opt{input};
 
 my %lines;
 my %eventid;
-open BED, ">$vcf\.bed" or die $!;
-open IN, "gunzip -c $vcf|" or die $!;
+my $ct = 0;
+open IN, "<$vcf" or die $!;
 while (my $line = <IN>) {
   chomp($line);
   if ($line =~ m/^#CHROM/) {
@@ -22,15 +22,17 @@ while (my $line = <IN>) {
   next if $line =~ m/#/;
   my ($chrom, $pos,$id,$ref,$alt,$score,
       $filter,$annot,$format,@gts) = split(/\t/, $line);
+  $ct ++;
   my %hash = ();
   foreach $a (split(/;/,$annot)) {
     my ($key,$val) = split(/=/,$a);
     $hash{$key} = $val unless ($hash{$key});
   }
+  if ($id eq 'N') {
+      $id = 'NB'.sprintf("%06s",$ct);
+  }
   my $evid = (split(/_/,$id))[0];
   $hash{'END'} = $pos+1 unless $hash{'END'};
-  print BED join("\t",$chrom,$pos,$hash{'END'},$id),"\n";
-  my $locus = join(":",$chrom,$pos,$hash{'END'});
   @deschead = split(":",$format);
  F1:foreach $sample (@subjacc) {
     my $allele_info = shift @gts;
@@ -44,19 +46,51 @@ while (my $line = <IN>) {
 	$gtinfo{SU} = $gtinfo{RV}+$gtinfo{DV} if ($gtinfo{RV} && $gtinfo{DV});
     }
     $gtinfo{CN} = '' unless  $gtinfo{CN};
-    $eventid{$id} = $locus;
-    next if ($gtinfo{SU} < 2);
-    $lines{$evid}{$locus}{$sample} =  join("\t",$hash{SVTYPE},$gtinfo{CN},$gtinfo{SU});
+    if ($alt =~ m/chr(\w+):(\d+)/i) {
+	if ($1 eq $chrom) {
+	    my $locus = join(":",$chrom,$pos,$2);
+	    $eventid{$id} = $locus;
+	    $lines{$evid}{$locus}{$sample} =  join("\t",$hash{SVTYPE},$gtinfo{CN},$gtinfo{SU});
+	}elsif ($id =~ m/_\d+/) {
+	    my $locus = join(":",$chrom,$pos,$hash{END});
+	    $eventid{$id} = $locus;
+	    $lines{$evid}{$locus}{$sample} =  join("\t",$hash{SVTYPE},$gtinfo{CN},$gtinfo{SU});
+	}else {
+	    my $locus1 = join(":",$chrom,$pos,$hash{END});
+	    my $id1 = $id."_1";
+	    $eventid{$id1} = $locus1;
+	    my $locus2 = join(":",'chr'.$1,$2,$2+1);
+	    my $id2 = $id."_2";
+	    $eventid{$id2} = $locus2;
+	    $lines{$evid}{$locus1}{$sample} =  join("\t",$hash{SVTYPE},$gtinfo{CN},$gtinfo{SU});
+	    $lines{$evid}{$locus2}{$sample} =  join("\t",$hash{SVTYPE},$gtinfo{CN},$gtinfo{SU});
+	}
+    }else {
+	if ($hash{CHR2} && $hash{CHR2} eq $chrom) {
+	    my $locus = join(":",$chrom,$pos,$hash{END});
+	    $eventid{$id} = $locus;
+	    $lines{$evid}{$locus}{$sample} =  join("\t",$hash{SVTYPE},$gtinfo{CN},$gtinfo{SU});
+	}elsif ($hash{CHR2} && $hash{CHR2} ne $chrom) {
+	    my $locus1 = join(":",$chrom,$pos,$pos+1);
+	    my $id1 = $id."_1";
+	    $eventid{$id1} = $locus1;
+	    my $locus2 = join(":",$hash{CHR2},$hash{END},$hash{END}+1);
+	    my $id2 = $id."_2";
+	    $eventid{$id2} = $locus2;
+	    $lines{$evid}{$locus1}{$sample} =  join("\t",$hash{SVTYPE},$gtinfo{CN},$gtinfo{SU});
+	    $lines{$evid}{$locus2}{$sample} =  join("\t",$hash{SVTYPE},$gtinfo{CN},$gtinfo{SU});
+	}unless ($hash{CHR2}) {
+	    my $locus = join(":",$chrom,$pos,$hash{END});
+	    $eventid{$id} = $locus;
+	    $lines{$evid}{$locus}{$sample} =  join("\t",$hash{SVTYPE},$gtinfo{CN},$gtinfo{SU});
+	}
+    }
  }
 }
-close BED;
-close IN;
-system(qq{bedtools intersect -header -wb -v -a $vcf\.bed -b $opt{refdb}\/rmsk.bed > rmskoverlap_sv.txt});
-system(qq{bedtools intersect -header -wb -a rmskoverlap_sv.txt -b $opt{refdb}\/dgv.bed > dgvoverlap_sv.txt});
-system(qq{bedtools intersect -header -wb -a rmskoverlap_sv.txt -b $opt{refdb}\/gencode.exons.bed > exonoverlap_sv.txt});
-system(qq{bedtools intersect -v -header -wb -a $vcf\.bed -b $opt{refdb}\/gencode.exons.bed | bedtools intersect -header -wb -a stdin -b $opt{refdb}\/gencode.genes.chr.bed > geneoverlap_sv.txt});
 
-my @files = ("dgvoverlap_sv.txt","exonoverlap_sv.txt","geneoverlap_sv.txt");
+close IN;
+
+my @files = ("exonoverlap_sv.txt","geneoverlap_sv.txt");
 foreach $file (@files) {
   open IN, "<$file" or die $!;
   while (my $line = <IN>) {
@@ -65,19 +99,23 @@ foreach $file (@files) {
     my ($chrom,$start,$end,$id,$chr,$start2,$end2,$gene) = split(/\t/, $line);
     my $evid = (split(/_/,$id))[0];
     my $locus = $eventid{$id};
+    unless ($locus) {
+	$locus = $eventid{$evid};
+    }
     if ($file eq 'exonoverlap_sv.txt') {
-      push @{$gene{$locus}}, $gene;
-      $inc{$evid} = 1;
+	push @{$gene{$locus}}, $gene;
+	$inc{$evid} = 1;
     }elsif ($file eq 'geneoverlap_sv.txt') {
 	push @{$gene{$locus}}, $gene;
 	$inc{$evid} = 1;
-    }else {
-	my $change = join("|",(split(/\|/,$gene))[0]);
-	$dgv{$locus}{$change} = 1;
     }
   }
 }
-open OUT, ">$vcf\.annot.txt" or die $!;
+
+my $outfile = $vcf;
+$outfile =~ s/vcf/annot.txt/g;
+
+open OUT, ">$outfile" or die $!;
 foreach $events (sort keys %lines) {
   next unless ($inc{$events});
   foreach $locus (sort {$a cmp $b} keys %{$lines{$events}}) {
@@ -88,7 +126,7 @@ foreach $events (sort keys %lines) {
       foreach $g (@genes) {
 	foreach $trx (split(/,/,$g)) {
 	  my ($symbol,$trxid,$exonnum) = split(/\|/,$trx);
-	  $exonnum = '' unless $exonnum;
+	  next unless $exonnum;
 	  $hash{$symbol}{$trxid}{$exonnum} = 1;
 	} 
       }
@@ -103,12 +141,12 @@ foreach $events (sort keys %lines) {
 	}
       }
     }
-    my $dgv = '';
-    $dgv = join(";",keys %{$dgv{$locus}}) if ($dgv{$locus});
     foreach $sample (sort {$a cmp $b} keys %{$lines{$events}{$locus}}) {
       foreach $genesym (keys %gene_annots) {
-	print OUT join("\t",'lumpy_'.$events.'_'.$sample,split(":",$locus),$lines{$events}{$locus}{$sample},
-		       $genesym, join(";",keys %{$gene_annots{$genesym}}),$sample,$dgv),"\n";
+	  my ($SVTYPE,$CN,$SU) = split(/\t/,$lines{$events}{$locus}{$sample});
+	  next if $SU < 3;
+	  print OUT join("\t",'SV.'.$events,split(":",$locus),$lines{$events}{$locus}{$sample},
+			 $genesym, join(";",sort {$a cmp $b} keys %{$gene_annots{$genesym}}),$sample),"\n";
       }
     }
   }

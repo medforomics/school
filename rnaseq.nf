@@ -96,6 +96,7 @@ Channel
 // Trim raw reads using trimgalore
 //
 process trimpe {
+  errorStrategy 'ignore'
   input:
   set pair_id, file(read1), file(read2) from read_pe
   output:
@@ -108,6 +109,7 @@ process trimpe {
   """
 }
 process trimse {
+  errorStrategy 'ignore'
   input:
   set pair_id, file(read1) from read_se
   output:
@@ -127,6 +129,7 @@ process trimse {
 //
 
 process starfusion {
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
   input:
   set pair_id, file(fq1), file(fq2) from fusionfq
@@ -143,7 +146,7 @@ process starfusion {
 }
 
 process alignpe {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
   cpus 32
 
@@ -175,7 +178,7 @@ process alignpe {
   """
 }
 process alignse {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
   cpus 32
 
@@ -249,8 +252,7 @@ process parse_alignstat {
 // Identify duplicate reads with Picard
 //
 process markdups {
-
-  memory '4GB'
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
@@ -267,13 +269,14 @@ process markdups {
   """
   else
   """
+  module load samtools/intel/1.3
   cp ${sbam} ${pair_id}.dedup.bam
   samtools index ${pair_id}.dedup.bam
   """
 }
 
 process gatkbam {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
@@ -297,7 +300,7 @@ process gatkbam {
   """
 }
 process mpileup {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
   cpus 32
 
@@ -310,12 +313,13 @@ process mpileup {
   script:
   """
   module load python/2.7.x-anaconda samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 vcftools/0.1.14
+  which samtools
   samtools mpileup -t 'AD,DP,INFO/AD' -ug -Q20 -C50 -f ${index_path}/hisat_genome.fa ${gbam} | bcftools call -vmO z -o ${pair_id}.sam.ori.vcf.gz
   vcf-concat ${pair_id}.sam.ori.vcf.gz | vcf-sort |vcf-annotate -n --fill-type | bcftools norm -c s -f ${index_path}/hisat_genome.fa -w 10 -O z -o ${pair_id}.sam.vcf.gz -
   """
 }
 process hotspot {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
@@ -327,13 +331,14 @@ process hotspot {
   script:
   """
   module load python/2.7.x-anaconda samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 vcftools/0.1.14
+  which samtools
   samtools mpileup -d 99999 -t 'AD,DP,INFO/AD' -uf ${index_path}/hisat_genome.fa ${gbam} > ${pair_id}.mpi
   bcftools filter -i "AD[1]/DP > 0.01" ${pair_id}.mpi | bcftools filter -i "DP > 50" | bcftools call -m -A |vcf-annotate -n --fill-type |  bcftools norm -c s -f /project/shared/bicf_workflow_ref/GRCh38/hisat_genome.fa -w 10 -O z -o ${pair_id}.lowfreq.vcf.gz -
   java -jar \$SNPEFF_HOME/SnpSift.jar annotate ${index_path}/cosmic.vcf.gz ${pair_id}.lowfreq.vcf.gz | java -jar \$SNPEFF_HOME/SnpSift.jar filter "(CNT[*] >0)" - |bgzip > ${pair_id}.hotspot.vcf.gz
   """
 }
 process speedseq {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
@@ -352,7 +357,7 @@ process speedseq {
 }
 
 process gatkgvcf {
-
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
   cpus 30
 
@@ -365,8 +370,8 @@ process gatkgvcf {
   script:
   """
   module load python/2.7.x-anaconda gatk/3.5 bedtools/2.25.0 snpeff/4.2 vcftools/0.1.14 
-  java -Xmx32g -jar \$GATK_JAR -R ${index_path}/hisat_genome.fa -D ${dbsnp} -T HaplotypeCaller -stand_call_conf 30 -stand_emit_conf 10.0 -A FisherStrand -A QualByDepth -A VariantType -A DepthPerAlleleBySample -A HaplotypeScore -A AlleleBalance -variant_index_type LINEAR -variant_index_parameter 128000 --emitRefConfidence GVCF -I ${gbam} -o ${pair_id}.gatk.g.vcf -nct 2
-  java -Xmx32g -jar \$GATK_JAR -R ${index_path}/hisat_genome.fa -D ${dbsnp} -T GenotypeGVCFs -o gatk.vcf -nt 4 --variant ${pair_id}.gatk.g.vcf
+  java -Xmx64g -jar \$GATK_JAR -R ${index_path}/hisat_genome.fa -D ${dbsnp} -T HaplotypeCaller -stand_call_conf 30 -stand_emit_conf 10.0 -A FisherStrand -A QualByDepth -A VariantType -A DepthPerAlleleBySample -A HaplotypeScore -A AlleleBalance -variant_index_type LINEAR -variant_index_parameter 128000 --emitRefConfidence GVCF -I ${gbam} -o ${pair_id}.gatk.g.vcf -nct 2
+  java -Xmx64g -jar \$GATK_JAR -R ${index_path}/hisat_genome.fa -D ${dbsnp} -T GenotypeGVCFs -o gatk.vcf -nt 4 --variant ${pair_id}.gatk.g.vcf
   vcf-annotate -n --fill-type gatk.vcf | bcftools norm -c s -f ${index_path}/hisat_genome.fa -w 10 -O z -o ${pair_id}.gatk.vcf.gz - &> bcftools.out
   tabix ${pair_id}.gatk.vcf.gz
    """
@@ -392,6 +397,7 @@ if (params.variant == "detect") {
 }
 
 process integrate {
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
@@ -435,6 +441,7 @@ process integrate {
 }
 
 process annot {
+  errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
@@ -514,6 +521,7 @@ process stringtie {
 }
 
 process statanal {
+   errorStrategy 'ignore'
    publishDir "$params.output", mode: 'copy'
    input:
    file count_file from counts.toList()

@@ -1,0 +1,261 @@
+#!/usr/bin/env nextflow
+
+params.input = './fastq'
+params.output = './analysis'
+
+params.fastqs="$params.input/*.fastq.gz"
+params.design="$params.input/design.txt"
+
+params.genome="/project/shared/bicf_workflow_ref/GRCh38"
+params.capture="$params.genome/UTSWV2.bed"
+params.pairs="pe"
+params.cancer="detect"
+
+gatkref=file("$params.genome/genome.fa")
+dbsnp="$params.genome/dbSnp.vcf.gz"
+indel="$params.genome/GoldIndels.vcf.gz"
+
+fastqs=file(params.fastqs)
+design_file = file(params.design)
+dbsnp=file(dbsnp)
+knownindel=file(indel)
+index_path = file(params.genome)
+capture_bed = file(params.capture)
+
+snpeff_vers = 'GRCh38.82';
+if (params.genome == '/project/shared/bicf_workflow_ref/GRCm38') {
+   snpeff_vers = 'GRCm38.82';
+}
+if (params.genome == '/project/shared/bicf_workflow_ref/GRCh37') {
+   snpeff_vers = 'GRCh37.75';
+}
+
+def fileMap = [:]
+
+fastqs.each {
+    final fileName = it.getFileName().toString()
+    prefix = fileName.lastIndexOf('/')
+    fileMap[fileName] = it
+}
+def prefix = []
+def read1_files = []
+def read2_files = []
+def mername = []
+new File(params.design).withReader { reader ->
+    def hline = reader.readLine()
+    def header = hline.split("\t")
+    prefixidx = header.findIndexOf{it == 'SampleID'};
+    mrgidx = header.findIndexOf{it == 'SampleMergeName'};
+    oneidx = header.findIndexOf{it == 'FullPathToFqR1'};
+    twoidx = header.findIndexOf{it == 'FullPathToFqR2'};
+    if (twoidx == -1) {
+       twoidx = oneidx
+       }
+    while (line = reader.readLine()) {
+    	   def row = line.split("\t")
+    if (fileMap.get(row[oneidx]) != null) {
+	prefix << row[prefixidx]
+        mername << row[mrgidx]
+	read1_files << fileMap.get(row[oneidx])
+        read2_files << fileMap.get(row[twoidx])
+	   }
+
+}
+}
+if( ! prefix) { error "Didn't match any input files with entries in the design file" }
+
+Channel
+  .from(read1_files)
+  .set { read1 }
+
+  
+Channel
+  .from(read2_files)
+  .set { read2 }
+
+Channel
+  .from(prefix)
+  .set { read_pe }
+
+Channel
+  .from(mername)
+  .set { merg }
+
+  
+Channel
+  .from(1..10)
+  .set {counter}
+
+Channel
+  .from(1..100)
+  .set {adid}
+
+
+process trimpe {
+  errorStrategy 'ignore'
+  //publishDir "$params.output", mode: 'copy'
+  input:
+  val pair_ids from read_pe.buffer(size: 20, remainder: true)
+  val mnames from merg.buffer(size: 20, remainder: true)
+  file(read1s) from read1.buffer(size: 20, remainder: true)
+  file(read2s) from read2.buffer(size: 20, remainder: true)
+  val ct from counter
+  output:
+  file("*_val_1.fq.gz") into trimpe_r1s mode flatten
+  file("*_val_2.fq.gz") into trimpe_r2s mode flatten
+  file("*.trimreport.txt") into trimstat mode flatten
+
+  script:
+  assert pair_ids.size() == read1s.size()
+  assert pair_ids.size() == read2s.size()
+  def cmd = ''
+  for( int i=0; i<pair_ids.size(); i++){
+    cmd +="mv ${read1s[i]} ${mnames[i]}.batch${ct}_${i}.R1.fq.gz\n"
+    cmd +="mv ${read2s[i]} ${mnames[i]}.batch${ct}_${i}.R2.fq.gz\n"
+    cmd +="trim_galore --paired --stringency 3 -q 25 --illumina --gzip --length 35 ${mnames[i]}.batch${ct}_${i}.R1.fq.gz ${mnames[i]}.batch${ct}_${i}.R2.fq.gz &\n"
+  }
+
+  """
+  module load trimgalore/0.4.1 cutadapt/1.9.1
+  ${cmd}
+  wait
+  perl $baseDir/scripts/parse_trimreport.pl trimreport_${ct}.txt *trimming_report.txt
+  """
+}
+trimpe_r1s
+  .map { it -> [it.getFileName().toString() - '.R1_val_1.fq.gz', it]  }
+  .set { trimpe_r1_tuples}
+trimpe_r2s
+  .map { it -> [it.getFileName().toString() - '.R2_val_2.fq.gz', it]  }
+  .set { trimpe_r2_tuples }
+
+trimpe_r1_tuples
+  .mix(trimpe_r2_tuples)
+  .groupTuple(by: 0, sort:true )
+  .map { it -> it.flatten() }
+  .set { trimpe }
+
+process alignpe {
+  errorStrategy 'ignore'
+  //publishDir "$params.output", mode: 'copy'
+
+  input:
+  set pair_id, file(fq1), file(fq2) from trimpe
+  output:
+  set val("${fq1.baseName.split("\\.batch", 2)[0]}"), file("${pair_id}.bam") into aligned
+  when:
+  params.pairs == 'pe'
+  script:
+  """
+  module load bwakit/0.7.15 seqtk/1.2-r94 samtools/intel/1.3 speedseq/20160506 picard/1.127
+  seqtk mergepe ${fq1} ${fq2} | bwa mem -M -p -t 30 -R '@RG\\tID:${fq1.baseName.split("\\.batch", 2)[0]}\\tLB:tx\\tPL:illumina\\tPU:barcode\\tSM:${fq1.baseName.split("\\.batch", 2)[0]}' ${gatkref} - 2> log.bwamem | k8 /cm/shared/apps/bwakit/0.7.15/bwa-postalt.js -p ${pair_id}.hla ${gatkref}.alt | samtools view -1 - > output.unsort.bam
+  sambamba sort -t 30 -o ${pair_id}.bam output.unsort.bam
+  """
+ }
+
+aligned
+   .groupTuple(by:0)
+   .set {bamgrp}
+
+process mergebam {
+   publishDir "$params.output", mode: 'copy'
+
+  input:
+  set pair_id,file(bams) from bamgrp
+  output:
+  file("${pair_id}.hist.txt") into insertsize
+  file("${pair_id}.libcomplex.txt") into libcomplex
+  set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into qcbam
+  script:
+  """
+  module load samtools/intel/1.3 speedseq/20160506 picard/1.127
+  which sambamba
+  count=\$(ls *.bam |wc -l)
+  if [ \$count -gt 1 ]
+  then
+  sambamba merge -t 20 merge.bam *.bam
+  else
+  mv *.bam merge.bam
+  fi
+  sambamba sort -t \$SLURM_CPUS_ON_NODE -o output.sort.bam merge.bam
+  java -Xmx20g -jar \$PICARD/picard.jar MarkDuplicatesWithMateCigar I=output.sort.bam O=${pair_id}.bam M=${pair_id}.libcomplex.txt ASSUME_SORTED=true MINIMUM_DISTANCE=300
+  sambamba index ${pair_id}.bam
+  java -Xmx4g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${pair_id}.bam HISTOGRAM_FILE=${pair_id}.hist.ps REFERENCE_SEQUENCE=${gatkref} OUTPUT=${pair_id}.hist.txt
+  """
+}
+process seqqc {
+  errorStrategy 'ignore'
+  publishDir "$params.output", mode: 'copy'
+
+  input:
+  set pair_id, file(sbam),file(idx) from qcbam
+  output:
+  file("${pair_id}.flagstat.txt") into alignstats
+  file("${pair_id}.ontarget.flagstat.txt") into ontarget
+  file("${pair_id}.mapqualcov.txt") into mapqualcov
+  file("${pair_id}.dedupcov.txt") into dedupcov
+  file("${pair_id}.meanmap.txt") into meanmap
+  file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
+  set file("${pair_id}_fastqc.zip"),file("${pair_id}_fastqc.html") into fastqc
+  set pair_id, file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into targetbam
+  set pair_id,file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into genocovbam
+
+  script:
+  """
+  module load bedtools/2.25.0 picard/1.127 samtools/intel/1.3 fastqc/0.11.2 speedseq/20160506
+  fastqc -f bam ${sbam}
+  sambamba flagstat -t 30 ${sbam} > ${pair_id}.flagstat.txt
+  sambamba view -t 30 -f bam -L  ${capture_bed} -o ${pair_id}.ontarget.bam ${sbam}
+  sambamba flagstat -t 30 ${pair_id}.ontarget.bam > ${pair_id}.ontarget.flagstat.txt
+  samtools view -b -q 1 ${pair_id}.ontarget.bam | bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b stdin -a ${capture_bed}  >  ${pair_id}.mapqualcov.txt
+  samtools view -b -F 1024 ${pair_id}.ontarget.bam | bedtools coverage -sorted -g  ${index_path}/genomefile.txt -a ${capture_bed} -b stdin -hist | grep ^all > ${pair_id}.dedupcov.txt 
+  java -Xmx20g -jar \$PICARD/picard.jar CollectAlignmentSummaryMetrics R=${gatkref} I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.alignmentsummarymetrics.txt
+  samtools view -F 1024 ${pair_id}.ontarget.bam | awk '{sum+=\$5} END { print "Mean MAPQ =",sum/NR}' > ${pair_id}.meanmap.txt
+  """
+}
+process genocov {
+  errorStrategy 'ignore'
+  publishDir "$params.output", mode: 'copy'
+
+  input:
+  set pair_id, file(sbam),file(idx) from genocovbam
+  output:
+  file("${pair_id}.genomecov.txt") into genomecov
+  file("${pair_id}.covhist.txt") into covhist
+  file("*coverage.txt") into capcovstat
+  script:
+  """
+  module load bedtools/2.25.0 picard/1.127 samtools/intel/1.3 fastqc/0.11.2 speedseq/20160506
+  bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b ${sbam} -a ${capture_bed} >  ${pair_id}.covhist.txt
+  perl $baseDir/scripts/calculate_depthcov.pl ${pair_id}.covhist.txt
+  grep ^all ${pair_id}.covhist.txt >  ${pair_id}.genomecov.txt
+  """
+}
+
+process parse_stat {
+  errorStrategy 'ignore'
+  publishDir "$params.output", mode: 'copy'
+
+  input:
+  file(txt) from alignstats.toList()
+  file(lc) from libcomplex.toList()
+  file(is) from insertsize.toList()
+  file(gc) from genomecov.toList()
+  file(on) from ontarget.toList()
+  file(tr) from trimstat.toList()
+  file(mq) from mapqualcov.toList()
+  file(de) from dedupcov.toList()
+  file(mm) from meanmap.toList()
+  file(asmet) from alignmentsummarymetrics.toList()
+  
+  output:
+  file('sequence.stats.txt')
+  file('*.png')
+  script:
+  """
+  module load R/3.2.1-intel
+  perl $baseDir/scripts/parse_seqqc.pl *.genomecov.txt
+  perl $baseDir/scripts/covstats.pl *.mapqualcov.txt
+  Rscript $baseDir/scripts/plot_hist_genocov.R
+  """
+}

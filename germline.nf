@@ -40,10 +40,12 @@ fastqs.each {
 def prefix = []
 def read1_files = []
 def read2_files = []
+def mername = []
 new File(params.design).withReader { reader ->
     def hline = reader.readLine()
     def header = hline.split("\t")
     prefixidx = header.findIndexOf{it == 'SampleID'};
+    mrgidx = header.findIndexOf{it == 'SampleMergeName'};
     oneidx = header.findIndexOf{it == 'FullPathToFqR1'};
     twoidx = header.findIndexOf{it == 'FullPathToFqR2'};
     if (twoidx == -1) {
@@ -53,7 +55,8 @@ new File(params.design).withReader { reader ->
     	   def row = line.split("\t")
     if (fileMap.get(row[oneidx]) != null) {
         prefix << row[prefixidx]
-        read1_files << fileMap.get(row[oneidx])
+        mername << row[mrgidx]
+	read1_files << fileMap.get(row[oneidx])
         read2_files << fileMap.get(row[twoidx])
 	   }
 
@@ -65,6 +68,7 @@ Channel
   .from(read1_files)
   .set { read1 }
 
+  
 Channel
   .from(read2_files)
   .set { read2 }
@@ -74,17 +78,27 @@ Channel
   .set { read_pe }
 
 Channel
+  .from(mername)
+  .set { merg }
+
+  
+Channel
   .from(1..10)
   .set {counter}
+
+Channel
+  .from(1..100)
+  .set {adid}
+
 
 process trimpe {
   publishDir "$params.output", mode: 'copy'
   input:
-  val pair_ids from read_pe.buffer(size: 30, remainder: true)
-  file(read1s) from read1.buffer(size: 30, remainder: true)
-  file(read2s) from read2.buffer(size: 30, remainder: true)
+  val pair_ids from read_pe.buffer(size: 20, remainder: true)
+  val mnames from merg.buffer(size: 20, remainder: true)
+  file(read1s) from read1.buffer(size: 20, remainder: true)
+  file(read2s) from read2.buffer(size: 20, remainder: true)
   val ct from counter
-  
   output:
   file("*_val_1.fq.gz") into trimpe_r1s mode flatten
   file("*_val_2.fq.gz") into trimpe_r2s mode flatten
@@ -94,9 +108,9 @@ process trimpe {
   assert pair_ids.size() == read2s.size()
   def cmd = ''
   for( int i=0; i<pair_ids.size(); i++){
-    cmd +="mv ${read1s[i]} ${pair_ids[i]}.R1.fq.gz\n"
-    cmd +="mv ${read2s[i]} ${pair_ids[i]}.R2.fq.gz\n"
-    cmd +="trim_galore --paired --stringency 3 -q 25 --illumina --gzip --length 35 ${pair_ids[i]}.R1.fq.gz  ${pair_ids[i]}.R2.fq.gz &\n"
+    cmd +="mv ${read1s[i]} ${mnames[i]}.batch${ct}_${i}.R1.fq.gz\n"
+    cmd +="mv ${read2s[i]} ${mnames[i]}.batch${ct}_${i}.R2.fq.gz\n"
+    cmd +="trim_galore --paired --stringency 3 -q 25 --illumina --gzip --length 35 ${mnames[i]}.batch${ct}_${i}.R1.fq.gz ${mnames[i]}.batch${ct}_${i}.R2.fq.gz &\n"
   }
 
   """
@@ -126,37 +140,62 @@ process alignpe {
   input:
   set pair_id, file(fq1), file(fq2) from trimpe
   output:
-  set pair_id, file("${pair_id}.bam"), file("${pair_id}.bam.bai") into aligned
-  set pair_id,file("${pair_id}.bam"),file("${pair_id}.discordants.bam"),file("${pair_id}.splitters.bam") into svbam
-  file("${pair_id}.hist.txt") into insertsize
-  file("${pair_id}.hla.top") into hlape
-  file("${pair_id}.libcomplex.txt") into libcomplex
+  set val("${fq1.baseName.split("\\.batch", 2)[0]}"), file("${pair_id}.bam") into aligned
   when:
   params.pairs == 'pe'
   script:
   """
   module load bwakit/0.7.15 seqtk/1.2-r94 samtools/intel/1.3 speedseq/20160506 picard/1.127
-  seqtk mergepe ${fq1} ${fq2} | bwa mem -M -p -t \$SLURM_CPUS_ON_NODE -R '@RG\\tID:${pair_id}\\tLB:tx\\tPL:illumina\\tPU:barcode\\tSM:${pair_id}' ${gatkref} - 2> log.bwamem | k8 /cm/shared/apps/bwakit/0.7.15/bwa-postalt.js -p ${pair_id}.hla ${gatkref}.alt | samtools view -1 - > output.unsort.bam
-  run-HLA ${pair_id}.hla > ${pair_id}.hla.top 2> ${pair_id}.log.hla
-  touch ${pair_id}.hla.HLA-dummy.gt
-  cat ${pair_id}.hla.HLA*.gt | grep ^GT | cut -f2- > ${pair_id}.hla.all
-  sambamba sort -t \$SLURM_CPUS_ON_NODE -o output.dups.bam output.unsort.bam
-  java -Xmx20g -jar \$PICARD/picard.jar MarkDuplicatesWithMateCigar I=output.dups.bam O=${pair_id}.bam M=${pair_id}.libcomplex.txt ASSUME_SORTED=true MINIMUM_DISTANCE=150
-  sambamba index -t 20 ${pair_id}.bam
-  sambamba view -h output.unsort.bam | samblaster -M -a --excludeDups --addMateTags --maxSplitCount 2 --minNonOverlap 20 -d discordants.sam -s splitters.sam > temp.sam
-  gawk '{ if (\$0~"^@") { print; next } else { \$10="*"; \$11="*"; print } }' OFS="\\t" splitters.sam | samtools  view -S -b - | samtools sort -o ${pair_id}.splitters.bam -
-  gawk '{ if (\$0~"^@") { print; next } else { \$10="*"; \$11="*"; print } }' OFS="\\t" discordants.sam | samtools  view -S  -b - | samtools sort -o ${pair_id}.discordants.bam -
-  java -Xmx16g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${pair_id}.bam HISTOGRAM_FILE=${pair_id}.hist.ps REFERENCE_SEQUENCE=${gatkref} OUTPUT=${pair_id}.hist.txt
+  seqtk mergepe ${fq1} ${fq2} | bwa mem -M -p -t 30 -R '@RG\\tID:${fq1.baseName.split("\\.batch", 2)[0]}\\tLB:tx\\tPL:illumina\\tPU:barcode\\tSM:${fq1.baseName.split("\\.batch", 2)[0]}' ${gatkref} - 2> log.bwamem | k8 /cm/shared/apps/bwakit/0.7.15/bwa-postalt.js -p ${pair_id}.hla ${gatkref}.alt | samtools view -1 - > output.unsort.bam
+  sambamba sort -t 30 -o ${pair_id}.bam output.unsort.bam
+  """
+ }
+
+aligned
+   .groupTuple(by:0)
+   .set {bamgrp}
+   .println()
+
+process mergebam {
+   publishDir "$params.output", mode: 'copy'
+
+  input:
+  set sid,file(bams) from bamgrp
+  output:
+  file("${sid}.hist.txt") into insertsize
+  file("${sid}.libcomplex.txt") into libcomplex
+  set sid,file("${sid}.bam"),file("${sid}.discordants.bam"),file("${sid}.splitters.bam") into svbam
+  set sid, file("${sid}.bam"),file("${sid}.bam.bai") into mergebam
+  script:
+  """
+  module load samtools/intel/1.3 speedseq/20160506 picard/1.127
+  which sambamba
+  count=\$(ls *.bam |wc -l)
+  if [ \$count -gt 1 ]
+  then
+  sambamba merge -t 20 merge.bam *.bam
+  else
+  mv *.bam merge.bam
+  fi
+  sambamba sort -t \$SLURM_CPUS_ON_NODE -n -o output.namesort.bam merge.bam
+  sambamba sort -t \$SLURM_CPUS_ON_NODE -o output.sort.bam merge.bam
+  java -Xmx20g -jar \$PICARD/picard.jar MarkDuplicatesWithMateCigar I=output.sort.bam O=${sid}.bam M=${sid}.libcomplex.txt ASSUME_SORTED=true MINIMUM_DISTANCE=150
+  sambamba index ${sid}.bam
+  sambamba view -h output.namesort.bam | samblaster -M -a --excludeDups --addMateTags --maxSplitCount 2 --minNonOverlap 20 -d discordants.sam -s splitters.sam > temp.sam
+  gawk '{ if (\$0~"^@") { print; next } else { \$10="*"; \$11="*"; print } }' OFS="\\t" splitters.sam | samtools  view -S -b - | samtools sort -o ${sid}.splitters.bam -
+  gawk '{ if (\$0~"^@") { print; next } else { \$10="*"; \$11="*"; print } }' OFS="\\t" discordants.sam | samtools  view -S  -b - | samtools sort -o ${sid}.discordants.bam -
+  java -Xmx4g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${sid}.bam HISTOGRAM_FILE=${sid}.hist.ps REFERENCE_SEQUENCE=${gatkref} OUTPUT=${sid}.hist.txt
   """
 }
 
-// Calculate Metrics of Quality of Alignment
+
+//Calculate Metrics of Quality of Alignment
 process seqqc {
   errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
-  set pair_id, file(sbam),file(idx) from aligned
+  set pair_id, file(sbam),file(idx) from mergebam
   output:
   file("${pair_id}.flagstat.txt") into alignstats
   file("${pair_id}.subset.libcomplex.txt") into subsetlibcomplex
@@ -178,7 +217,7 @@ process seqqc {
   sambamba flagstat -t 30 ${sbam} > ${pair_id}.flagstat.txt
   sambamba view -t 30 -f bam -L  ${capture_bed} -o ${pair_id}.ontarget.bam ${sbam}
   sambamba flagstat -t 30 ${pair_id}.ontarget.bam > ${pair_id}.ontarget.flagstat.txt
-  bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b ${pair_id}.ontarget.bam -a ${capture_bed} | grep ^all >  ${pair_id}.covhist.txt
+  bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b ${pair_id}.ontarget.bam -a ${capture_bed} >  ${pair_id}.covhist.txt
   grep ^all ${pair_id}.covhist.txt >  ${pair_id}.genomecov.txt
   samtools view -b -q 1 ${pair_id}.ontarget.bam | bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b stdin -a ${capture_bed}  >  ${pair_id}.mapqualcov.txt
   samtools view -b -F 1024 ${pair_id}.ontarget.bam | bedtools coverage -sorted -g  ${index_path}/genomefile.txt -a ${capture_bed} -b stdin -hist | grep ^all > ${pair_id}.dedupcov.txt 
@@ -260,7 +299,6 @@ process gatkbam {
 process gatkgvcf {
   errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
-  cpus 30
 
   input:
   set pair_id,file(gbam),file(gidx) from gatkbam
@@ -283,7 +321,6 @@ process gatkgvcf {
 process mpileup {
   errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
-  cpus 32
 
   input:
   set pair_id,file(gbam),file(gidx) from sambam
@@ -338,7 +375,6 @@ process platypus {
   errorStrategy 'ignore'
 
   publishDir "$params.output", mode: 'copy'
-  cpus 32
 
   input:
   set pair_id,file(gbam),file(gidx) from platbam
@@ -350,7 +386,7 @@ process platypus {
   script:
   """
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 platypus/gcc/0.8.1 bcftools/intel/1.3 samtools/intel/1.3 vcftools/0.1.14
-  Platypus.py callVariants --minMapQual=10 --mergeClusteredVariants=1 --nCPU=30 --bamFiles=${gbam} --refFile=${gatkref} --output=platypus.vcf
+  Platypus.py callVariants --minMapQual=10 --mergeClusteredVariants=1 --nCPU=\$SLURM_CPUS_ON_NODE --bamFiles=${gbam} --refFile=${gatkref} --output=platypus.vcf
   bgzip platypus.vcf
   tabix platypus.vcf.gz
   vcf-sort platypus.vcf.gz| vcf-annotate -n --fill-type -n | bcftools norm -c s -f ${gatkref} -w 10 -O z -o ${pair_id}.platypus.vcf.gz -

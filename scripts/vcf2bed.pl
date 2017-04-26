@@ -27,7 +27,7 @@ while (<VCF>) {
 	
 	my $endPos = $startPos;
 	my $indelCall = "";
-	
+	my $annot = $fields[7];
 	foreach my $alt (@alts) {
 		
 		if (length($ref) > length($alt)) {
@@ -48,6 +48,13 @@ while (<VCF>) {
 		print "$chrom\t$startPos\t$endPos\t$indelCall\n";
 	}
 	
+	my %hash = ();
+	foreach $a (split(/;/,$annot)) {
+	    my ($key,$val) = split(/=/,$a);
+	    $hash{$key} = $val unless ($hash{$key});
+	}
+}
+
 	
 }	
 

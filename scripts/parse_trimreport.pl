@@ -5,8 +5,8 @@ my $outfile = shift @ARGV;
 my @trimreport = @ARGV;
 chomp(@trimreport);
 
-open OUT, ">$outfile" or die $!;
 foreach $treport (@trimreport) {
+    my $sname = (split(/\.batch/,$treport))[0];
     open RP, "<$treport" or die $!;
     while (my $line = <RP>) {
 	chomp($line);
@@ -25,7 +25,15 @@ foreach $treport (@trimreport) {
 	}
        
     }
-    print OUT join("\t",$treport,$total_reads,$pass,
-		   $withadapter,$percentqualtrim),"\n";
+    push @{$info{$sname}}, [$treport,$total_reads,$pass,$withadapter,$percentqualtrim];
 }
-close OUT;
+
+foreach $sid (keys %info) {
+    open OUT, ">$sid\.trimreport.txt" or die $!;
+    foreach $line (@{$info{$sid}}) {
+	print OUT join("\t",@{$line}),"\n";
+    }
+    close OUT;
+}
+
+
