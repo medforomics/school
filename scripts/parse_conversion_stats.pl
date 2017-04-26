@@ -11,7 +11,7 @@ print OUT join("\t","RunName","SampleName","Clusters",
 	       "Yield","PercQ30","AvgQualScore"),"\n";
 
 my $xml = "$dir\/Stats/ConversionStats.xml";
-$runname = (split(/\//,$xml))[-1];
+$runname = (split(/\//,$xml))[-3];
 my $parser = XML::LibXML->new();
 my $doc = $parser->parse_file($xml);
 foreach my $sample  ($doc->findnodes('Stats/Flowcell/Project/Sample')) {

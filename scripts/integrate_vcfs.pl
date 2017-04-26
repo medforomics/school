@@ -1,19 +1,21 @@
 #!/usr/bin/perl -w
 #integrate_datasets.pl
 
-open OM, "</project/shared/bicf_workflow_ref/GRCh38/oncomine.genelist.txt" or die $!;
+my $refdir = '/project/shared/bicf_workflow_ref/GRCh38/';
+
+open OM, "<$refdir\/oncomine.genelist.txt" or die $!;
 while (my $line = <OM>) {
     chomp($line);
     $oncomine{$line} = 'oncomine';
   }
 close OM;
-open OM, "</project/shared/bicf_workflow_ref/GRCh38/cosmic_consenus.genelist.txt" or die $!;
+open OM, "<$refdir\/cosmic_consenus.genelist.txt" or die $!;
 while (my $line = <OM>) {
     chomp($line);
     $cosmic{$line} = 'cosmic_consensus';
   }
 close OM;
-open OM, "</project/shared/bicf_workflow_ref/GRCh38/panel1385.genelist" or die $!;
+open OM, "<$refdir\/panel1385.genelist" or die $!;
 while (my $line = <OM>) {
     chomp($line);
     $keep{$line} = 1;
@@ -24,6 +26,7 @@ my ($subject,$samplename,$tumorid,$somatic,$rnaseqid) = @ARGV;
 my %rnaseqct;
 my $inputdir = "/project/PHG/PHG_Clinical/validation/$subject";
 system("tabix -f $inputdir\/$tumorid/$tumorid\.annot.vcf.gz");
+
 if ($rnaseqid ne 'no_rnaseq') {
   open RNACT, "<$inputdir\/$rnaseqid\/$rnaseqid\.cts" or die $!;
   while (my $line = <RNACT>) {

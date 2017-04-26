@@ -19,16 +19,20 @@ EOF
 my $prjid = $opt{prjid};
 
 open SS, "</project/PHG/PHG_Illumina/sample_sheets/$prjid\.csv" or die $!;
+open SSOUT, ">/project/PHG/PHG_Illumina/sample_sheets/$prjid\.bcl2fastq.csv" or die $!;
 my %sampleinfo;
 while (my $line = <SS>){
   chomp($line);
   $line =~ s/\r//g;
   $line =~ s/ //g;
   $line =~ s/,+$//g;
+  print SSOUT $line,"\n";
   if ($line =~ m/^\[Data\]/) {
     $header = <SS>;
     $header =~ s/\r//g;
     chomp($header);
+    $header =~ s/Sample_*/Sample_/g;
+    print SSOUT $header,"\n";
     my @colnames = split(/,/,$header);
     while (my $line = <SS>) {
       chomp($line);
@@ -40,7 +44,9 @@ while (my $line = <SS>){
       foreach my $j (0..$#row) {
 	$hash{$colnames[$j]} = $row[$j];
       }
+      $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
+      $hash{Sample_ID} = $hash{Sample_Name};
       $project = $hash{Sample_Project};
       $samp = $hash{Sample_Name};	
       $dtype = lc($hash{Description});
@@ -50,20 +56,37 @@ while (my $line = <SS>){
       if ($hash{ClinRes} eq 'Clinical') {
 	  push @{$samples{$dtype}{$project}}, $samp;
       }
+      my @newline;
+      foreach my $j (0..$#row) {
+	  push @newline, $hash{$colnames[$j]};
+      }
+      print SSOUT join(",",@newline),"\n";
     }
   }
 }
+close SSOUT;
 
 open CAS, ">/project/PHG/PHG_Illumina/logs/run_casava_$prjid\.sh" or die $!;
 print CAS "#!/bin/bash\n#SBATCH --job-name bcl2fastq\n#SBATCH -N 1\n";
 print CAS "#SBATCH -t 1-0:0:00\n#SBATCH -o job_%j.out\n#SBATCH -e job_%j.err\n";
 print CAS "#SBATCH --mail-type ALL\n#SBATCH --mail-user brandi.cantarel\@utsouthwestern.edu\n";
 print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.20.1\n";
-print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --ignore-missing-positions --no-lane-splitting --ignore-missing-bcls --runfolder-dir /project/PHG/PHG_Illumina/BioCenter/$prjid --sample-sheet /project/PHG/PHG_Illumina/sample_sheets/$prjid\.csv &> /project/PHG/PHG_Illumina/logs/run_casava_$prjid\.log\n";
-print CAS "/project/PHG/PHG_Illumina/scripts/parse_conversion.stats.pl /project/PHG/PHG_Clinical/illumina/$prjid\n";
+
+my $seqdatadir = "/project/PHG/PHG_Illumina/BioCenter/$prjid";
+if (-e "/project/PHG/PHG_Illumina/Research/$prjid") {
+    $seqdatadir = "/project/PHG/PHG_Illumina/Research/$prjid";
+}
+
+print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --ignore-missing-positions --no-lane-splitting --ignore-missing-bcls --runfolder-dir $seqdatadir --sample-sheet /project/PHG/PHG_Illumina/sample_sheets/$prjid\.bcl2fastq.csv &> /project/PHG/PHG_Illumina/logs/run_casava_$prjid\.log\n";
+print CAS "/project/PHG/PHG_Illumina/scripts/parse_conversion_stats.pl /project/PHG/PHG_Clinical/illumina/$prjid\n";
 foreach $dtype (keys %samples) {
-  my $outdir = "/project/PHG/PHG_Clinical\/$dtype\/fastq/";
-  my $outnf = "/project/PHG/PHG_Clinical\/$dtype\/analysis";
+  my $outdir = "/project/PHG/PHG_Clinical\/$dtype\/$prjid\_fastq";
+  my $outnf = "/project/PHG/PHG_Clinical\/$dtype\/$prjid\_analysis";
+  my $workdir = "/project/PHG/PHG_Clinical\/$dtype\/$prjid\_work";
+  system("mkdir $outdir");
+  system("mkdir $outnf");
+  system("mkdir $workdir");
+
   open SSOUT, ">$outdir\/samplesheet_$dtype\_$prjid\.txt" or die $!;
   print SSOUT join("\t",'SampleID','SampleName','SubjectID','FullPathToFqR1','FullPathToFqR2'),"\n";
   foreach $project (keys %{$samples{$dtype}}) {
@@ -78,11 +101,13 @@ foreach $dtype (keys %samples) {
   }
   close SSOUT;
   if ($dtype eq 'panel1385') {
-    print CAS "nextflow run /project/PHG/PHG_Clinical/clinseq_workflows/germline.nf --design $outdir\/samplesheet_$dtype\_$prjid\.txt --capture /project/shared/bicf_workflow_ref/GRCh38/UTSWV2.bed --input $outdir --output $outnf &> $outnf\/nextflow.log &\n"
+    print CAS "#nextflow run -with-timeline -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/germline.nf --design $outdir\/samplesheet_$dtype\_$prjid\.txt --capture /project/shared/bicf_workflow_ref/GRCh38/UTSWV2.bed --input $outdir --output $outnf &> $outnf\/nextflow.log &\n"
   }elsif ($dtype eq 'medexomeplus') {
-    print CAS "nextflow run /project/PHG/PHG_Clinical/clinseq_workflows/germline.nf --design $outdir\/samplesheet_$dtype\_$prjid\.txt --capture /project/shared/bicf_workflow_ref/GRCh38/MedExome_Plus.bed --input $outdir --output $outnf &> $outnf\/nextflow.log &\n"
-  }elsif ($dtype eq 'panelrnaseq' || $dtype eq 'wholernaseq') {
-    print CAS "nextflow run /project/PHG/PHG_Clinical/clinseq_workflows/rnaseq.nf --design $outdir\/samplesheet_$dtype\_$prjid\.txt --input $outdir --output $outnf &> $outnf\/nextflow.log &\n"
+    print CAS "#nextflow run -with-timeline -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/germline.nf --design $outdir\/samplesheet_$dtype\_$prjid\.txt --capture /project/shared/bicf_workflow_ref/GRCh38/MedExome_Plus.bed --input $outdir --output $outnf &> $outnf\/nextflow.log &\n"
+  }elsif ($dtype eq 'panelrnaseq') {
+    print CAS "#nextflow run -with-timeline -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/rnaseq.nf --design $outdir\/samplesheet_$dtype\_$prjid\.txt --input $outdir --output $outnf &> $outnf\/nextflow.log &\n"
+  } elsif ($dtype eq 'wholernaseq') {
+    print CAS "#nextflow run -with-timeline -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/rnaseq.nf --design $outdir\/samplesheet_$dtype\_$prjid\.txt --input $outdir --output $outnf --markdups mark &> $outnf\/nextflow.log &\n"
   }
 }
 close CAS;
