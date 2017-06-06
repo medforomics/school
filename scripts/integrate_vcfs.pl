@@ -3,30 +3,16 @@
 
 my $refdir = '/project/shared/bicf_workflow_ref/GRCh38/';
 
-open OM, "<$refdir\/oncomine.genelist.txt" or die $!;
+open OM, "</project/shared/bicf_workflow_ref/GRCh38/validation.genelist.txt" or die $!;
 while (my $line = <OM>) {
-    chomp($line);
-    $oncomine{$line} = 'oncomine';
-  }
-close OM;
-open OM, "<$refdir\/cosmic_consenus.genelist.txt" or die $!;
-while (my $line = <OM>) {
-    chomp($line);
-    $cosmic{$line} = 'cosmic_consensus';
-  }
-close OM;
-open OM, "<$refdir\/panel1385.genelist" or die $!;
-while (my $line = <OM>) {
-    chomp($line);
-    $keep{$line} = 1;
+  chomp($line);
+  $keep{$line} = 1;
 }
-close OM;
 
 my ($subject,$samplename,$tumorid,$somatic,$rnaseqid) = @ARGV;
 my %rnaseqct;
 my $inputdir = "/project/PHG/PHG_Clinical/validation/$subject";
 system("tabix -f $inputdir\/$tumorid/$tumorid\.annot.vcf.gz");
-
 if ($rnaseqid ne 'no_rnaseq') {
   open RNACT, "<$inputdir\/$rnaseqid\/$rnaseqid\.cts" or die $!;
   while (my $line = <RNACT>) {
@@ -40,7 +26,7 @@ if ($rnaseqid ne 'no_rnaseq') {
   open RNACT, "<$inputdir\/$rnaseqid\/$rnaseqid\.fpkm.txt" or die $!;
   while (my $line = <RNACT>) {
     chomp($line);
-    next if ($line =~ m/^#|Geneid/);
+    next if ($line =~ m/^#|Geneid|FPKM/);
     my ($ensid,$gene,$chr,$strand,$start,$end,$cov,$fpkm,$tmp) = split(/\t/,$line);
     $fpkm{$gene} = $fpkm if ($fpkm > 1);
   }
@@ -76,91 +62,114 @@ if ($somatic ne 'no_normal') {
       my ($key,$val) = split(/=/,$a);
       $hash{$key} = $val unless ($hash{$key});
     }
+    my %fail;
+    $fail{'UTSWBlacklist'} = 1 if ($hash{UTSWBlacklist});
     my $exacaf = '';
     if ($hash{AC_POPMAX} && $hash{AN_POPMAX}) {
-      @exacs = split(/,/,$hash{AC_POPMAX});
-      my $ac = 0;
-      foreach $val (@exacs) {
-	$ac += $val if ($val =~ m/^\d+$/);
-      }
-      @exans = split(/,/,$hash{AN_POPMAX});
-      my $an = 0;
-      foreach $val (@exans) {
-	$an += $val if ($val =~ m/^\d+$/);
-      }
-      $exacaf = sprintf("%.4f",$ac/$an) if ($ac > 0 && $an > 10);
+	@exacs = split(/,/,$hash{AC_POPMAX});
+	my $ac = 0;
+	foreach $val (@exacs) {
+	    $ac += $val if ($val =~ m/^\d+$/);
+	}
+	@exans = split(/,/,$hash{AN_POPMAX});
+	my $an = 0;
+	foreach $val (@exans) {
+	    $an += $val if ($val =~ m/^\d+$/);
+	}
+	$exacaf = sprintf("%.4f",$ac/$an) if ($ac > 0 && $an > 10);
     }
-    #next unless ($exacaf eq '' || $exacaf <= 0.01);
+    unless ($exacaf eq '' || $exacaf <= 0.01) {
+	$fail{'COMMON'} = 1;
+      }
+    my $cosmicsubj = 0;
+    if ($hash{CNT}) {
+      my @cosmicct = split(/,/,$hash{CNT}); 
+      foreach $val (@cosmicct) {
+	$cosmicsubj += $val if ($val =~ m/^\d+$/);
+      }
+    }
     my @maf;
     my @dp;
     my @ao;
-    my $newgt = $gts[0];
-    if ($gtheader[1] eq $tumorid) {
-      $newgt = $gts[1];
-    }
+    my @genotypes = @gts;
     my @deschead = split(/:/,$format);
   F1:foreach my $subjid (@gtheader) {
       my $allele_info = shift @gts;
       @ainfo = split(/:/, $allele_info);
       my %gtinfo = ();
+      my @mutallfreq = ();
       foreach my $k (0..$#ainfo) {
-	$gtinfo{$deschead[$k]} = $ainfo[$k];
+	  $gtinfo{$deschead[$k]} = $ainfo[$k];
       }
-      my $altct = 0;
-      foreach  my $act (split(/,/,$gtinfo{AO})) {
-	$altct += $act;
-      }
-      $gtinfo{AO} = $altct;
       next W1 if ($gtinfo{DP} < 10);
+      my @altct = split(/,/,$gtinfo{AO});
+      foreach  my $act (@altct) {
+	push @mutallfreq, sprintf("%.4f",$act/$gtinfo{DP});
+      }
       push @dp, $gtinfo{DP};
-      push @maf, sprintf("%.4f",$gtinfo{AO}/$gtinfo{DP});
-      push @ao, $gtinfo{AO};
+      push @maf, \@mutallfreq;
+      my @sortao = sort {$b <=> $a} @altct;
+      push @ao, $sortao[0];
     }
     if ($gtheader[1] eq $tumorid) {
       @maf = reverse(@maf);
       @dp = reverse(@dp);
       @ao = reverse(@ao);
+      @genotypes = reverse(@genotypes);
     }
-    my $cosmicsubj = 0;
-    @cosmicct = split(/,/,$hash{CNT}) if $hash{CNT};
-    foreach $val (@exacs) {
-      $cosmicsubj += $val if ($val =~ m/^\d+$/);
+    $hash{AF} = join(",",@{$maf[0]});
+    $hash{NormalAF} =  join(",",@{$maf[1]});
+    $hash{DP} = $dp[0];
+    $hash{NormalDP} = $dp[1];
+    next if ($maf[1][0] > 0.005 || $maf[1][0]*5 > $maf[0][0]);
+    my $newgt = $genotypes[0];
+    foreach (@dp) {
+	$fail{'LowDepth'} = 1 if ($_ < 20);
     }
-    next if ($maf[1] > 0.005 && $maf[1]*5 > $maf[0]);
-    next if ($maf[1] > 0.005);
-    next if ($maf[0] < 0.01);
-    if ($id =~ m/COSM/ && $cosmicsubj >=5) {
-      next if ($ao[0] < 3);
-      next if ($maf[0] < 0.01);
+    my @callers = split(/,/,$hash{CallSet});
+    if ($id =~ m/COS/ && $cosmicsubj >= 5) {
+	$fail{'LowAltCt'} = 1 if ($ao[0] < 3);
+	$fail{'LowMAF'} = 1 if ($maf[0][0] < 0.01);
     }else {
-      next if ($ao[0] < 8);
-      next if ($hash{CallSet} !~ m/,/);
-      next if ($maf[0] < 0.05);
+	$fail{'OneCaller'} = 1 if (scalar(@callers) < 2);
+	$fail{'LowAltCt'} = 1 if ($ao[0] < 8);
+	$fail{'LowMAF'} = 1 if ($maf[0][0] < 0.05);
     }
     if ($rnaval{$chrom}{$pos}) {
-      $annot .= ';RnaSeqValidation';
-    }
-    $annot .= ';Somatic;SomaticCallSet='.$hash{CallSet};
+	$hash{RnaSeqValidation} = 1;
+    } 
+    $hash{Somatic} = 1;
+    $hash{SomaticCallSet}=$hash{CallSet};
     foreach $trx (split(/,/,$hash{ANN})) {
-      my ($allele,$effect,$impact,$gene,$geneid,$feature,
-	  $featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
-	  $cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
-      next unless $keep{$gene};
-      if ($rnaseqct{$gene}) {
-	$annot .= ';logcpm='.sprintf("%.1f",log2(1000000*$rnaseqct{$gene}/$rnaseqct{'total'}));
-      } if ($fpkm{$gene}) {
-	$annot .= ';fpkm='.sprintf("%.1f",$fpkm{$gene});
-      } if ($oncomine{$gene} || $cosmic{$gene}) {
-	$annot .= ';CancerGene';
-      }
-      if (($exacaf eq '' || $exacaf <= 0.01) && $impact =~ m/HIGH|MODERATE/) {
+	my ($allele,$effect,$impact,$gene,$geneid,$feature,
+	    $featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
+	    $cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
+	next unless $keep{$gene};
+	if ($rnaseqct{$gene} && $rnaseqct{$gene} > 10) {
+	    $hash{logcpm}=sprintf("%.1f",log2(1000000*$rnaseqct{$gene}/$rnaseqct{'total'}));
+	} if ($fpkm{$gene}) {
+	    $hash{fpkm} = sprintf("%.1f",$fpkm{$gene});
+	}
+	my @fail = keys %fail;
+	if (scalar(@fail) == 0) {
+	    $filter = 'PASS';
+	}else {
+	    $filter = join(";", 'FailedQC',@fail);
+	}
+	my @nannot;
+	foreach $info (sort {$a cmp $b} keys %hash) {
+	    if ($hash{$info}) {
+		push @nannot, $info."=".$hash{$info} 
+	    }else {
+		push @nannot, $info;
+	    }
+	}
+	$newannot = join(";",@nannot);
 	$somline{$chrom}{$pos} = [$chrom, $pos,$id,$ref,$alt,$score,
-				  'PASS',$annot,$format,$newgt];
-      }
-      $somval{$chrom}{$pos} = $hash{CallSet};
-      next W1;
+				  $filter,$newannot,$format,$newgt];
+	next W1;
     }
-  }
+ }
 }
 close IN;
 
@@ -186,6 +195,8 @@ while (my $line = <IN>) {
     my ($key,$val) = split(/=/,$a);
     $hash{$key} = $val unless ($hash{$key});
   }
+  my %fail;
+  $fail{'UTSWBlacklist'} = 1 if ($hash{UTSWBlacklist});
   my $exacaf = '';
   if ($hash{AC_POPMAX} && $hash{AN_POPMAX}) {
     @exacs = split(/,/,$hash{AC_POPMAX});
@@ -200,44 +211,55 @@ while (my $line = <IN>) {
     }
     $exacaf = sprintf("%.4f",$ac/$an) if ($ac > 0 && $an > 10);
   }
-  my %fail;
   unless ($exacaf eq '' || $exacaf <= 0.01) {
     $fail{'COMMON'} = 1;
   }
   my @deschead = split(/:/,$format);
   my $allele_info = $gts[0];
   @ainfo = split(/:/, $allele_info);
-  my %gtinfo = ();
   foreach my $k (0..$#ainfo) {
-      $gtinfo{$deschead[$k]} = $ainfo[$k];
-  }
-  my $altct = (split(/,/,$gtinfo{AO}))[0];
-  foreach  my $act (split(/,/,$gtinfo{AO})) {
-    $altct += $act;
-  }
-  my $dp = $gtinfo{DP};
-  if ($gtinfo{DP} =~ m/,/) {
-    $dp = $altct+$gtinfo{RO};
-  }
-  $maf = sprintf("%.4f",$altct/$dp);
+      $hash{$deschead[$k]} = $ainfo[$k];
+    }
   my $cosmicsubj = 0;
-  @cosmicct = split(/,/,$hash{CNT}) if $hash{CNT};
-  foreach $val (@exacs) {
-    $cosmicsubj += $val if ($val =~ m/^\d+$/);
+  if ($hash{CNT}) {
+    my @cosmicct = split(/,/,$hash{CNT}); 
+    foreach $val (@cosmicct) {
+      $cosmicsubj += $val if ($val =~ m/^\d+$/);
+    }
   }
-  if ($dp < 20) {
+  my @altct = split(/,/,$hash{AO});
+  my $totalaltct = 0;
+  foreach  my $act (@altct) {
+      $totalaltct += $act;
+  }
+  if ($hash{DP} =~ m/,/) {
+      $hash{DP} = $totalaltct+$hash{RO};
+  }
+  next unless ($hash{DP});
+  my @mutallfreq;
+  foreach  my $act (@altct) {
+      push @mutallfreq, sprintf("%.4f",$act/$hash{DP});
+  }
+  my @sortao = sort {$b <=> $a} @altct;
+  $hash{AF} = join(",",@mutallfreq);
+  if ($hash{DP} < 20) {
     $fail{'LowDepth'} = 1;
   }
-  if (($hash{CallSet} =~ m/hotspot/ || $id =~ m/COS/) && $cosmicsubj >= 5) {
-    $fail{'LowAltCt'} = 1 if ($altct < 3);
-    $fail{'LowMAF'} = 1 if ($maf < 0.01);
+  my @callers = split(/,/,$hash{CallSet});
+  if ($somval{$chrom}{$pos}) {
+      push @callers, split(/,/,$somval{$chrom}{$pos});
+  }
+  if ((grep(/hotspot/,@callers) || $id =~ m/COS/) && $cosmicsubj >= 5) {
+      $fail{'LowAltCt'} = 1 if ($altct[0] < 3);
+      $fail{'LowMAF'} = 1 if ($mutallfreq[0] < 0.01);
   }else {
-    $fail{'OneCaller'} = 1 if ($hash{CallSet} =~ m/,/);
-    $fail{'LowAltCt'} = 1 if ($dp < 20 || $altct < 8);
-    $fail{'LowMAF'} = 1 if ($maf < 0.05);
+      $fail{'OneCaller'} = 1 if (scalar(@callers) < 2);
+      $fail{'LowAltCt'} = 1 if ($altct[0] < 8);
+      $fail{'LowMAF'} = 1 if ($mutallfreq[0] < 0.05);
   }
   my $keepforvcf = 0;
   my @aa;
+  next unless ($hash{ANN});
   foreach $trx (split(/,/,$hash{ANN})) {
     my ($allele,$effect,$impact,$gene,$geneid,$feature,
 	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
@@ -247,41 +269,48 @@ while (my $line = <IN>) {
     push @aa, $aa if ($aa ne '');
     $keepforvcf = $gene;
   }
-  $fail{'NoAAChange'} = 1 if (scalar(@aa) < 1);
+  next unless $keepforvcf;
   my @fail = keys %fail;
-  if ($keepforvcf && scalar(@fail) < 1) {
+  if (scalar(@fail) < 1) {
     $filter = 'PASS';
   }elsif (scalar(@fail) > 0) {
-    $filter = join(";", 'REMOVE',@fail);
+    $filter = join(";", 'FailedQC',@fail);
   }else {
     next;
   }
-  $done{$chrom}{$pos} = 1;
-  if ($keepforvcf) {
-    if ($rnaseqct{$keepforvcf} > 10) {
-      $annot .= ';logcpm='.sprintf("%.1f",log2(1000000*$rnaseqct{$keepforvcf}/$rnaseqct{'total'}));
-    } if ($fpkm{$keepforvcf}) {
-      $annot .= ';fpkm='.sprintf("%.1f",$fpkm{$keepforvcf});
-    } if ($oncomine{$keepforvcf} || $cosmic{$keepforvcf}) {
-      $annot .= ';CancerGene';
-    }
+  if ($rnaseqct{$keepforvcf} && $rnaseqct{$keepforvcf} > 10) {
+    $hash{logcpm}=sprintf("%.1f",log2(1000000*$rnaseqct{$keepforvcf}/$rnaseqct{'total'}));
+  } if ($fpkm{$keepforvcf}) {
+    $hash{fpkm} = sprintf("%.1f",$fpkm{$keepforvcf});
   } if ($rnaval{$chrom}{$pos}) {
-    $annot .= ';RnaSeqValidation';
+    $hash{RnaSeqValidation} = 1;
   } if ($somval{$chrom}{$pos}) {
-    $annot .= ';Somatic;SomaticCallSet='.$somval{$chrom}{$pos};
+    $hash{Somatic} = 1;
+    $hash{SomaticCallSet}=$somval{$chrom}{$pos};
   }
-  print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$annot,$format,@gts),"\n";
+  my @nannot;
+  foreach $info (sort {$a cmp $b} keys %hash) {
+    if ($hash{$info}) {
+      push @nannot, $info."=".$hash{$info} 
+    }else {
+      push @nannot, $info;
+    }
+  }
+  $newannot = join(";",@nannot);
+  $done{$chrom}{$pos} = 1;
+  print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,
+		 $filter,$newannot,$format,$allele_info),"\n";
 }
 
 foreach my $chrom (keys %somline) {
-  foreach my $pos (keys %{$somline{$chrom}}) {
+    foreach my $pos (keys %{$somline{$chrom}}) {
     next if $done{$chrom}{$pos};
     print OUT join("\t",@{$somline{$chrom}{$pos}}),"\n";
   }
 }
 close OUT;
 
-system("vcf-sort $inputdir\/$tumorid\.final.vcf | bgzip > $inputdir\/$tumorid\.final.vcf.gz");
+system("vcf-sort $inputdir\/$tumorid\.final.vcf | bgzip > $inputdir\/$subject\.philips.vcf.gz");
 system("rm $inputdir\/$tumorid\.final.vcf");
 system("rm -fr $inputdir\/rnaoverlap");
 

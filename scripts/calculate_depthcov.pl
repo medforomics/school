@@ -6,12 +6,12 @@ my $prefix = (split(/\./,$cfile))[0];
 
 open OUT2, ">$prefix\_exoncoverage.txt" or die $!;
 open MISS, ">$prefix\_lowcoverage.txt" or die $!;
-print MISS join("\t",'Sample','Chromosome','Position','ExonName',
+print MISS join("\t",'Sample','Chromosome','Start','End','ExonName',
 		'MinDepth','MaxDepth','MedianDepth','AvgDepth',
-		'Fraction100X+','Fraction10X-','BP100X+','TotalBP'),"\n";
-print OUT2 join("\t",'Sample','Chromosome','Position','ExonName',
+		'Fraction100X+','BP100X+','TotalBP'),"\n";
+print OUT2 join("\t",'Sample','Chromosome','Start','End','ExonName',
 		'MinDepth','MaxDepth','MedianDepth','AvgDepth',
-		'Fraction100X+','Fraction10X-','BP100X+','TotalBP'),"\n";
+		'Fraction100X+','BP100X+','TotalBP'),"\n";
 my %cov;
 my %covstats;
 my %exons;

@@ -54,6 +54,7 @@ while (my $line = <VCF>) {
   unless (exists $gtdata{GT} && exists $gtdata{DP} && exists $gtdata{AD} &&  exists $gtdata{AO} && exists $gtdata{RO}) {
     warn "Missing Information\n";
   }
+  $gtdata{GT} = '0/1' if ($gtdata{GT} eq '0/0');
   $newgt = join(":",$gtdata{GT},$gtdata{DP},$gtdata{AD},$gtdata{AO},$gtdata{RO});
   print OUT join("\t",$chrom,$pos,$id,$ref,$alt,$score,$filter,$annot,$newformat,$newgt),"\n";
 }

@@ -18,7 +18,7 @@ bams=file(params.bams)
 
 reffa=file("$params.genome/genome.fa")
 index_path = file(params.genome)
-
+ncmconf = file("$params.genome/ncm.conf")
 target_panel = file(params.targetpanel)
 dbsnp=file(dbsnp)
 
@@ -73,6 +73,7 @@ process indexoribams {
   set tid,nid,file(tumor),file(normal) from oribam
   output:
   set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into dellybam
+  set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into checkbams
 
   script:
   """
@@ -94,9 +95,23 @@ process indextarbams {
 
   script:
   """
-  module load speedseq/20160506 samtools/intel/1.3
+  module load speedseq/20160506 samtools/intel/1.3 gatk/3.5
   sambamba index -t \$SLURM_CPUS_ON_NODE ${tumor}
   sambamba index -t \$SLURM_CPUS_ON_NODE ${normal}
+  """
+}
+process checkmates {
+  publishDir "$params.output", mode: 'copy'
+  errorStrategy 'ignore'
+  input:
+  set tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from checkbams
+  file(conf) from ncmconf
+  output:
+  file("${tid}_${nid}*") into checkmateout
+  script:
+  """
+  module load bcftools/intel/1.3 samtools/intel/1.3 
+  python /project/shared/bicf_workflow_ref/seqprg/NGSCheckMate/ncm.py -B -d ./ -bed ${index_path}/NGSCheckMate.bed -O ./ -N ${tid}_${nid}
   """
 }
 
@@ -284,6 +299,7 @@ process annot {
   
   output:
   file("${fname}.annot.vcf.gz") into annot
+  file("${fname}.coding*") into codingout
   file("${fname}.stats.txt") into stats
   file("${fname}.statplot*") into plotstats
 
@@ -296,11 +312,14 @@ process annot {
   bcftools annotate -Oz -a ${index_path}/dbSnp.vcf.gz -o ${fname}.dbsnp.vcf.gz --columns CHROM,POS,ID,RS ${fname}.exac.vcf.gz
   tabix ${fname}.dbsnp.vcf.gz
   bcftools annotate -Oz -a ${index_path}/clinvar.vcf.gz -o ${fname}.clinvar.vcf.gz --columns CHROM,POS,CLNSIG,CLNDSDB,CLNDSDBID,CLNDBN,CLNREVSTAT,CLNACC ${fname}.dbsnp.vcf.gz
+  tabix ${index_path}/clinvar.vcf.gz
+  bcftools annotate -Oz -a ${index_path}/utswv2_artifact.bed.gz -o ${fname}.utswbl.vcf.gz -m "UTSWBlacklist" -c CHROM,FROM,TO ${fname}.clinvar.vcf.gz
+  tabix ${fname}.utswbl.vcf.gz
   java -Xmx10g -jar \$SNPEFF_HOME/snpEff.jar -no-intergenic -lof -c \$SNPEFF_HOME/snpEff.config ${snpeff_vers} ${fname}.clinvar.vcf.gz | java -Xmx10g -jar \$SNPEFF_HOME/SnpSift.jar annotate ${index_path}/cosmic.vcf.gz - |java -Xmx10g -jar \$SNPEFF_HOME/SnpSift.jar dbnsfp -v -db ${index_path}/dbNSFP.txt.gz - | java -Xmx10g -jar \$SNPEFF_HOME/SnpSift.jar gwasCat -db ${index_path}/gwas_catalog.tsv - |bgzip > ${fname}.annot.vcf.gz
   tabix ${fname}.annot.vcf.gz
   bcftools stats ${fname}.annot.vcf.gz > ${fname}.stats.txt
   plot-vcfstats -s -p ${fname}.statplot ${fname}.stats.txt
-  java -jar \$SNPEFF_HOME/SnpSift.jar filter "(DP[0] > 49 & (ANN[*].IMPACT = 'HIGH' | ANN[*].IMPACT = 'MODERATE')" ${fname}.annot.vcf.gz | bgzip > ${fname}.coding.vcf.gz
+  java -jar \$SNPEFF_HOME/SnpSift.jar filter "(DP[0] > 49 & (ANN[*].IMPACT = 'HIGH' | ANN[*].IMPACT = 'MODERATE'))" ${fname}.annot.vcf.gz | bgzip > ${fname}.coding.vcf.gz
   zcat ${fname}.coding.vcf.gz | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl | java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS ID ANN[*].GENE ANN[*].HGVS_P GEN[0].AD GEN[0].DP MQ CallSet AC_POPMAX AN_POPMAX ANN[*].EFFECT ANN[*].IMPACT CNT[*]| uniq |grep -v "MODIFIER" |uniq > ${fname}.coding.txt
   """
 }

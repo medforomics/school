@@ -18,7 +18,7 @@ while (my $line = <OM>) {
     $cosmic{$line} = 'cosmic_consensus';
   }
 close OM;
-open OM, "</project/shared/bicf_workflow_ref/GRCh38/panel1385.genelist" or die $!;
+open OM, "</project/shared/bicf_workflow_ref/GRCh38/panel1385.genelist.txt" or die $!;
 while (my $line = <OM>) {
     chomp($line);
     $keep{$line} = 1;

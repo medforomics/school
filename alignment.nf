@@ -147,9 +147,9 @@ process alignpe {
   params.pairs == 'pe'
   script:
   """
-  module load bwakit/0.7.15 seqtk/1.2-r94 samtools/intel/1.3 speedseq/20160506 picard/1.127
-  seqtk mergepe ${fq1} ${fq2} | bwa mem -M -p -t 30 -R '@RG\\tID:${fq1.baseName.split("\\.batch", 2)[0]}\\tLB:tx\\tPL:illumina\\tPU:barcode\\tSM:${fq1.baseName.split("\\.batch", 2)[0]}' ${gatkref} - 2> log.bwamem | k8 /cm/shared/apps/bwakit/0.7.15/bwa-postalt.js -p ${pair_id}.hla ${gatkref}.alt | samtools view -1 - > output.unsort.bam
-  sambamba sort -t 30 -o ${pair_id}.bam output.unsort.bam
+  module load bwakit/0.7.15 seqtk/1.2-r94 samtools/intel/1.3 speedseq/20160506 picard/1.127 bwa/intel/0.7.15
+  bwa mem -M -t \$SLURM_CPUS_ON_NODE -R '@RG\\tID:${fq1.baseName.split("\\.batch", 2)[0]}\\tLB:tx\\tPL:illumina\\tPU:barcode\\tSM:${fq1.baseName.split("\\.batch", 2)[0]}' ${gatkref} ${fq1} ${fq2}
+  sambamba sort -t \$SLURM_CPUS_ON_NODE -o ${pair_id}.bam output.unsort.bam
   """
  }
 
@@ -163,9 +163,11 @@ process mergebam {
   input:
   set pair_id,file(bams) from bamgrp
   output:
+  file("${pair_id}*hla.*") into hla
   file("${pair_id}.hist.txt") into insertsize
   file("${pair_id}.libcomplex.txt") into libcomplex
   set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into qcbam
+  set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into targetbam
   script:
   """
   module load samtools/intel/1.3 speedseq/20160506 picard/1.127
@@ -173,14 +175,19 @@ process mergebam {
   count=\$(ls *.bam |wc -l)
   if [ \$count -gt 1 ]
   then
-  sambamba merge -t 20 merge.bam *.bam
+  sambamba merge -t \$SLURM_CPUS_ON_NODE merge.bam *.bam
   else
   mv *.bam merge.bam
   fi
   sambamba sort -t \$SLURM_CPUS_ON_NODE -o output.sort.bam merge.bam
+  sambamba sort -N -t \$SLURM_CPUS_ON_NODE -o output.nsort.bam merge.bam
   java -Xmx20g -jar \$PICARD/picard.jar MarkDuplicatesWithMateCigar I=output.sort.bam O=${pair_id}.bam M=${pair_id}.libcomplex.txt ASSUME_SORTED=true MINIMUM_DISTANCE=300
   sambamba index ${pair_id}.bam
   java -Xmx4g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${pair_id}.bam HISTOGRAM_FILE=${pair_id}.hist.ps REFERENCE_SEQUENCE=${gatkref} OUTPUT=${pair_id}.hist.txt
+  samtools view output.nsort.bam | k8 /cm/shared/apps/bwa/intel/0.7.15/bwakit/bwa-postalt.js -p ${pair_id}.hla ${index_path}/hs38DH.fa.alt &> tmp
+  run-HLA ${index_path}.hla > ${index_path}.hla.top 2> ${index_path}.hla.log
+  touch ${pair_id}.hla.HLA-dummy.gt
+  cat ${pair_id}.hla.HLA*.gt | grep ^GT | cut -f2- > ${pair_id}.hla.all
   """
 }
 process seqqc {
@@ -197,7 +204,7 @@ process seqqc {
   file("${pair_id}.meanmap.txt") into meanmap
   file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
   set file("${pair_id}_fastqc.zip"),file("${pair_id}_fastqc.html") into fastqc
-  set pair_id, file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into targetbam
+  set pair_id, file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into ontargetbam
   set pair_id,file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into genocovbam
 
   script:
@@ -257,5 +264,25 @@ process parse_stat {
   perl $baseDir/scripts/parse_seqqc.pl *.genomecov.txt
   perl $baseDir/scripts/covstats.pl *.mapqualcov.txt
   Rscript $baseDir/scripts/plot_hist_genocov.R
+  """
+}
+process gatkbam {
+  errorStrategy 'ignore'
+  //publishDir "$params.output", mode: 'copy'
+
+  input:
+  set pair_id, file(dbam), file(idx) from targetbam
+
+  output:
+  set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
+  
+  script:
+  """
+  module load gatk/3.5 samtools/intel/1.3
+  samtools index ${dbam}
+  java -Xmx32g -jar \$GATK_JAR -T RealignerTargetCreator -known ${knownindel} -R ${reffa} -o ${pair_id}.bam.list -I ${dbam} -nt \$SLURM_CPUS_ON_NODE -nct 1
+  java -Xmx32g -jar \$GATK_JAR -I ${dbam} -R ${reffa} --filter_mismatching_base_and_quals -T IndelRealigner -targetIntervals ${pair_id}.bam.list -o ${pair_id}.realigned.bam
+  java -Xmx32g -jar \$GATK_JAR -l INFO -R ${reffa} --knownSites ${dbsnp} -I ${pair_id}.realigned.bam -T BaseRecalibrator -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov ContextCovariate -o ${pair_id}.recal_data.grp -nt 1 -nct \$SLURM_CPUS_ON_NODE
+  java -Xmx32g -jar \$GATK_JAR -T PrintReads -R ${reffa} -I ${pair_id}.realigned.bam -BQSR ${pair_id}.recal_data.grp -o ${pair_id}.final.bam -nt 1 -nct 8
   """
 }

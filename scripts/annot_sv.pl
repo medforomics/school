@@ -147,7 +147,7 @@ foreach $events (sort keys %lines) {
 	  next if $SU < 3;
 	  print OUT join("\t",'SV.'.$events,split(":",$locus),$lines{$events}{$locus}{$sample},
 			 $genesym, join(";",sort {$a cmp $b} keys %{$gene_annots{$genesym}}),$sample),"\n";
-      }
+      } 
     }
   }
 }

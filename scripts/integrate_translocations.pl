@@ -53,17 +53,16 @@ if ($opt{fusion} && -e $opt{fusion}) {
     next unless ($prots{$hash{LeftGene}} && $prots{$hash{RightGene}});
     my $fusionname = join("--",sort {$a cmp $b} ($hash{LeftGene},$hash{RightGene}));
     if ($tloc{$fusionname}) {
-      $tloc{$fusionname}{RNAReads} += $hash{JunctionReadCount}+$hash{SpanningFragCount};
-      $tloc{$fusionname}{LeftBreakpoint}{join(":",$left_chr,$left_pos)} = 1;
-      $tloc{$fusionname}{RightBreakpoint}{join(":",$right_chr,$right_pos)} = 1;
+      push @{$tloc{$fusionname}{RNAInfo}},[$hash{JunctionReadCount}+$hash{SpanningFragCount},join(":",$left_chr,$left_pos),join(":",$right_chr,$right_pos)];
+      $tloc{$fusionname}{SumRNAReads} += $hash{JunctionReadCount}+$hash{SpanningFragCount};
     }else {
       $tloc{$fusionname} = {LeftGene=>$hash{LeftGene},
 			    RightGene=>$hash{RightGene},
-			    LeftBreakpoint=>{join(":",$left_chr,$left_pos) =>1},
-			    RightBreakpoint=>{join(":",$right_chr,$right_pos) =>1},
-			    LeftStrand=>$left_strand,RightStrand=>$right_strand,
-			    RNAReads=>$hash{JunctionReadCount}+$hash{SpanningFragCount},
+			    LeftStrand=>$left_strand,
+			    RightStrand=>$right_strand,
+			    SumRNAReads=>$hash{JunctionReadCount}+$hash{SpanningFragCount},
 			    DNAReads=>0};
+      push @{$tloc{$fusionname}{RNAInfo}},[$hash{JunctionReadCount}+$hash{SpanningFragCount},join(":",$left_chr,$left_pos),join(":",$right_chr,$right_pos)];
     }
   }
 }
@@ -72,11 +71,11 @@ my %svs;
 my %annot;
 open LUMPY, "<$opt{svcf}" or die $!;
 while (my $line = <LUMPY>) {
-    chomp($line);
+  chomp($line);
     my ($id,$chr,$start,$end,$svtype,$cnv,$numreads,$gene,$exons,$sample,$dgv) = split(/\t/,$line);
-    push @{$svs{$id}}, [$chr,$start,$end,$svtype,$numreads,$gene,$exons,$sample];
-    $annot{$chr}{$start}{$gene} = $exons;
-  }
+  push @{$svs{$id}}, [$chr,$start,$end,$svtype,$numreads,$gene,$exons,$sample];
+  $annot{$chr}{$start}{$gene} = $exons;
+}
 
 my %svs_gene;
 foreach my $id (keys %svs) {
@@ -130,11 +129,11 @@ foreach my $id (keys %svs) {
     }else {
       $tloc{$fusionname} = {LeftGene=>$gene[0],
 			    RightGene=>$gene[1],
-			    LeftBreakpoint=>join(":",$kloci[0][0],$kloci[0][1]),
-			    RightBreakpoint=>join(":",$kloci[1][0],$kloci[1][1]),
-			    LeftStrand=>'',RightStrand=>'',
-			    RNAReads=>0,
+			    LeftStrand=>'',
+			    RightStrand=>'',
+			    SumRNAReads=>0,
 			    DNAReads=>$kloci[0][2]};
+     push @{$tloc{$fusionname}{RNAInfo}},[0,join(":",$kloci[0][0],$kloci[0][1]),join(":",$kloci[1][0],$kloci[1][1])];
     }
   } else {
     next unless $relreads;
@@ -158,16 +157,18 @@ print OUT join("\t","FusionName","LeftGene","RightGene","LefttBreakpoint",
 	       "DNAReads"),"\n";
 
 foreach $fname (keys %tloc) {
-  if ($known{$fname}) {
-    next unless (($tloc{$fname}{RNAReads} >= 1 && $tloc{$fname}{DNAReads} >= 3) || $tloc{$fname}{DNAReads} >= 10 || $tloc{$fname}{RNAReads} >= 5);
+  $keepbp = 0;
+  if ($known{$fname} && ($tloc{$fname}{SumRNAReads} >= 1 || $tloc{$fname}{DNAReads} >= 3 )) {
+    $keepbp = 1;
+  }elsif (($tloc{$fname}{SumRNAReads} >= 2 || $tloc{$fname}{DNAReads} >= 20)) {
+    $keepbp = 1; 
+  }
+  next unless ($keepbp);
+  foreach $bps (@{$tloc{$fname}{RNAInfo}}) {
+    my ($rnareads, $leftbp, $rightbp) = @{$bps};
     print OUT join("\t",$fname,$tloc{$fname}{LeftGene},$tloc{$fname}{RightGene},
-		   join(",", keys %{$tloc{$fname}{LeftBreakpoint}}),join(",", keys %{$tloc{$fname}{RightBreakpoint}}),
-		   $tloc{$fname}{LeftStrand},$tloc{$fname}{RightStrand},$tloc{$fname}{RNAReads},$tloc{$fname}{DNAReads}),"\n";
-  }else {
-    next unless (($tloc{$fname}{RNAReads} >= 1 && $tloc{$fname}{DNAReads} >= 20));
-    print OUT join("\t",$fname,$tloc{$fname}{LeftGene},$tloc{$fname}{RightGene},
-		   join(",", keys %{$tloc{$fname}{LeftBreakpoint}}),join(",", keys %{$tloc{$fname}{RightBreakpoint}}),
-		   $tloc{$fname}{LeftStrand},$tloc{$fname}{RightStrand},$tloc{$fname}{RNAReads},$tloc{$fname}{DNAReads}),"\n";
+		   $leftbp, $rightbp,$tloc{$fname}{LeftStrand},
+		   $tloc{$fname}{RightStrand},$rnareads,$tloc{$fname}{DNAReads}),"\n";
   }
 }
 close OUT;

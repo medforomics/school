@@ -20,7 +20,7 @@ while (my $line = <OM>) {
     $cosmic{$line} = 'cosmic_consensus';
   }
 close OM;
-open OM, "</project/shared/bicf_workflow_ref/GRCh38/panel1385.genelist" or die $!;
+open OM, "</project/shared/bicf_workflow_ref/GRCh38/panel1385.genelist.txt" or die $!;
 while (my $line = <OM>) {
     chomp($line);
     $keep{$line} = 1;
@@ -96,6 +96,7 @@ while (my $line = <IN>) {
       next if ($maf < 0.05);
   }
   my $keepforvcf = 0;
+  next unless ($hash{ANN});
   foreach $trx (split(/,/,$hash{ANN})) {
     my ($allele,$effect,$impact,$gene,$geneid,$feature,
 	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
@@ -109,7 +110,7 @@ while (my $line = <IN>) {
     $done{$chrom}{$pos} = 1;
     $oncomine{$gene} = '' unless $oncomine{$gene};
     $cosmic{$gene} = '' unless $cosmic{$gene};
-    print OUT join("\t",$chrom,$pos,$id,@maf,@dp,$exacaf,$hash{CallSet},$cosmicsubj,$cosmic{$gene},$oncomine{$gene},$gene,$aa,$effect,$impact),"\n";
+    print OUT join("\t",$chrom,$pos,$id,$maf,$dp,$exacaf,$hash{CallSet},$cosmicsubj,$cosmic{$gene},$oncomine{$gene},$gene,$aa,$effect,$impact),"\n";
     $keepforvcf = 1;
   }
   if ($keepforvcf) {
