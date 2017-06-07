@@ -244,7 +244,7 @@ process parse_alignstat {
   file('alignment.summary.txt')
 
   """
-  perl $baseDir/scripts/parse_flagstat.pl *.flagstat.txt
+  perl $baseDir/scripts/sequenceqc_rnaseq.pl *.flagstat.txt
   """
 }
 

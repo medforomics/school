@@ -261,7 +261,7 @@ process parse_stat {
   script:
   """
   module load R/3.2.1-intel
-  perl $baseDir/scripts/parse_seqqc.pl *.genomecov.txt
+  perl $baseDir/scripts/sequenceqc_alignment.pl *.genomecov.txt
   perl $baseDir/scripts/covstats.pl *.mapqualcov.txt
   Rscript $baseDir/scripts/plot_hist_genocov.R
   """
