@@ -12,13 +12,13 @@ chomp(@files);
 my $source = `zgrep '#' $opt{refdir}\/cosmic.vcf.gz |grep source`;
 my $cosmic_ref = (split(/=/, $source))[1];
 chomp($cosmic_ref);
-my $dbsnp_ref = `zgrep '#' $opt{refdir}\/dbSnp.vcf.gz |grep dbSNP_BUILD_ID`;
+my $dbsnp_source = `zgrep '#' $opt{refdir}\/dbSnp.vcf.gz |grep dbSNP_BUILD_ID`;
 my $dbsnp_ref = (split(/=/, $dbsnp_source))[1];
 chomp($dbsnp_ref);
 my $gencode_ref = `head -n 10 $opt{refdir}\/gencode.gtf|grep version`;
 $gencode_ref =~ s/.*(version\s[\d]+).*/$1/;
 chomp($gencode_ref);
-my $gen_ref = (split(/\//,$opt{refdir}))[-2];
+my $gen_ref = (split(/\//,$opt{refdir}))[-1];
 my $gittag = `cd /project/PHG/PHG_Clinical/clinseq_workflows;git describe --tag`;
 chomp $gittag;
 #### End Version Information ######
@@ -66,6 +66,10 @@ foreach my $file (@files) {
     }
   }
   close IN;
+  my $rrna = `grep $sample countTable.stats.txt|grep rRNA|grep -v Mt_rRNA`;
+  my $rrna_perc = (split(/\t/, $rrna))[1];
+  my $protcod= `grep $sample countTable.stats.txt|grep protein_coding`;
+  my $protcod_perc = (split(/\t/, $protcod))[1];
   #### Begin File Information ########
   my $status = 'PASS';
   $status = 'FAIL' if ($maprate < 0.90);
@@ -79,7 +83,8 @@ foreach my $file (@files) {
 
   $total = $pairs*2 if ($total == $pairs);
   print OUT join("\n","Sample\t".$sample,"Total_Raw_Count\t".$total, "Read1_Map\t".$pairs,"Read2_Map\t".$read2ct,
-    "Map_Rate\t".$maprate,"Concordant_Rate\t".$concorrate,"Alignment_Status\t".$status,"Alignment_Date\t".$date,
-    "File_Owner\t".$fileowner,"Workflow_Version\t".$gittag,"Cosmic_Reference\t".$cosmic_ref,
-    "dbSnp_Reference\t".$dbsnp_ref,"Gencode_Reference\t".$gencode_ref,"Genome_Reference\t".$gen_ref),"\n";
+    "Map_Rate\t".$maprate,"Concordant_Rate\t".$concorrate,"Protein_Coding_Perc".$protcod_perc,"rRNA_Perc".$rrna_perc,
+    "Alignment_Status\t".$status,"Alignment_Date\t".$date,"File_Owner\t".$fileowner,"Workflow_Version\t".$gittag,
+    "Cosmic_Reference\t".$cosmic_ref,"dbSnp_Reference\t".$dbsnp_ref,"Gencode_Reference\t".$gencode_ref,
+    "Genome_Reference\t".$gen_ref),"\n";
 }

@@ -69,6 +69,7 @@ process indexoribams {
   set tid,file(tumor),file("${tumor}.bai") into svbam
   script:
   """
+  source /etc/profile.d/modules.sh
   module load speedseq/20160506 samtools/intel/1.3
   sambamba index -t \$SLURM_CPUS_ON_NODE ${tumor}
   """
@@ -77,10 +78,14 @@ process indexbams {
   input:
   set tid,file(tumor) from tarbam
   output:
-  set tid,file(tumor),file("${tumor}.bai") into targetbam
+  set tid,file(tumor),file("${tumor}.bai") into gatkbam
+  set tid,file(tumor),file("${tumor}.bai") into sambam
+  set tid,file(tumor),file("${tumor}.bai") into hsbam
+  set tid,file(tumor),file("${tumor}.bai") into platbam
 
   script:
   """
+  source /etc/profile.d/modules.sh
   module load speedseq/20160506 samtools/intel/1.3
   sambamba index -t \$SLURM_CPUS_ON_NODE ${tumor}
   """
@@ -99,6 +104,7 @@ process svcall {
   file("${pair_id}.sv.annot.txt") into svannot
   script:
   """
+  source /etc/profile.d/modules.sh
   module load samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 speedseq/20160506 vcftools/0.1.14
   mkdir temp
   /project/BICF/BICF_Core/shared/seqprg/delly/src/delly call -t TRA -o delly_translocations.bcf -q 30 -g ${reffa} ${ssbam}
@@ -115,7 +121,6 @@ process svcall {
   perl $baseDir/scripts/vcf2bed.sv.pl ${pair_id}.delly.vcf > delly.bed
   bgzip ${pair_id}.delly.vcf
   tabix ${pair_id}.delly.vcf.gz
-
   sambamba sort -t \$SLURM_CPUS_ON_NODE -n -o namesort.bam ${ssbam}
   sambamba view -h namesort.bam | samblaster -M -a --excludeDups --addMateTags --maxSplitCount 2 --minNonOverlap 20 -d discordants.sam -s splitters.sam > temp.sam
   gawk '{ if (\$0~"^@") { print; next } else { \$10="*"; \$11="*"; print } }' OFS="\\t" splitters.sam | samtools  view -S -b - | samtools sort -o splitters.bam -
@@ -134,30 +139,6 @@ process svcall {
   """
 }
 
-process gatkbam {
-  errorStrategy 'ignore'
-  //publishDir "$params.output", mode: 'copy'
-
-  input:
-  set pair_id, file(dbam), file(idx) from targetbam
-
-  output:
-  set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
-  set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into sambam
-  set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into hsbam
-  set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into platbam
-  
-  script:
-  """
-  module load gatk/3.5 samtools/intel/1.3
-  samtools index ${dbam}
-  java -Xmx32g -jar \$GATK_JAR -T RealignerTargetCreator -known ${knownindel} -R ${reffa} -o ${pair_id}.bam.list -I ${dbam} -nt \$SLURM_CPUS_ON_NODE -nct 1
-  java -Xmx32g -jar \$GATK_JAR -I ${dbam} -R ${reffa} --filter_mismatching_base_and_quals -T IndelRealigner -targetIntervals ${pair_id}.bam.list -o ${pair_id}.realigned.bam
-  java -Xmx32g -jar \$GATK_JAR -l INFO -R ${reffa} --knownSites ${dbsnp} -I ${pair_id}.realigned.bam -T BaseRecalibrator -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov ContextCovariate -o ${pair_id}.recal_data.grp -nt 1 -nct \$SLURM_CPUS_ON_NODE
-  java -Xmx32g -jar \$GATK_JAR -T PrintReads -R ${reffa} -I ${pair_id}.realigned.bam -BQSR ${pair_id}.recal_data.grp -o ${pair_id}.final.bam -nt 1 -nct 8
-  """
-}
-
 process gatkgvcf {
   errorStrategy 'ignore'
   //publishDir "$params.output", mode: 'copy'
@@ -165,18 +146,17 @@ process gatkgvcf {
   input:
   set pair_id,file(gbam),file(gidx) from gatkbam
   output:
-  //file("${pair_id}.gatkpanel.vcf.gz") into gatkfilt
+  set pair_id,file("${pair_id}.gatk.g.vcf") into gvcf
   set pair_id,file("${pair_id}.gatk.vcf.gz") into gatkvcf
 
   script:
   """
+  source /etc/profile.d/modules.sh
   module load gatk/3.5 python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 vcftools/0.1.14 
   java -Xmx32g -jar \$GATK_JAR -R ${reffa} -D ${dbsnp} -T HaplotypeCaller -stand_call_conf 30 -stand_emit_conf 10.0 -A FisherStrand -A QualByDepth -A VariantType -A DepthPerAlleleBySample -A HaplotypeScore -A AlleleBalance -variant_index_type LINEAR -variant_index_parameter 128000 --emitRefConfidence GVCF -I ${gbam} -o ${pair_id}.gatk.g.vcf -nct 2
   java -Xmx32g -jar \$GATK_JAR -R ${reffa} -D ${dbsnp} -T GenotypeGVCFs -o gatk.vcf -nt 4 --variant ${pair_id}.gatk.g.vcf
   vcf-annotate -n --fill-type gatk.vcf | bcftools norm -c s -f ${reffa} -w 10 -O z -o ${pair_id}.gatk.vcf.gz -
   tabix ${pair_id}.gatk.vcf.gz
-  #java -Xmx32g -jar \$GATK_JAR -R ${reffa} -T VariantFiltration -V ${pair_id}.gatk.vcf.gz -window 35 -cluster 3 -filterName FS -filter "FS > 30.0" -filterName QD -filter "QD < 2.0" -o ${pair_id}.filtgatk.vcf 
-  #java -jar \$SNPEFF_HOME/SnpSift.jar filter '((QUAL >= 10) & (MQ > 40) & (DP >= 10))' ${pair_id}.filtgatk.vcf | bedtools intersect -header -a stdin -b ${capture_bed} |bgzip > ${pair_id}.gatkpanel.vcf.gz
   """
 }
 
@@ -191,10 +171,10 @@ process mpileup {
   set pair_id,file("${pair_id}.sam.vcf.gz") into samvcf
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 vcftools/0.1.14
   samtools mpileup -t 'AD,DP,INFO/AD' -ug -Q20 -C50 -f ${reffa} ${gbam} | bcftools call -vmO z -o ${pair_id}.sam.ori.vcf.gz
-  vcf-concat ${pair_id}.sam.ori.vcf.gz | vcf-sort |vcf-annotate -n --fill-type | bcftools norm -c s -f ${reffa} -w 10 -O z -o ${pair_id}.sam.vcf.gz -
-  #java -jar \$SNPEFF_HOME/SnpSift.jar filter '((QUAL >= 10) & (MQ >= 20) & (DP >= 10))' ${pair_id}.sam.vcf.gz |bedtools intersect -header -a stdin -b ${capture_bed} |bgzip > ${pair_id}.sampanel.vcf.gz
+  vcf-sort ${pair_id}.sam.ori.vcf.gz | vcf-annotate -n --fill-type | bcftools norm -c s -f ${reffa} -w 10 -O z -o ${pair_id}.sam.vcf.gz -
   """
 }
 process hotspot {
@@ -209,6 +189,7 @@ process hotspot {
   params.cancer == "detect"
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 vcftools/0.1.14
   samtools mpileup -d 99999 -t 'AD,DP,INFO/AD' -uf ${reffa} ${gbam} > ${pair_id}.mpi
   bcftools filter -i "AD[1]/DP > 0.01" ${pair_id}.mpi | bcftools filter -i "DP > 50" | bcftools call -m -A |vcf-annotate -n --fill-type |  bcftools norm -c s -f /project/shared/bicf_workflow_ref/GRCh38/genome.fa -w 10 -O z -o ${pair_id}.lowfreq.vcf.gz -
@@ -222,15 +203,14 @@ process speedseq {
   input:
   set pair_id,file(gbam),file(gidx) from ssbam
   output:
-  //file("${pair_id}.sspanel.vcf.gz") into ssfilt
   set pair_id,file("${pair_id}.ssvar.vcf.gz") into ssvcf
 
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 speedseq/20160506 vcftools/0.1.14
   speedseq var -t \$SLURM_CPUS_ON_NODE -o ssvar ${reffa} ${gbam}
   vcf-annotate -n --fill-type ssvar.vcf.gz| bcftools norm -c s -f ${reffa} -w 10 -O z -o ${pair_id}.ssvar.vcf.gz -
-  #java -Xmx10g -jar \$SNPEFF_HOME/SnpSift.jar filter '((QUAL >= 10) & (DP >= 10))' ${pair_id}.ssvar.vcf.gz |bedtools intersect -header -a stdin -b ${capture_bed} | bgzip > ${pair_id}.sspanel.vcf.gz
   """
 }
 process platypus {
@@ -246,12 +226,12 @@ process platypus {
 
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 platypus/gcc/0.8.1 bcftools/intel/1.3 samtools/intel/1.3 vcftools/0.1.14
   Platypus.py callVariants --minMapQual=10 --mergeClusteredVariants=1 --nCPU=\$SLURM_CPUS_ON_NODE --bamFiles=${gbam} --refFile=${reffa} --output=platypus.vcf
-  bgzip platypus.vcf
+  vcf-sort platypus.vcf |vcf-annotate -n --fill-type -n |bgzip > platypus.vcf.gz
   tabix platypus.vcf.gz
-  vcf-sort platypus.vcf.gz| vcf-annotate -n --fill-type -n | bcftools norm -c s -f ${reffa} -w 10 -O z -o ${pair_id}.platypus.vcf.gz -
-  #java -jar \$SNPEFF_HOME/SnpSift.jar filter "((QUAL >= 10) & (QD > 2) & (FILTER = 'PASS'))" ${pair_id}.platypus.vcf.gz | bedtools intersect -header -a stdin -b ${capture_bed} |bgzip > ${pair_id}.platpanel.vcf.gz
+  bcftools norm -c s -f ${reffa} -w 10 -O z -o ${pair_id}.platypus.vcf.gz platypus.vcf.gz
   """
 }
 
@@ -287,6 +267,7 @@ process integrate {
   script:
   if (params.cancer == "detect")
   """
+  source /etc/profile.d/modules.sh
   module load gatk/3.5 python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3 vcftools/0.1.14
   bedtools multiinter -i ${gatk} ${sam} ${ss} ${plat} ${hs} -names gatk sam ssvar platypus hotspot |cut -f 1,2,3,5 | bedtools sort -i stdin | bedtools merge -c 4 -o distinct >  ${fname}_integrate.bed
   bedtools intersect -header -v -a ${hs} -b ${sam} |bedtools intersect -header -v -a stdin -b ${gatk} | bedtools intersect -header -v -a stdin -b ${ss} |  bedtools intersect -header -v -a stdin -b ${plat} | bgzip > ${fname}.hotspot.nooverlap.vcf.gz
@@ -306,6 +287,7 @@ process integrate {
   """
   else
   """
+  source /etc/profile.d/modules.sh
   module load gatk/3.5 python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3
   module load vcftools/0.1.14
   bedtools multiinter -i ${gatk} ${sam} ${ss} ${plat} -names gatk sam ssvar platypus |cut -f 1,2,3,5 | bedtools sort -i stdin | bedtools merge -c 4 -o distinct >  ${fname}_integrate.bed
@@ -340,6 +322,7 @@ process annot {
 
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3
   tabix ${unionvcf}
   bcftools annotate -Oz -a ${index_path}/ExAC.vcf.gz -o ${fname}.exac.vcf.gz --columns CHROM,POS,AC_Het,AC_Hom,AC_Hemi,AC_Adj,AN_Adj,AC_POPMAX,AN_POPMAX,POPMAX ${unionvcf}
@@ -352,9 +335,10 @@ process annot {
   tabix ${fname}.utswbl.vcf.gz
   java -Xmx10g -jar \$SNPEFF_HOME/snpEff.jar -no-intergenic -lof -c \$SNPEFF_HOME/snpEff.config ${snpeff_vers} ${fname}.utswbl.vcf.gz | java -jar \$SNPEFF_HOME/SnpSift.jar annotate ${index_path}/cosmic.vcf.gz - | java -Xmx10g -jar \$SNPEFF_HOME/SnpSift.jar dbnsfp -v -db ${index_path}/dbNSFP.txt.gz - | java -Xmx10g -jar \$SNPEFF_HOME/SnpSift.jar gwasCat -db ${index_path}/gwas_catalog.tsv - |bgzip > ${fname}.annot.vcf.gz
   tabix ${fname}.annot.vcf.gz
-  bcftools stats ${fname}.annot.vcf.gz > ${fname}.stats.txt
+  perl $baseDir/scripts/filter_tumoronly.pl ${fname}.annot.vcf.gz ${fname}
+  bgzip ${fname}.annot.tumor.vcf
+  tabix ${fname}.annot.tumor.vcf.gz
+  bcftools stats ${fname}.tumor.vcf.gz > ${fname}.stats.txt
   plot-vcfstats -s -p ${fname}.statplot ${fname}.stats.txt
-  zcat ${fname}.annot.vcf.gz | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl | java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS ID ANN[*].GENE ANN[*].HGVS_P GEN[0].AD GEN[0].DP MQ CallSet AC_POPMAX AN_POPMAX ANN[*].EFFECT ANN[*].IMPACT CNT[*]| uniq |grep -v "MODIFIER" |uniq > ${fname}.coding.txt
-  java -jar \$SNPEFF_HOME/SnpSift.jar filter "(GEN[0].DP > 49 & (ANN[*].IMPACT = 'HIGH' | ANN[*].IMPACT = 'MODERATE'))" ${fname}.annot.vcf.gz | bgzip > ${fname}.coding.vcf.gz
   """
 }

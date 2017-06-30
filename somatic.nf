@@ -77,6 +77,7 @@ process indexoribams {
 
   script:
   """
+  source /etc/profile.d/modules.sh
   module load speedseq/20160506 samtools/intel/1.3
   sambamba index -t \$SLURM_CPUS_ON_NODE ${tumor}
   sambamba index -t \$SLURM_CPUS_ON_NODE ${normal}
@@ -92,9 +93,10 @@ process indextarbams {
   set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into shimmerbam
   set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into vscanbam
   set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into virmidbam
-
+  set val("${tid}_${nid}"),tid,nid into pairnames
   script:
   """
+  source /etc/profile.d/modules.sh
   module load speedseq/20160506 samtools/intel/1.3 gatk/3.5
   sambamba index -t \$SLURM_CPUS_ON_NODE ${tumor}
   sambamba index -t \$SLURM_CPUS_ON_NODE ${normal}
@@ -110,8 +112,10 @@ process checkmates {
   file("${tid}_${nid}*") into checkmateout
   script:
   """
-  module load bcftools/intel/1.3 samtools/intel/1.3 
+  source /etc/profile.d/modules.sh
+  module load python/2.7.x-anaconda bcftools/intel/1.3 samtools/intel/1.3 
   python /project/shared/bicf_workflow_ref/seqprg/NGSCheckMate/ncm.py -B -d ./ -bed ${index_path}/NGSCheckMate.bed -O ./ -N ${tid}_${nid}
+  perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${tid}_${nid}_all.txt -o ${tid}_${nid}.sequence.stats.txt
   """
 }
 
@@ -129,6 +133,7 @@ process svcall {
   file("${tid}_${nid}.sv.annot.txt") into svannot
   script:
   """
+  source /etc/profile.d/modules.sh
   export PATH=/project/BICF/BICF_Core/shared/seqprg/ssake_v3.8.4/:/project/BICF/BICF_Core/shared/seqprg/novoBreak_distribution_v1.1.3rc/:$PATH
   module load bcftools/intel/1.3 samtools/intel/1.3 bedtools/2.25.0 speedseq/20160506 snpeff/4.2 vcftools/0.1.14
   mkdir temp
@@ -185,6 +190,7 @@ process sstumor {
   set val("${tid}_${nid}"), file("${tid}_${nid}.sspanel.vcf.gz") into ssvcf
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 speedseq/20160506 bcftools/intel/1.3 vcftools/0.1.14
   speedseq somatic -q 10 -w ${target_panel} -t \$SLURM_CPUS_ON_NODE -o ${tid}.sssom ${reffa} ${normal} ${tumor}
   vcf-annotate -H -n --fill-type ${tid}.sssom.vcf.gz | java -jar \$SNPEFF_HOME/SnpSift.jar filter --pass '((QUAL >= 10) & (GEN[*].DP >= 10))' | perl -pe 's/TUMOR/${tid}/' | perl -pe 's/NORMAL/${nid}/g' |bgzip > ${tid}_${nid}.sspanel.vcf.gz
@@ -201,6 +207,7 @@ process mutect {
   set val("${tid}_${nid}"),file("${tid}_${nid}.pmutect.vcf.gz") into mutectvcf
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda gatk/3.5  bcftools/intel/1.3 bedtools/2.25.0 snpeff/4.2 vcftools/0.1.14
   cut -f 1 ${index_path}/genomefile.chr.txt | xargs -I {} -n 1 -P 10 sh -c "java -Xmx10g -jar \$GATK_JAR -R ${reffa} -D ${dbsnp} -T MuTect2 -stand_call_conf 30 -stand_emit_conf 10.0 -A FisherStrand -A QualByDepth -A VariantType -A DepthPerAlleleBySample -A HaplotypeScore -A AlleleBalance -I:tumor ${tumor} -I:normal ${normal} --cosmic ${cosmic} -o ${tid}.{}.mutect.vcf -L {}"
   vcf-concat ${tid}*.vcf | vcf-sort | vcf-annotate -n --fill-type | java -jar \$SNPEFF_HOME/SnpSift.jar filter -p '((FS <= 60) & GEN[*].DP >= 10)' | perl -pe 's/TUMOR/${tid}/' | perl -pe 's/NORMAL/${nid}/g' |bgzip > ${tid}_${nid}.pmutect.vcf.gz
@@ -215,6 +222,7 @@ process varscan {
   set val("${tid}_${nid}"),file("${tid}_${nid}.varscan.vcf.gz") into varscanvcf
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3 VarScan/2.4.2 speedseq/20160506 vcftools/0.1.14
   sambamba mpileup -L ${target_panel} -t \$SLURM_CPUS_ON_NODE ${tumor} --samtools "-C 50 -f ${reffa}"  > t.mpileup
   sambamba mpileup -L ${target_panel} -t \$SLURM_CPUS_ON_NODE ${normal} --samtools "-C 50 -f ${reffa}"  > n.mpileup
@@ -232,11 +240,11 @@ process shimmer {
   set val("${tid}_${nid}"), file("${tid}_${nid}.shimmer.vcf.gz") into shimmervcf
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3  shimmer/0.1.1 vcftools/0.1.14
   shimmer.pl --minqual 25 --ref ${reffa} ${normal} ${tumor} --outdir shimmer 2> shimmer.err
   perl $baseDir/scripts/add_readct_shimmer.pl
   vcf-annotate -n --fill-type shimmer/somatic_diffs.readct.vcf | java -jar \$SNPEFF_HOME/SnpSift.jar filter '(GEN[*].DP >= 10)' | perl -pe 's/TUMOR/${tid}/' | perl -pe 's/NORMAL/${nid}/g' | bedtools intersect -header -a stdin -b ${target_panel} | bgzip > ${tid}_${nid}.shimmer.vcf.gz
-
   """
 }
 
@@ -249,6 +257,7 @@ process virmid {
   set val("${tid}_${nid}"), file("${tid}_${nid}.virmid.vcf.gz") into virmidvcf
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 virmid/1.2 vcftools/0.1.14
   virmid -R ${reffa} -D ${tumor} -N ${normal} -s $cosmic -t \$SLURM_CPUS_ON_NODE -M 2000 -c1 10 -c2 10
   perl $baseDir/scripts/addgt_virmid.pl ${tumor}.virmid.som.passed.vcf
@@ -281,6 +290,7 @@ process integrate {
   set fname,file("${fname}.union.vcf.gz") into union
   script:
   """
+  source /etc/profile.d/modules.sh
   module load gatk/3.5 python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3
   module load vcftools/0.1.14
   perl $baseDir/scripts/somatic_unionize_vcf.pl -r ${index_path} ${ss} ${mutect} ${shimmer} ${vscan} ${virmid}
@@ -290,12 +300,16 @@ process integrate {
   """
 }
 
+union .phase(pairnames)
+      .map {p,q -> [p[0],p[1],q[1],q[2]]}
+      .set { union2 }
+      
 process annot {
   errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:
-  set fname,unionvcf from union
+  set fname,unionvcf,tid,nid from union2
   
   output:
   file("${fname}.annot.vcf.gz") into annot
@@ -305,6 +319,7 @@ process annot {
 
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3
   tabix ${unionvcf}
   bcftools annotate -Oz -a ${index_path}/ExAC.vcf.gz -o ${fname}.exac.vcf.gz --columns CHROM,POS,AC_Het,AC_Hom,AC_Hemi,AC_Adj,AN_Adj,AC_POPMAX,AN_POPMAX,POPMAX ${unionvcf}
@@ -315,11 +330,13 @@ process annot {
   tabix ${index_path}/clinvar.vcf.gz
   bcftools annotate -Oz -a ${index_path}/utswv2_artifact.bed.gz -o ${fname}.utswbl.vcf.gz -m "UTSWBlacklist" -c CHROM,FROM,TO ${fname}.clinvar.vcf.gz
   tabix ${fname}.utswbl.vcf.gz
+  
   java -Xmx10g -jar \$SNPEFF_HOME/snpEff.jar -no-intergenic -lof -c \$SNPEFF_HOME/snpEff.config ${snpeff_vers} ${fname}.clinvar.vcf.gz | java -Xmx10g -jar \$SNPEFF_HOME/SnpSift.jar annotate ${index_path}/cosmic.vcf.gz - |java -Xmx10g -jar \$SNPEFF_HOME/SnpSift.jar dbnsfp -v -db ${index_path}/dbNSFP.txt.gz - | java -Xmx10g -jar \$SNPEFF_HOME/SnpSift.jar gwasCat -db ${index_path}/gwas_catalog.tsv - |bgzip > ${fname}.annot.vcf.gz
   tabix ${fname}.annot.vcf.gz
-  bcftools stats ${fname}.annot.vcf.gz > ${fname}.stats.txt
+  perl $baseDir/scripts/filter_somatic.pl ${fname} ${tid}
+  bgzip ${fname}.somatic.vcf
+  tabix ${fname}.somatic.vcf.gz
+  bcftools stats ${fname}.somatic.vcf.gz > ${fname}.stats.txt
   plot-vcfstats -s -p ${fname}.statplot ${fname}.stats.txt
-  java -jar \$SNPEFF_HOME/SnpSift.jar filter "(DP[0] > 49 & (ANN[*].IMPACT = 'HIGH' | ANN[*].IMPACT = 'MODERATE'))" ${fname}.annot.vcf.gz | bgzip > ${fname}.coding.vcf.gz
-  zcat ${fname}.coding.vcf.gz | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl | java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS ID ANN[*].GENE ANN[*].HGVS_P GEN[0].AD GEN[0].DP MQ CallSet AC_POPMAX AN_POPMAX ANN[*].EFFECT ANN[*].IMPACT CNT[*]| uniq |grep -v "MODIFIER" |uniq > ${fname}.coding.txt
   """
 }

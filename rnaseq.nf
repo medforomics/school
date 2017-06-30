@@ -59,7 +59,7 @@ def prefix = []
 new File(params.design).withReader { reader ->
     def hline = reader.readLine()
     def header = hline.split("\t")
-    prefixidx = header.findIndexOf{it == 'SampleID'};
+    prefixidx = header.findIndexOf{it == 'MergeName'};
     oneidx = header.findIndexOf{it == 'FullPathToFqR1'};
     twoidx = header.findIndexOf{it == 'FullPathToFqR2'};
     if (twoidx == -1) {
@@ -104,6 +104,7 @@ process trimpe {
   set pair_id, file("${read1.baseName.split("\\.fastq", 2)[0]}_val_1.fq.gz"), file("${read2.baseName.split("\\.fastq", 2)[0]}_val_2.fq.gz") into fusionfq
   script:
   """
+  source /etc/profile.d/modules.sh
   module load trimgalore/0.4.1 cutadapt/1.9.1
   trim_galore --paired -q 25 --illumina --gzip --length 35 ${read1} ${read2}
   """
@@ -116,6 +117,7 @@ process trimse {
   set pair_id, file("${read1.baseName.split("\\.fastq", 2)[0]}_trimmed.fq.gz") into trimse
   script:
   """
+  source /etc/profile.d/modules.sh
   module load trimgalore/0.4.1 cutadapt/1.9.1
   trim_galore -q 25 --illumina --gzip --length 35 ${read1}
   """
@@ -139,6 +141,7 @@ process starfusion {
   params.fusion == 'detect'
   script:
   """
+  source /etc/profile.d/modules.sh
   module add python/2.7.x-anaconda star/2.5.2b
   STAR-Fusion --genome_lib_dir ${index_path}/CTAT_lib/ --left_fq ${fq1} --right_fq ${fq2} --output_dir star_fusion &> star_fusion.err
   mv star_fusion/star-fusion.fusion_candidates.final.abridged ${pair_id}.starfusion.txt
@@ -160,7 +163,8 @@ process alignpe {
   script:
   if (params.align == 'hisat')
   """
-  module load hisat2/2.0.1-beta-intel samtools/intel/1.3 fastqc/0.11.2 picard/1.127 speedseq/20160506
+  source /etc/profile.d/modules.sh
+  module load hisat2/2.0.1-beta-intel samtools/intel/1.3 fastqc/0.11.2 picard/1.131 speedseq/20160506
   hisat2 -p 30 --no-unal --dta -x ${index_path}/${index_name} -1 ${fq1} -2 ${fq2} -S out.sam 2> ${pair_id}.hisatout.txt
   sambamba view -t 30 -f bam -S -o output.bam out.sam
   sambamba sort -t 30 -o ${pair_id}.bam output.bam
@@ -169,7 +173,8 @@ process alignpe {
   """
   else
   """
-  module load star/2.4.2a samtools/intel/1.3 fastqc/0.11.2 picard/1.127 speedseq/20160506
+  source /etc/profile.d/modules.sh
+  module load star/2.4.2a samtools/intel/1.3 fastqc/0.11.2 picard/1.131 speedseq/20160506
   STAR --genomeDir ${index_path}/${star_index} --readFilesIn ${fq1} ${fq2} --readFilesCommand zcat --genomeLoad NoSharedMemory --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterMultimapNmax 20 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --outSAMheaderCommentFile COfile.txt --outSAMheaderHD @HD VN:1.4 SO:coordinate --outSAMunmapped Within --outFilterType BySJout --outSAMattributes NH HI AS NM MD --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --quantMode TranscriptomeSAM --sjdbScore 1 --limitBAMsortRAM 60000000000 --outFileNamePrefix out
   mv outLog.final.out ${pair_id}.hisatout.txt
   sambamba sort -t 30 -o ${pair_id}.bam outAligned.sortedByCoord.out.bam
@@ -192,7 +197,8 @@ process alignse {
   script:
   if (params.align == 'hisat')
   """
-  module load hisat2/2.0.1-beta-intel samtools/intel/1.3 fastqc/0.11.2 speedseq/20160506 picard/1.127
+  source /etc/profile.d/modules.sh
+  module load hisat2/2.0.1-beta-intel samtools/intel/1.3 fastqc/0.11.2 speedseq/20160506 picard/1.131
   hisat2 -p 30 --no-unal --dta -x ${index_path}/${index_name} -U ${fq1} -S out.sam 2> ${pair_id}.hisatout.txt
   sambamba view -t 30 -f bam -S -o output.bam out.sam
   sambamba sort -t 30 -o ${pair_id}.bam output.bam
@@ -201,7 +207,8 @@ process alignse {
   """
   else
   """
-  module load star/2.4.2a samtools/intel/1.3 fastqc/0.11.2 picard/1.127 speedseq/20160506
+  source /etc/profile.d/modules.sh
+  module load star/2.4.2a samtools/intel/1.3 fastqc/0.11.2 picard/1.131 speedseq/20160506
   STAR --genomeDir ${index_path}/${star_index} --readFilesIn ${fq1} --readFilesCommand zcat --genomeLoad NoSharedMemory --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterMultimapNmax 20 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --outSAMheaderCommentFile COfile.txt --outSAMheaderHD @HD VN:1.4 SO:coordinate --outSAMunmapped Within --outFilterType BySJout --outSAMattributes NH HI AS NM MD --outSAMstrandField intronMotif --outSAMtype SAM --quantMode TranscriptomeSAM --sjdbScore 1 --limitBAMsortRAM 60000000000 --outFileNamePrefix out
   mv outLog.final.out ${pair_id}.hisatout.txt
   sambamba view -t 30 -f bam -S -o output.bam outAligned.out.sam
@@ -232,21 +239,7 @@ Channel
 //
 // Summarize all flagstat output
 //
-process parse_alignstat {
 
-  publishDir "$params.output", mode: 'copy'
-
-  input:
-  file(txt) from alignstats.toList()
-  file(txt) from  hsatout.toList()
-
-  output:
-  file('alignment.summary.txt')
-
-  """
-  perl $baseDir/scripts/sequenceqc_rnaseq.pl *.flagstat.txt
-  """
-}
 
 //
 // Identify duplicate reads with Picard
@@ -264,11 +257,13 @@ process markdups {
   script:
   if (params.markdups == 'mark')
   """
-  module load picard/1.127 speedseq/20160506
+  source /etc/profile.d/modules.sh
+  module load picard/1.131 speedseq/20160506
   sambamba markdup -t 20 -r ${sbam} ${pair_id}.dedup.bam
   """
   else
   """
+  source /etc/profile.d/modules.sh
   module load samtools/intel/1.3
   cp ${sbam} ${pair_id}.dedup.bam
   samtools index ${pair_id}.dedup.bam
@@ -290,7 +285,8 @@ process gatkbam {
   params.variant == "detect"
   script:
   """
-  module load gatk/3.5 samtools/intel/1.3 speedseq/20160506 picard/1.127
+  source /etc/profile.d/modules.sh
+  module load gatk/3.5 samtools/intel/1.3 speedseq/20160506 picard/1.131
   java -Xmx4g -jar \$PICARD/picard.jar CleanSam INPUT=${rbam} O=${pair_id}.clean.bam
   java -Xmx4g -jar \$PICARD/picard.jar AddOrReplaceReadGroups INPUT=${pair_id}.clean.bam O=${pair_id}.rg_added_sorted.bam SO=coordinate RGID=${pair_id} RGLB=tx RGPL=illumina RGPU=barcode RGSM=${pair_id}
   sambamba index ${pair_id}.rg_added_sorted.bam
@@ -312,6 +308,7 @@ process mpileup {
   params.variant == "detect"
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 vcftools/0.1.14
   which samtools
   samtools mpileup -t 'AD,DP,INFO/AD' -ug -Q20 -C50 -f ${index_path}/hisat_genome.fa ${gbam} | bcftools call -vmO z -o ${pair_id}.sam.ori.vcf.gz
@@ -330,6 +327,7 @@ process hotspot {
   params.cancer == "detect" && params.variant == "detect"
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 vcftools/0.1.14
   which samtools
   samtools mpileup -d 99999 -t 'AD,DP,INFO/AD' -uf ${index_path}/hisat_genome.fa ${gbam} > ${pair_id}.mpi
@@ -349,6 +347,7 @@ process speedseq {
   params.variant == "detect"
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 speedseq/20160506 vcftools/0.1.14
   speedseq var -t \$SLURM_CPUS_ON_NODE -o ssvar ${index_path}/hisat_genome.fa ${gbam}
   tabix -f ssvar.vcf.gz
@@ -369,6 +368,7 @@ process gatkgvcf {
   params.variant == "detect"
   script:
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda gatk/3.5 bedtools/2.25.0 snpeff/4.2 vcftools/0.1.14 
   java -Xmx64g -jar \$GATK_JAR -R ${index_path}/hisat_genome.fa -D ${dbsnp} -T HaplotypeCaller -stand_call_conf 30 -stand_emit_conf 10.0 -A FisherStrand -A QualByDepth -A VariantType -A DepthPerAlleleBySample -A HaplotypeScore -A AlleleBalance -variant_index_type LINEAR -variant_index_parameter 128000 --emitRefConfidence GVCF -I ${gbam} -o ${pair_id}.gatk.g.vcf -nct 2
   java -Xmx64g -jar \$GATK_JAR -R ${index_path}/hisat_genome.fa -D ${dbsnp} -T GenotypeGVCFs -o gatk.vcf -nt 4 --variant ${pair_id}.gatk.g.vcf
@@ -410,6 +410,7 @@ process integrate {
   script:
   if (params.cancer == "detect")
   """
+  source /etc/profile.d/modules.sh
   module load gatk/3.5 python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3 vcftools/0.1.14
   bedtools multiinter -i ${gatk} ${sam} ${ss} ${hs} -names gatk sam ssvar hotspot |cut -f 1,2,3,5 | bedtools sort -i stdin | bedtools merge -c 4 -o distinct >  ${fname}_integrate.bed
   bedtools intersect -header -v -a ${hs} -b ${sam} |bedtools intersect -header -v -a stdin -b ${gatk} | bedtools intersect -header -v -a stdin -b ${ss} | bgzip > ${fname}.hotspot.nooverlap.vcf.gz
@@ -427,6 +428,7 @@ process integrate {
   """
   else
   """
+  source /etc/profile.d/modules.sh
   module load gatk/3.5 python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3
   module load vcftools/0.1.14
   bedtools multiinter -i ${gatk} ${sam} ${ss} -names gatk sam ssvar platypus |cut -f 1,2,3,5 | bedtools sort -i stdin | bedtools merge -c 4 -o distinct >  ${fname}_integrate.bed
@@ -454,8 +456,8 @@ process annot {
   when:
   params.variant == "detect"
   script:
-  if (params.genome == '/project/shared/bicf_workflow_ref/GRCh38')
   """
+  source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3
   tabix ${unionvcf}
   bcftools annotate -Oz -a ${index_path}/ExAC.vcf.gz -o ${fname}.exac.vcf.gz --columns CHROM,POS,AC_Het,AC_Hom,AC_Hemi,AC_Adj,AN_Adj,AC_POPMAX,AN_POPMAX,POPMAX ${unionvcf}
@@ -469,18 +471,11 @@ process annot {
   bcftools stats ${fname}.annot.vcf.gz > ${fname}.stats.txt
   plot-vcfstats -s -p ${fname}.statplot ${fname}.stats.txt
   """
-  else
-  """
-  module load snpeff/4.2
-  java -Xmx10g -jar \$SNPEFF_HOME/snpEff.jar -no-intergenic -lof -c \$SNPEFF_HOME/snpEff.config ${snpeff_vers} ${unionvcf} |bgzip > ${fname}.annot.vcf.gz
-  tabix ${fname}.annot.vcf.gz
-  bcftools stats ${fname}.annot.vcf.gz > ${fname}.stats.txt
-  plot-vcfstats -s -p ${fname}.statplot ${fname}.stats.txt
-  """
 }
 //
 // Read summarization with subread
 //
+
 process featurect {
 
   publishDir "$params.output", mode: 'copy'
@@ -492,7 +487,8 @@ process featurect {
   output:
   file("${pair_id}.cts")  into counts
   """
-  module load module subread/1.5.0-intel
+  source /etc/profile.d/modules.sh
+  module load subread/1.5.0-intel
   featureCounts -s params.stranded -T 30 -p -g gene_name -a ${gtf_file} -o ${pair_id}.cts ${dbam}
   """
 }
@@ -513,6 +509,7 @@ process stringtie {
   file("${pair_id}_stringtie") into strcts
   file("${pair_id}.fpkm.txt") into fpkm
   """
+  source /etc/profile.d/modules.sh
   module load stringtie/1.1.2-intel
   mkdir ${pair_id}_stringtie
   cd ${pair_id}_stringtie
@@ -524,26 +521,33 @@ process statanal {
    errorStrategy 'ignore'
    publishDir "$params.output", mode: 'copy'
    input:
+   file(txt) from alignstats.toList()
+   file(txt) from  hsatout.toList()
    file count_file from counts.toList()
    file design_file name 'design.txt'
    file genenames
    file geneset name 'geneset.gmt'
    output:
    file "*" into txtfiles
- 
+   file('*sequence.stats.txt') 
+
    script:
    if (params.dea == 'detect')
    """
-   module load R/3.2.1-intel
+   source /etc/profile.d/modules.sh
+   module load R/3.2.1-intel git/gcc/v2.12.2
    perl $baseDir/scripts/concat_cts.pl -o ./ *.cts
    cp design.txt design.shiny.txt
    cp geneset.gmt geneset.shiny.gmt
    Rscript  $baseDir/scripts/dea.R
    perl $baseDir/scripts/concat_edgeR.pl *.edgeR.txt
+   perl $baseDir/scripts/sequenceqc_rnaseq.pl -r ${index_path} *.flagstat.txt
    """
    else
    """
+   module load git/gcc/v2.12.2
    perl $baseDir/scripts/concat_cts.pl -o ./ *.cts
+   perl $baseDir/scripts/sequenceqc_rnaseq.pl -r ${index_path} *.flagstat.txt
    """
 }
 
@@ -558,6 +562,7 @@ process buildrda {
    params.dea == 'detect'
    script:
    """
+   source /etc/profile.d/modules.sh
    module load R/3.2.1-intel
    Rscript $baseDir/scripts/build_ballgown.R *_stringtie
    """

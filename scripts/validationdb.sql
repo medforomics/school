@@ -9,6 +9,17 @@ CREATE TABLE subject (
   index(tissue)
 ) ENGINE=MyISAM;
 
+create table experiment (
+  id int(10)  NOT NULL auto_increment,
+  experiment varchar(100),
+  dna_samplename varchar(100),
+  rna_samplename varchar(100),
+  index(id),
+  index(experiment),
+  index(dna_samplename),
+  index(rna_samplename)
+)  ENGINE=MyISAM;
+
 create table clialab (
   driverstatus varchar(10),
   subjacc varchar(100),
@@ -47,6 +58,29 @@ CREATE TABLE samples (
   index(sample_name),
   index(assay)
 ) ENGINE=MyISAM;
+
+CREATE TABLE seqgen (
+   seqgen int(10) NOT NULL auto_increment,
+   sid int(10),
+   seqrunid varchar(200),
+   demultiplexname varchar(200),
+   lane int(10),
+   clusters int(20),
+   pfclusters int(20),
+   percpf float,
+   readyield double,
+   percq30 float,
+   avgqualscore float,
+   perclane float,
+   dempstatus enum('pass','fail'),
+   index(seqgen),
+   index(sid),
+   index(seqrunid),
+   index(lane),
+   index(dempstatus),
+   index(samplename)
+) ENGINE=MyISAM;
+
 
 CREATE TABLE demultiplex (
    sid int(10),
@@ -132,8 +166,8 @@ create table coverage (
   index(samplename)  
 ) ENGINE=MyISAM;  
 
-CREATE TABLE dnaextract (
-  dnaextractid int(10) NOT NULL auto_increment,
+CREATE TABLE nucextract (
+  nucextractid int(10) NOT NULL auto_increment,
   subjacc varchar(100),
   extractname varchar(100),
   tclass varchar(100),
@@ -141,18 +175,36 @@ CREATE TABLE dnaextract (
   specimen varchar(100),
   thickness float,
   numslides int(10),
-  extractdin float,
-  dnayield float,
-  extractstatus enum('pass','fail'),
   extracttech varchar(100),
   dateextract date,
-  index(dnaextractid),
+  index(nucextractid),
   index(subjacc),
   index(tclass),
   index(fixtype),
   index(specimen),
-  index(extractstatus),
   index(extracttech)
+) ENGINE=MyISAM;
+
+CREATE TABLE dnaextract (
+  dnaextractid int(10) NOT NULL auto_increment,
+  nucextractid int(10),
+  extractdin float,
+  dnayield float,
+  extractstatus enum('pass','fail'),
+  index(dnaextractid),
+  index(nucextractid),
+  index(extractstatus)
+) ENGINE=MyISAM;
+
+CREATE TABLE rnaextract (
+  rnaextractid int(10) NOT NULL auto_increment,
+  nucextractid int(10),
+  perc200ntplus float,
+  rnayield float,
+  extractstatus enum('pass','fail'),
+  index(rnaextractid),
+  index(nucextractid),
+  index(extractstatus)
 ) ENGINE=MyISAM;
 
 create table dnalibprep (
@@ -174,6 +226,29 @@ create table dnalibprep (
   index(dnahybid),
   index(bcindex),
   index(libstatus),
+  index(libtech),
+  index(datelib)
+) ENGINE=MyISAM;
+
+create table rnalibprep (
+  rnalibprepid int(10) NOT NULL auto_increment,
+  rnaextractid int(10),
+  libraryname varchar(50),
+  perc200ntplus float,
+  inputlib float,
+  libstatus enum('pass','fail'),
+  prehybsize int(10),
+  inputhyb float,
+  posthybsize int(10),
+  hybconcentration float,
+  hybstatus enum('pass','fail'),
+  libtech varchar(100),
+  datelib date,
+  index(rnalibprepid),
+  index(libraryname),
+  index(rnaextractid),
+  index(libstatus),
+  index(hybstatus),
   index(libtech),
   index(datelib)
 ) ENGINE=MyISAM;

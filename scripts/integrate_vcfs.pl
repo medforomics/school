@@ -227,18 +227,26 @@ while (my $line = <IN>) {
       $cosmicsubj += $val if ($val =~ m/^\d+$/);
     }
   }
-  my @altct = split(/,/,$hash{AO});
+  my ($refct,@acts) = split(/,/,$hash{AD});
   my $totalaltct = 0;
-  foreach  my $act (@altct) {
-      $totalaltct += $act;
+  my @altnts = split(/,/,$alt);
+  my @newalts;
+  my @altct;
+  foreach  my $i (0..$#acts) {
+    if ($acts[$i] > 2) {
+      push @newalts, $altnts[$i];
+      push @altct, $acts[$i];
+      $totalaltct += $acts[$i];
+    }
   }
+  next unless ($altct[0] && $altct[0] > 2);
   if ($hash{DP} =~ m/,/) {
-      $hash{DP} = $totalaltct+$hash{RO};
+    $hash{DP} = $totalaltct+$hash{RO};
   }
   next unless ($hash{DP});
   my @mutallfreq;
   foreach  my $act (@altct) {
-      push @mutallfreq, sprintf("%.4f",$act/$hash{DP});
+    push @mutallfreq, sprintf("%.4f",$act/$hash{DP});
   }
   my @sortao = sort {$b <=> $a} @altct;
   $hash{AF} = join(",",@mutallfreq);
@@ -247,14 +255,14 @@ while (my $line = <IN>) {
   }
   my @callers = split(/,/,$hash{CallSet});
   if ($somval{$chrom}{$pos}) {
-      push @callers, split(/,/,$somval{$chrom}{$pos});
+    push @callers, split(/,/,$somval{$chrom}{$pos});
   }
   if ((grep(/hotspot/,@callers) || $id =~ m/COS/) && $cosmicsubj >= 5) {
-      $fail{'LowAltCt'} = 1 if ($altct[0] < 3);
-      $fail{'LowMAF'} = 1 if ($mutallfreq[0] < 0.01);
+    $fail{'LowAltCt'} = 1 if ($altct[0] < 3);
+    $fail{'LowMAF'} = 1 if ($mutallfreq[0] < 0.01);
   }else {
-      $fail{'OneCaller'} = 1 if (scalar(@callers) < 2);
-      $fail{'LowAltCt'} = 1 if ($altct[0] < 8);
+    $fail{'OneCaller'} = 1 if (scalar(@callers) < 2);
+    $fail{'LowAltCt'} = 1 if ($altct[0] < 8);
       $fail{'LowMAF'} = 1 if ($mutallfreq[0] < 0.05);
   }
   my $keepforvcf = 0;
@@ -298,7 +306,7 @@ while (my $line = <IN>) {
   }
   $newannot = join(";",@nannot);
   $done{$chrom}{$pos} = 1;
-  print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,
+  print OUT join("\t",$chrom, $pos,$id,$ref,join(",",@newalts),$score,
 		 $filter,$newannot,$format,$allele_info),"\n";
 }
 

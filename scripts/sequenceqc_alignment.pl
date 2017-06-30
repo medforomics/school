@@ -1,17 +1,32 @@
 #!/usr/bin/perl -w
-#uploadqc.pl
+#sequenceqc_alignment.p
+
+use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
+my %opt = ();
+my $results = GetOptions (\%opt,'refdir|r=s','help|h');
 
 my @statfiles = @ARGV;
 
-#### Get version ######
+#### Begin Version Information ######
+my $source = `zgrep '#' $opt{refdir}\/cosmic.vcf.gz |grep source`;
+my $cosmic_ref = (split(/=/, $source))[1];
+chomp($cosmic_ref);
+my $dbsnp_source = `zgrep '#' $opt{refdir}\/dbSnp.vcf.gz |grep dbSNP_BUILD_ID`;
+my $dbsnp_ref = (split(/=/, $dbsnp_source))[1];
+chomp($dbsnp_ref);
+my $gencode_ref = `head -n 10 $opt{refdir}\/gencode.gtf|grep version`;
+$gencode_ref =~ s/.*(version\s[\d]+).*/$1/;
+chomp($gencode_ref);
+my $gen_ref = (split(/\//,$opt{refdir}))[-1];
 my $gittag = `cd /project/PHG/PHG_Clinical/clinseq_workflows;git describe --tag`;
-
 chomp $gittag;
+#### End Version Information ######
+
 foreach $sfile (@statfiles) {
   $sfile =~ m/(\S+)\.genomecov.txt/;
   my $prefix = $1;
   my %hash;
-  open FLAG, "<$prefix\.trimreport.txt" or die $!;
+  open FLAG, "<$prefix\.trimreport.txt";
   while (my $line = <FLAG>) {
     chomp($line);
     my ($file,$raw,$trim) = split(/\t/,$line);
@@ -33,6 +48,9 @@ foreach $sfile (@statfiles) {
     }elsif ($line =~ m/(\d+) \+ \d+ properly paired/) {
       $hash{propair} = 100*sprintf("%.4f",$1/$hash{total});
     }
+  }
+  unless ($hash{rawct}) {
+      $hash{rawct} = $hash{total};
   }
   open ASM, "<$prefix\.alignmentsummarymetrics.txt" or die $!;
   while (my $line = <ASM>) {
@@ -63,7 +81,32 @@ foreach $sfile (@statfiles) {
   chomp($meanmap);
   $meanmap =~ s/Mean MAPQ = //;
   close MM;
-  open DUP, "<$prefix\.libcomplex.txt" or die $!;
+  my @libcomplexfiles = `ls $prefix*libcomplex.txt`;
+  chomp(@libcomplexfiles);
+  my %lc;
+  foreach $libcfile (@libcomplexfiles) {
+    open DUP, "<$libcfile" or die $!;
+    while (my $line = <DUP>) {
+      chomp($line);
+      if ($line =~ m/## METRICS/) {
+	$header = <DUP>;
+	$nums = <DUP>;
+	chomp($header);
+	chomp($nums);
+	my @stats = split(/\t/,$header);
+	my @row = split(/\t/,$nums);
+	my %info;
+	foreach my $i (0..$#stats) {
+	  $info{$stats[$i]} = $row[$i];
+	}
+	$lc{TOTREADSLC} += $info{UNPAIRED_READS_EXAMINED} + $info{READ_PAIRS_EXAMINED};
+	$lc{TOTDUPLC} +=  $info{UNPAIRED_READ_DUPLICATES} + $info{READ_PAIR_DUPLICATES};
+      }
+    }
+    close DUP;
+  }
+  $hash{percdups} = sprintf("%.4f",$lc{TOTDUPLC}/$lc{TOTREADSLC});
+  open DUP, "<$prefix\.libsizeest.txt" or die $!;
   while (my $line = <DUP>) {
     chomp($line);
     if ($line =~ m/## METRICS/) {
@@ -75,9 +118,9 @@ foreach $sfile (@statfiles) {
       my @row = split(/\t/,$nums);
       my %info;
       foreach my $i (0..$#stats) {
-	$info{$stats[$i]} = $row[$i];
-      }
-      $hash{percdups} = sprintf("%.4f",$info{PERCENT_DUPLICATION});
+	      $info{$stats[$i]} = $row[$i];
+	    }
+      #$hash{percdups} = sprintf("%.4f",$info{PERCENT_DUPLICATION});
       $hash{libsize} = $info{ESTIMATED_LIBRARY_SIZE};
     }
   }
@@ -156,9 +199,8 @@ foreach $sfile (@statfiles) {
   
   #### Begin File Information ########
   my $status = 'PASS';
-  $status = 'FAIL' if ($hash{maprate} < 0.90 && $hash{'dedup.perc100x'} < 0.98);
+  $status = 'FAIL' if ($hash{maprate} < 0.90 && $hash{'dedup.perc100x'} < 0.90);
   my @stats = stat("$prefix\.flagstat.txt");
-  foreach my $line(@stats){print $line."\n";} 
   my ($day,$month,$year) = (localtime($stats[9]))[3,4,5];
   $year += 1900;
   $month++;
@@ -169,7 +211,7 @@ foreach $sfile (@statfiles) {
   $hash{fileowner} = $fileowner;
   ##### End File Information ########
   ##### START separateFilesPerSample ######
-  open OUT, ">".$prefix."_sequence.stats.txt" or die $!;
+  open OUT, ">".$prefix.".sequence.stats.txt" or die $!;
   print OUT join("\n", "Sample\t".$prefix,"Total_Raw_Count\t".$hash{rawct},
 		 "Total_Trimmed\t".$hash{total},"On_Target\t".$hash{ontarget},"Map_Rate\t".$hash{maprate},
 		 "Properly_Paired\t".$hash{propair},"Percent_on_Target\t".sprintf("%.2f",100*$hash{ontarget}/$hash{total}),
@@ -182,7 +224,8 @@ foreach $sfile (@statfiles) {
 		 "Dedup_Average_Depth\t".$dedup_avgdepth, "Dedup_Median_Depth\t".$dedup_median,
 		 "Dedup_Percent_over_100x\t".$hash{'dedup.perc100x'},"Dedup_Percent_over_200x\t".$hash{'dedup.perc200x'},
 		 "Dedup_Percent_over_500x\t".$hash{'dedup.perc500x'},"Alignment_Status\t".$hash{status},"Alignment_Date\t".$hash{date},
-		 "File_Owner\t".$hash{fileowner},"Workflow Version\t".$gittag),"\n";
+		 "File_Owner\t".$hash{fileowner},"Workflow_Version\t".$gittag,"Cosmic_Reference\t".$cosmic_ref,
+    		 "dbSnp_Reference\t".$dbsnp_ref,"Gencode_Reference\t".$gencode_ref,"Genome_Reference\t".$gen_ref),"\n";
   close OUT;
   ##### END separateFilesPerSample ######
 }
