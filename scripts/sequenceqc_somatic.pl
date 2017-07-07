@@ -37,9 +37,11 @@ while (my $line = <MATE>) {
     open OUT, ">$opt{output}" or die $!;
     my $status= 'PASS';	
     $status='FAIL' if($pf eq 'unmatched');
-    print OUT join("\n","Sample_1\t".$sam1,"Sample_2\t".$sam2,"Correlation\t".$corr,"Depth\t".$depth,"Status\t".$status, 
-		   "Somatic_Date\t".$date,"File_Owner\t".$fileowner,"Workflow_Version\t".$gittag,"Cosmic_Reference\t".$cosmic_ref,
-		   "dbSnp_Reference\t".$dbsnp_ref,"Genome_Reference\t".$gen_ref),"\n";
+    print OUT join("\n","Sample_1\t".$sam1,"Sample_2\t".$sam2,"Correlation\t".$corr,
+		   "Depth\t".$depth,"Status\t".$status,"Somatic_Date\t".$date,
+		   "File_Owner\t".$fileowner,"Workflow_Version\t".$gittag,
+		   "Cosmic_Reference\t".$cosmic_ref,"dbSnp_Reference\t".$dbsnp_ref,
+		   "Genome_Reference\t".$gen_ref),"\n";
 }
 
 

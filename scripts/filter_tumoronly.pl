@@ -3,9 +3,10 @@
 
 open OM, "</project/shared/bicf_workflow_ref/GRCh38/panel1385.genelist.txt" or die $!;
 while (my $line = <OM>) {
-    chomp($line);
-    $keep{$line} = 1;
-  }
+  chomp($line);
+  $keep{$line} = 1;
+}
+
 my $vcffile = shift @ARGV;
 my $prefix = $vcffile;
 $prefix =~ s/\.vcf.gz//;

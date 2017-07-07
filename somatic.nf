@@ -134,26 +134,25 @@ process svcall {
   script:
   """
   source /etc/profile.d/modules.sh
-  export PATH=/project/BICF/BICF_Core/shared/seqprg/ssake_v3.8.4/:/project/BICF/BICF_Core/shared/seqprg/novoBreak_distribution_v1.1.3rc/:$PATH
-  module load bcftools/intel/1.3 samtools/intel/1.3 bedtools/2.25.0 speedseq/20160506 snpeff/4.2 vcftools/0.1.14
+  module load novoBreak/v1.1.3 delly2/v0.7.7-multi bcftools/intel/1.3 samtools/intel/1.3 bedtools/2.25.0 speedseq/20160506 snpeff/4.2 vcftools/0.1.14
   mkdir temp
   perl $baseDir/scripts/make_delly_sample.pl ${tid} ${nid}
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly call -t TRA -o delly_translocations.bcf -q 30 -g ${reffa} ${tumor} ${normal}
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly call -t DUP -o delly_duplications.bcf -q 30 -g ${reffa} ${tumor} ${normal}
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly call -t INV -o delly_inversions.bcf -q 30 -g ${reffa} ${tumor} ${normal}
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly call -t DEL -o delly_deletion.bcf -q 30 -g ${reffa} ${tumor} ${normal}
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly call -t INS -o delly_insertion.bcf -q 30 -g ${reffa} ${tumor} ${normal}
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly filter -t TRA -o  delly_tra.bcf -f somatic -s samples.tsv delly_translocations.bcf
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly filter -t DUP -o  delly_dup.bcf -f somatic -s samples.tsv delly_translocations.bcf
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly filter -t INV -o  delly_inv.bcf -f somatic -s samples.tsv delly_translocations.bcf
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly filter -t DEL -o  delly_del.bcf -f somatic -s samples.tsv delly_translocations.bcf
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly filter -t INS -o  delly_ins.bcf -f somatic -s samples.tsv delly_translocations.bcf
+  delly2 call -t BND -o delly_translocations.bcf -q 30 -g ${reffa} ${tumor} ${normal}
+  delly2 call -t DUP -o delly_duplications.bcf -q 30 -g ${reffa} ${tumor} ${normal}
+  delly2 call -t INV -o delly_inversions.bcf -q 30 -g ${reffa} ${tumor} ${normal}
+  delly2 call -t DEL -o delly_deletion.bcf -q 30 -g ${reffa} ${tumor} ${normal}
+  delly2 call -t INS -o delly_insertion.bcf -q 30 -g ${reffa} ${tumor} ${normal}
+  delly2 filter -t BND -o  delly_tra.bcf -f somatic -s samples.tsv delly_translocations.bcf
+  delly2 filter -t DUP -o  delly_dup.bcf -f somatic -s samples.tsv delly_translocations.bcf
+  delly2 filter -t INV -o  delly_inv.bcf -f somatic -s samples.tsv delly_translocations.bcf
+  delly2 filter -t DEL -o  delly_del.bcf -f somatic -s samples.tsv delly_translocations.bcf
+  delly2 filter -t INS -o  delly_ins.bcf -f somatic -s samples.tsv delly_translocations.bcf
   bcftools concat -a -O v delly_dup.bcf delly_inv.bcf delly_tra.bcf delly_del.bcf delly_ins.bcf| vcf-sort -t temp > ${tid}_${nid}.delly.vcf
   perl $baseDir/scripts/vcf2bed.sv.pl ${tid}_${nid}.delly.vcf > delly.bed
   bgzip ${tid}_${nid}.delly.vcf
   tabix ${tid}_${nid}.delly.vcf.gz
   bcftools view -O z -o delly.vcf.gz -s ${tid} ${tid}_${nid}.delly.vcf.gz
-  /project/BICF/BICF_Core/shared/seqprg/novoBreak_distribution_v1.1.3rc/run_novoBreak.sh /project/BICF/BICF_Core/shared/seqprg/novoBreak_distribution_v1.1.3rc ${reffa} ${tumor} ${normal} \$SLURM_CPUS_ON_NODE
+  run_novoBreak.sh /cm/shared/apps/novoBreak/novoBreak_distribution_v1.1.3rc ${reffa} ${tumor} ${normal} \$SLURM_CPUS_ON_NODE
   perl $baseDir/scripts/vcf2bed.sv.pl novoBreak.pass.flt.vcf |sort -T temp -V -k 1,1 -k 2,2n > novobreak.bed
   mv novoBreak.pass.flt.vcf ${tid}_${nid}.novobreak.vcf
   bgzip ${tid}_${nid}.novobreak.vcf
@@ -337,6 +336,7 @@ process annot {
   bgzip ${fname}.somatic.vcf
   tabix ${fname}.somatic.vcf.gz
   bcftools stats ${fname}.somatic.vcf.gz > ${fname}.stats.txt
+  perl $baseDir/scripts/calc_tmb.pl ${fname} ${fname}.stats.txt
   plot-vcfstats -s -p ${fname}.statplot ${fname}.stats.txt
   """
 }

@@ -59,7 +59,7 @@ def prefix = []
 new File(params.design).withReader { reader ->
     def hline = reader.readLine()
     def header = hline.split("\t")
-    prefixidx = header.findIndexOf{it == 'MergeName'};
+    prefixidx = header.findIndexOf{it == 'SampleMergeName'};
     oneidx = header.findIndexOf{it == 'FullPathToFqR1'};
     twoidx = header.findIndexOf{it == 'FullPathToFqR2'};
     if (twoidx == -1) {
@@ -142,7 +142,7 @@ process starfusion {
   script:
   """
   source /etc/profile.d/modules.sh
-  module add python/2.7.x-anaconda star/2.5.2b
+  module load python/2.7.x-anaconda star/2.5.2b
   STAR-Fusion --genome_lib_dir ${index_path}/CTAT_lib/ --left_fq ${fq1} --right_fq ${fq2} --output_dir star_fusion &> star_fusion.err
   mv star_fusion/star-fusion.fusion_candidates.final.abridged ${pair_id}.starfusion.txt
   """
@@ -545,6 +545,7 @@ process statanal {
    """
    else
    """
+   source /etc/profile.d/modules.sh
    module load git/gcc/v2.12.2
    perl $baseDir/scripts/concat_cts.pl -o ./ *.cts
    perl $baseDir/scripts/sequenceqc_rnaseq.pl -r ${index_path} *.flagstat.txt

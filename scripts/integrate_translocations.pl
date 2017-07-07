@@ -99,7 +99,7 @@ foreach my $id (keys %svs) {
 					 join("-",$t1[1],$t1[2]),$t1[6]];
     }else {
       $bnder{$t1[0]}{$t1[1]}{$t1[5]} = $t1[4];
-      $transloc = 1 if ($t1[0] eq $prevchr && $t1[1] - $prevpos > 1e-7);
+      $transloc = 1 if ($t1[0] eq $prevchr && $t1[1] - $prevpos > 1e7);
     }
   }
   next unless ($allprots);
@@ -158,9 +158,9 @@ print OUT join("\t","FusionName","LeftGene","RightGene","LefttBreakpoint",
 
 foreach $fname (keys %tloc) {
   $keepbp = 0;
-  if ($known{$fname} && ($tloc{$fname}{SumRNAReads} >= 1 || $tloc{$fname}{DNAReads} >= 3 )) {
+  if ($known{$fname} && ($tloc{$fname}{SumRNAReads} >= 3 || $tloc{$fname}{DNAReads} >= 20)) {
     $keepbp = 1;
-  }elsif (($tloc{$fname}{SumRNAReads} >= 2 || $tloc{$fname}{DNAReads} >= 20)) {
+  }elsif (($tloc{$fname}{SumRNAReads} >= 5 || $tloc{$fname}{DNAReads} >= 100)) {
     $keepbp = 1; 
   }
   next unless ($keepbp);

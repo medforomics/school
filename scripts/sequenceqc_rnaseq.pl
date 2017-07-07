@@ -12,7 +12,7 @@ chomp(@files);
 my $source = `zgrep '#' $opt{refdir}\/cosmic.vcf.gz |grep source`;
 my $cosmic_ref = (split(/=/, $source))[1];
 chomp($cosmic_ref);
-my $dbsnp_ref = `zgrep '#' $opt{refdir}\/dbSnp.vcf.gz |grep dbSNP_BUILD_ID`;
+my $dbsnp_source = `zgrep '#' $opt{refdir}\/dbSnp.vcf.gz |grep dbSNP_BUILD_ID`;
 my $dbsnp_ref = (split(/=/, $dbsnp_source))[1];
 chomp($dbsnp_ref);
 my $gencode_ref = `head -n 10 $opt{refdir}\/gencode.gtf|grep version`;

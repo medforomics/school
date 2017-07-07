@@ -105,18 +105,18 @@ process svcall {
   script:
   """
   source /etc/profile.d/modules.sh
-  module load samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 speedseq/20160506 vcftools/0.1.14
+  module load novoBreak/v1.1.3 delly2/v0.7.7-multi samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 speedseq/20160506 vcftools/0.1.14
   mkdir temp
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly call -t TRA -o delly_translocations.bcf -q 30 -g ${reffa} ${ssbam}
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly call -t DUP -o delly_duplications.bcf -q 30 -g ${reffa} ${ssbam}
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly call -t INV -o delly_inversions.bcf -q 30 -g ${reffa} ${ssbam}
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly call -t DEL -o delly_deletion.bcf -q 30 -g ${reffa} ${ssbam}
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly call -t INS -o delly_insertion.bcf -q 30 -g ${reffa} ${ssbam}
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly filter -t TRA -o  delly_tra.bcf -f germline delly_translocations.bcf
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly filter -t DUP -o  delly_dup.bcf -f germline delly_translocations.bcf
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly filter -t INV -o  delly_inv.bcf -f germline delly_translocations.bcf
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly filter -t DEL -o  delly_del.bcf -f germline delly_translocations.bcf
-  /project/BICF/BICF_Core/shared/seqprg/delly/src/delly filter -t INS -o  delly_ins.bcf -f germline delly_translocations.bcf
+  delly2 call -t BND -o delly_translocations.bcf -q 30 -g ${reffa} ${ssbam}
+  delly2 call -t DUP -o delly_duplications.bcf -q 30 -g ${reffa} ${ssbam}
+  delly2 call -t INV -o delly_inversions.bcf -q 30 -g ${reffa} ${ssbam}
+  delly2 call -t DEL -o delly_deletion.bcf -q 30 -g ${reffa} ${ssbam}
+  delly2 call -t INS -o delly_insertion.bcf -q 30 -g ${reffa} ${ssbam}
+  delly2 filter -t BND -o  delly_tra.bcf -f germline delly_translocations.bcf
+  delly2 filter -t DUP -o  delly_dup.bcf -f germline delly_translocations.bcf
+  delly2 filter -t INV -o  delly_inv.bcf -f germline delly_translocations.bcf
+  delly2 filter -t DEL -o  delly_del.bcf -f germline delly_translocations.bcf
+  delly2 filter -t INS -o  delly_ins.bcf -f germline delly_translocations.bcf
   bcftools concat -a -O v delly_dup.bcf delly_inv.bcf delly_tra.bcf delly_del.bcf delly_ins.bcf | vcf-sort > ${pair_id}.delly.vcf
   perl $baseDir/scripts/vcf2bed.sv.pl ${pair_id}.delly.vcf > delly.bed
   bgzip ${pair_id}.delly.vcf
@@ -338,7 +338,8 @@ process annot {
   perl $baseDir/scripts/filter_tumoronly.pl ${fname}.annot.vcf.gz ${fname}
   bgzip ${fname}.annot.tumor.vcf
   tabix ${fname}.annot.tumor.vcf.gz
-  bcftools stats ${fname}.tumor.vcf.gz > ${fname}.stats.txt
+  bcftools stats ${fname}.annot.tumor.vcf.gz > ${fname}.stats.txt
+  perl $baseDir/scripts/calc_tmb.pl ${fname} ${fname}.stats.txt
   plot-vcfstats -s -p ${fname}.statplot ${fname}.stats.txt
   """
 }

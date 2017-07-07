@@ -45,7 +45,7 @@ while (my $line = <SS>){
 	$hash{$colnames[$j]} = $row[$j];
       }
       my $clinres = 'complete';
-      $clinres = 'toresearch' if ($hash{Description} =~ m/research/i);
+      $clinres = 'toresearch' if ($hash{Description} && $hash{Description} =~ m/research/i);
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
       $project = $hash{Sample_Project};
@@ -82,11 +82,10 @@ close SSOUT;
 
 open CAS, ">/project/PHG/PHG_Clinical/illumina/logs/run_casava_$prjid\.sh" or die $!;
 print CAS "#!/bin/bash\n#SBATCH --job-name $prjid\n#SBATCH -N 1\n";
-print CAS "#SBATCH -t 3-0:0:00\n#SBATCH -o $prjid.out\n#SBATCH -e $prjid.err\n";
+print CAS "#SBATCH -t 14-0:0:00\n#SBATCH -o $prjid.out\n#SBATCH -e $prjid.err\n";
 print CAS "#SBATCH --mail-type ALL\n#SBATCH --mail-user erika.villa\@utsouthwestern.edu\n";
 print CAS "source /etc/profile.d/modules.sh\n";
 print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.24.1-SNAPSHOT\n";
-print CAS 'export PERL5LIB=/project/BICF/BICF_Core/shared/seqprg/lib/perl5/x86_64-linux-thread-multi/:$PERL5LIB',"\n";
 my $seqdatadir = "/project/PHG/PHG_Illumina/BioCenter/$prjid";
 if (-e "/project/PHG/PHG_Illumina/Research/$prjid") {
   $seqdatadir = "/project/PHG/PHG_Illumina/Research/$prjid";
