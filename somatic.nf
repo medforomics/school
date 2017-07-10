@@ -312,7 +312,7 @@ process annot {
   
   output:
   file("${fname}.annot.vcf.gz") into annot
-  file("${fname}.coding*") into codingout
+  file("${fname}.somatic.vcf.gz") into passout
   file("${fname}.stats.txt") into stats
   file("${fname}.statplot*") into plotstats
 
