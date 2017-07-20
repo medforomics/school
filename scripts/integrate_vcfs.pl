@@ -11,7 +11,7 @@ while (my $line = <OM>) {
 
 my ($subject,$samplename,$tumorid,$somatic,$rnaseqid) = @ARGV;
 my %rnaseqct;
-my $inputdir = "/project/PHG/PHG_Clinical/validation/$subject";
+my $inputdir = "/project/PHG/PHG_Clinical/complete/$subject";
 system("tabix -f $inputdir\/$tumorid/$tumorid\.annot.vcf.gz");
 if ($rnaseqid ne 'no_rnaseq') {
   open RNACT, "<$inputdir\/$rnaseqid\/$rnaseqid\.cts" or die $!;

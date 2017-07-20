@@ -148,7 +148,7 @@ process svcall {
   delly2 filter -t DEL -o  delly_del.bcf -f somatic -s samples.tsv delly_translocations.bcf
   delly2 filter -t INS -o  delly_ins.bcf -f somatic -s samples.tsv delly_translocations.bcf
   bcftools concat -a -O v delly_dup.bcf delly_inv.bcf delly_tra.bcf delly_del.bcf delly_ins.bcf| vcf-sort -t temp > ${tid}_${nid}.delly.vcf
-  perl $baseDir/scripts/vcf2bed.sv.pl ${tid}_${nid}.delly.vcf > delly.bed
+  perl $baseDir/scripts/vcf2bed.sv.pl ${tid}_${nid}.delly.vcf |sort -T temp -V -u -k 1,1 -k 2,2n > delly.bed
   bgzip ${tid}_${nid}.delly.vcf
   tabix ${tid}_${nid}.delly.vcf.gz
   bcftools view -O z -o delly.vcf.gz -s ${tid} ${tid}_${nid}.delly.vcf.gz
@@ -166,7 +166,7 @@ process svcall {
   gawk '{ if (\$0~"^@") { print; next } else { \$10="*"; \$11="*"; print } }' OFS="\\t" discordants.sam | samtools  view -S  -b - | samtools sort -o normal.discordants.bam -
   speedseq sv -t \$SLURM_CPUS_ON_NODE -o ${tid}_${nid}.sssv -R ${reffa} -B ${normal},${tumor} -D normal.discordants.bam,tumor.discordants.bam -S normal.splitters.bam,tumor.splitters.bam -x ${index_path}/exclude_alt.bed
   java -jar \$SNPEFF_HOME/SnpSift.jar filter "GEN[0].SU < 1 & GEN[1].SU > 2" ${tid}_${nid}.sssv.sv.vcf.gz > lumpy.vcf
-  perl $baseDir/scripts/vcf2bed.sv.pl lumpy.vcf > lumpy.bed
+  perl $baseDir/scripts/vcf2bed.sv.pl lumpy.vcf |sort -T temp -V -u -k 1,1 -k 2,2n > lumpy.bed
   bcftools view -O z -o sssv.vcf.gz -s ${tid} ${tid}_${nid}.sssv.sv.vcf.gz 
   bedtools multiinter -cluster -header -names novobreak delly lumpy -i novobreak.bed delly.bed lumpy.bed > sv.intersect.bed 
   grep novobreak sv.intersect.bed |cut -f 1,2,3 |sort -V -k 1,1 -k 2,2n |grep -v start | bedtools intersect -header -b stdin -a ${tid}_${nid}.novobreak.vcf.gz  | perl -p -e 's/SPIKEIN/${tid}/' |bgzip > t1.vcf.gz
@@ -208,7 +208,7 @@ process mutect {
   """
   source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda gatk/3.5  bcftools/intel/1.3 bedtools/2.25.0 snpeff/4.2 vcftools/0.1.14
-  cut -f 1 ${index_path}/genomefile.chr.txt | xargs -I {} -n 1 -P 10 sh -c "java -Xmx10g -jar \$GATK_JAR -R ${reffa} -D ${dbsnp} -T MuTect2 -stand_call_conf 30 -stand_emit_conf 10.0 -A FisherStrand -A QualByDepth -A VariantType -A DepthPerAlleleBySample -A HaplotypeScore -A AlleleBalance -I:tumor ${tumor} -I:normal ${normal} --cosmic ${cosmic} -o ${tid}.{}.mutect.vcf -L {}"
+  cut -f 1 ${index_path}/genomefile.5M.txt | xargs -I {} -n 1 -P 20 sh -c "java -Xmx10g -jar \$GATK_JAR -R ${reffa} -D ${dbsnp} -T MuTect2 -stand_call_conf 30 -stand_emit_conf 10.0 -A FisherStrand -A QualByDepth -A VariantType -A DepthPerAlleleBySample -A HaplotypeScore -A AlleleBalance -I:tumor ${tumor} -I:normal ${normal} --cosmic ${cosmic} -o ${tid}.{}.mutect.vcf -L {}"
   vcf-concat ${tid}*.vcf | vcf-sort | vcf-annotate -n --fill-type | java -jar \$SNPEFF_HOME/SnpSift.jar filter -p '((FS <= 60) & GEN[*].DP >= 10)' | perl -pe 's/TUMOR/${tid}/' | perl -pe 's/NORMAL/${nid}/g' |bgzip > ${tid}_${nid}.pmutect.vcf.gz
   """
 }

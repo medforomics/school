@@ -19,20 +19,20 @@ EOF
 my $prjid = $opt{prjid};
 
 open SS, "</project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.csv" or die $!;
-open SSOUT, ">/project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.bcl2fastq.csv" or die $!;
+#open SSOUT, ">/project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.bcl2fastq.csv" or die $!;
 my %sampleinfo;
 while (my $line = <SS>){
   chomp($line);
   $line =~ s/\r//g;
   $line =~ s/ //g;
   $line =~ s/,+$//g;
-  print SSOUT $line,"\n";
+  #print SSOUT $line,"\n";
   if ($line =~ m/^\[Data\]/) {
     $header = <SS>;
     $header =~ s/\r//g;
     chomp($header);
     $header =~ s/Sample_*/Sample_/g;
-    print SSOUT $header,"\n";
+    #print SSOUT $header,"\n";
     my @colnames = split(/,/,$header);
     while (my $line = <SS>) {
       chomp($line);
@@ -72,11 +72,11 @@ while (my $line = <SS>){
       foreach my $j (0..$#row) {
 	push @newline, $hash{$colnames[$j]};
       }
-      print SSOUT join(",",@newline),"\n";
+      #print SSOUT join(",",@newline),"\n";
     }
   }
 }
-close SSOUT;
+#close SSOUT;
 
 open CAS, ">/project/PHG/PHG_Clinical/illumina/logs/run_casava_$prjid\.sh" or die $!;
 print CAS "#!/bin/bash\n#SBATCH --job-name $prjid\n#SBATCH -N 1\n";
@@ -95,7 +95,7 @@ print CAS "mv /project/PHG/PHG_Clinical/illumina/$prjid\/Reports /project/PHG/PH
 print CAS "mv /project/PHG/PHG_Clinical/illumina/$prjid\/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Stats");
 
 foreach $dtype (keys %samples) {
-  my $prodir = "/project/PHG/PHG_Clinical/processing";
+  my $prodir = "/project/PHG/PHG_Clinical/testblc";
   my $outdir = "$prodir\/$prjid/fastq";
   my $outnf = "$prodir\/$prjid/analysis";
   my $workdir = "$prodir\/$prjid/work";
@@ -115,11 +115,11 @@ foreach $dtype (keys %samples) {
       print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outdir\/$samp\.R2.fastq.gz\n";
       my $finaloutput = '/project/PHG/PHG_Clinical/'.$info{ClinRes};
       unless (-e "$finaloutput\/$info{SubjectID}") {
-	  system("mkdir $finaloutput\/$info{SubjectID}");
+	system("mkdir $finaloutput\/$info{SubjectID}");
       }
       my $finalrestingplace = "$finaloutput\/$info{SubjectID}\/$info{MergeName}";
       if (-e $finalrestingplace) {
-	  $finalrestingplace .= "_".(split(/_|-/,$prjid))[-1];
+	$finalrestingplace .= "_".(split(/_|-/,$prjid))[-1];
       }
       system("mkdir $finalrestingplace");
       $completeout{$info{MergeName}} = $finalrestingplace;
@@ -159,7 +159,7 @@ foreach $dtype (keys %samples) {
   }
   my $capture = '/project/shared/bicf_workflow_ref/GRCh38/UTSWV2.bed';
   $capture = '/project/shared/bicf_workflow_ref/GRCh38/MedExome_Plus.bed' if ($dtype eq 'medexomeplus');
-  print CAS "cd /project/PHG/PHG_Clinical/processing/$prjid\n";
+  print CAS "cd $prodir\/$prjid\n";
   if ($dtype eq 'panel1385' || $dtype eq 'medexomeplus') {
     print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -with-timeline -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment.nf --design $outdir\/design.txt --capture $capture --input $outdir --output $outnf >> $outnf\/nextflow_alignment.log\n";
     print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -with-timeline -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic.nf --design $outdir\/design_tumor_normal.txt --capture $capture --input $outnf --output $outnf >> $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
@@ -172,8 +172,8 @@ foreach $dtype (keys %samples) {
     print CAS "wait\n";
   }
   foreach $sampid (keys %completeout) {
-      $finalrestingplace = $completeout{$sampid};
-      print CAS "mv $outnf\/$sampid\* $finalrestingplace\n";
+    $finalrestingplace = $completeout{$sampid};
+    print CAS "mv $outnf\/$sampid\* $finalrestingplace\n";
   }
 }
 close CAS;

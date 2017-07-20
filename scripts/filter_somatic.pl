@@ -80,7 +80,7 @@ open IN, "gunzip -c $input|" or die $!;
        my @sortao = sort {$b <=> $a} @altct;
        push @ao, $sortao[0];
    }
-     if ($gtheader[1] eq $tumorid) {
+     if ($gtheader[1] eq $tid) {
 	 @maf = reverse(@maf);
 	 @dp = reverse(@dp);
 	 @ao = reverse(@ao);

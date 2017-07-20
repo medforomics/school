@@ -35,16 +35,28 @@ while (<VCF>) {
     next if ($hash{CHR2} && $hash{CHR2} =~ m/_/); 
     if ($alt =~ m/chr(\w+):(\d+)/i) {
 	if ($1 eq $chrom) {
-	    print join("\t",$chrom,$pos,$2,$fields[2]),"\n";
+	    my $end = $2;
+	    if ($pos > $end) {
+		my $temp = $end;
+		$end = $pos;
+		$pos = $temp;
+	    }
+	    print join("\t",$chrom,$pos,$end,$fields[2]),"\n";
 	}elsif ($fields[2] =~ m/_\d+/) {
 	    print join("\t",$chrom,$pos,$hash{END},$fields[2]),"\n";
 	}else {
-	    print join("\t",$chrom,$pos,$hash{END},$fields[2]."_1"),"\n";
+	    print join("\t",$chrom,$pos,$pos+1,$fields[2]."_1"),"\n";
 	    print join("\t",'chr'.$1,$2,$2+1,$fields[2]."_2"),"\n";
 	}
     }else {
 	if ($hash{CHR2} && $hash{CHR2} eq $chrom) {
-	    print join("\t",$chrom,$pos,$hash{END},$fields[2]),"\n";
+	    my $end = $hash{END};
+	    if ($pos > $end) {
+		my $temp = $end;
+		$end = $pos;
+		$pos = $temp;
+	    }
+	    print join("\t",$chrom,$pos,$end,$fields[2]),"\n";
 	}elsif ($hash{CHR2} && $hash{CHR2} ne $chrom) {
 	    print join("\t",$chrom,$pos,$pos+1,$fields[2]."_1"),"\n";
 	    print join("\t",$hash{CHR2},$hash{END},$hash{END}+1,$fields[2]."_2"),"\n";
