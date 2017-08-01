@@ -161,14 +161,14 @@ foreach $dtype (keys %samples) {
   $capture = '/project/shared/bicf_workflow_ref/GRCh38/MedExome_Plus.bed' if ($dtype eq 'medexomeplus');
   print CAS "cd /project/PHG/PHG_Clinical/processing/$prjid\n";
   if ($dtype eq 'panel1385' || $dtype eq 'medexomeplus') {
-    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -with-timeline -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment.nf --design $outdir\/design.txt --capture $capture --input $outdir --output $outnf >> $outnf\/nextflow_alignment.log\n";
-    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -with-timeline -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic.nf --design $outdir\/design_tumor_normal.txt --capture $capture --input $outnf --output $outnf >> $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
-    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -with-timeline -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly.nf --design $outdir\/design_tumor_only.txt --capture $capture --input $outnf --output $outnf >> $outnf\/nextflow_tumoronly.log &\n" if ($tonlys);
+    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment.nf --design $outdir\/design.txt --capture $capture --input $outdir --output $outnf >> $outnf\/nextflow_alignment.log\n";
+    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic.nf --design $outdir\/design_tumor_normal.txt --capture $capture --input $outnf --output $outnf >> $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
+    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly.nf --design $outdir\/design_tumor_only.txt --capture $capture --input $outnf --output $outnf >> $outnf\/nextflow_tumoronly.log &\n" if ($tonlys);
     print CAS "wait\n";
   }elsif ($dtype eq 'panelrnaseq' || $dtype eq 'wholernaseq') {
     my $mdup = 'skip';
     $mdup = 'mark' if ($dtype eq 'wholernaseq');
-    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -with-timeline -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/rnaseq.nf --design $outdir\/design.txt --input $outdir --output $outnf --markdups $mdup &> $outnf\/nextflow_rnaseq.log &\n";
+    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/rnaseq.nf --design $outdir\/design.txt --input $outdir --output $outnf --markdups $mdup &> $outnf\/nextflow_rnaseq.log &\n";
     print CAS "wait\n";
   }
   foreach $sampid (keys %completeout) {

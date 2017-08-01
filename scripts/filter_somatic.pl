@@ -21,6 +21,7 @@ open IN, "gunzip -c $input|" or die $!;
 	  $filter,$info,$format,@gtheader) = split(/\t/, $line);
      }
      if ($line =~ m/^#/) {
+	 print  SOM $line,"\n";
 	 next;
      }
      my ($chrom, $pos,$id,$ref,$alt,$score,
@@ -109,24 +110,25 @@ open IN, "gunzip -c $input|" or die $!;
      } 
      $hash{Somatic} = 1;
      $hash{SomaticCallSet}=$hash{CallSet};
-    foreach $trx (split(/,/,$hash{ANN})) {
-	my ($allele,$effect,$impact,$gene,$geneid,$feature,
-	    $featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
-	    $cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
-	next unless $keep{$gene};
-	if ($rnaseqct{$gene} && $rnaseqct{$gene} > 10) {
-	    $hash{logcpm}=sprintf("%.1f",log2(1000000*$rnaseqct{$gene}/$rnaseqct{'total'}));
-	} if ($fpkm{$gene}) {
-	    $hash{fpkm} = sprintf("%.1f",$fpkm{$gene});
-	}
-	my @fail = keys %fail;
-	if (scalar(@fail) == 0) {
-	    $filter = 'PASS';
-	    print SOM join("\t",$chrom, $pos,$id,$ref,$alt,$score,
-			   $filter,$newannot,$format,$newgt),"\n";
-	}else {
-	    next W1;
-	}
-    }
+     next unless ($hash{ANN});
+     foreach $trx (split(/,/,$hash{ANN})) {
+	 my ($allele,$effect,$impact,$gene,$geneid,$feature,
+	     $featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
+	     $cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
+	 next unless $keep{$gene};
+	 if ($rnaseqct{$gene} && $rnaseqct{$gene} > 10) {
+	     $hash{logcpm}=sprintf("%.1f",log2(1000000*$rnaseqct{$gene}/$rnaseqct{'total'}));
+	 } if ($fpkm{$gene}) {
+	     $hash{fpkm} = sprintf("%.1f",$fpkm{$gene});
+	 }
+	 my @fail = keys %fail;
+	 if (scalar(@fail) == 0) {
+	     $filter = 'PASS';
+	     print SOM join("\t",$chrom, $pos,$id,$ref,$alt,$score,
+			    $filter,$annot,$format,$newgt),"\n";
+	 }else {
+	     next W1;
+	 }
+     }
 }
 close IN;

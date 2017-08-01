@@ -207,8 +207,8 @@ process mutect {
   script:
   """
   source /etc/profile.d/modules.sh
-  module load python/2.7.x-anaconda gatk/3.5  bcftools/intel/1.3 bedtools/2.25.0 snpeff/4.2 vcftools/0.1.14
-  cut -f 1 ${index_path}/genomefile.5M.txt | xargs -I {} -n 1 -P 20 sh -c "java -Xmx10g -jar \$GATK_JAR -R ${reffa} -D ${dbsnp} -T MuTect2 -stand_call_conf 30 -stand_emit_conf 10.0 -A FisherStrand -A QualByDepth -A VariantType -A DepthPerAlleleBySample -A HaplotypeScore -A AlleleBalance -I:tumor ${tumor} -I:normal ${normal} --cosmic ${cosmic} -o ${tid}.{}.mutect.vcf -L {}"
+  module load parallel python/2.7.x-anaconda gatk/3.5  bcftools/intel/1.3 bedtools/2.25.0 snpeff/4.2 vcftools/0.1.14
+  cut -f 1 ${index_path}/genomefile.5M.txt | parallel --delay 2 -j 10 "java -Xmx20g -jar \$GATK_JAR -R ${reffa} -D ${dbsnp} -T MuTect2 -stand_call_conf 30 -stand_emit_conf 10.0 -A FisherStrand -A QualByDepth -A VariantType -A DepthPerAlleleBySample -A HaplotypeScore -A AlleleBalance -I:tumor ${tumor} -I:normal ${normal} --cosmic ${cosmic} -o ${tid}.{}.mutect.vcf -L {}"
   vcf-concat ${tid}*.vcf | vcf-sort | vcf-annotate -n --fill-type | java -jar \$SNPEFF_HOME/SnpSift.jar filter -p '((FS <= 60) & GEN[*].DP >= 10)' | perl -pe 's/TUMOR/${tid}/' | perl -pe 's/NORMAL/${nid}/g' |bgzip > ${tid}_${nid}.pmutect.vcf.gz
   """
 }
@@ -326,7 +326,7 @@ process annot {
   bcftools annotate -Oz -a ${index_path}/dbSnp.vcf.gz -o ${fname}.dbsnp.vcf.gz --columns CHROM,POS,ID,RS ${fname}.exac.vcf.gz
   tabix ${fname}.dbsnp.vcf.gz
   bcftools annotate -Oz -a ${index_path}/clinvar.vcf.gz -o ${fname}.clinvar.vcf.gz --columns CHROM,POS,CLNSIG,CLNDSDB,CLNDSDBID,CLNDBN,CLNREVSTAT,CLNACC ${fname}.dbsnp.vcf.gz
-  tabix ${index_path}/clinvar.vcf.gz
+  tabix ${fname}.clinvar.vcf.gz
   bcftools annotate -Oz -a ${index_path}/utswv2_artifact.bed.gz -o ${fname}.utswbl.vcf.gz -m "UTSWBlacklist" -c CHROM,FROM,TO ${fname}.clinvar.vcf.gz
   tabix ${fname}.utswbl.vcf.gz
   
