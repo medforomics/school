@@ -9,7 +9,6 @@ params.design="$params.input/design.txt"
 params.genome="/project/shared/bicf_workflow_ref/GRCh38"
 params.capture="$params.genome/UTSWV2.bed"
 params.pairs="pe"
-params.cancer="detect"
 params.fcdist="100"
 
 reffa=file("$params.genome/genome.fa")
@@ -23,13 +22,6 @@ knownindel=file(indel)
 index_path = file(params.genome)
 capture_bed = file(params.capture)
 
-snpeff_vers = 'GRCh38.82';
-if (params.genome == '/project/shared/bicf_workflow_ref/GRCm38') {
-   snpeff_vers = 'GRCm38.82';
-}
-if (params.genome == '/project/shared/bicf_workflow_ref/GRCh37') {
-   snpeff_vers = 'GRCh37.75';
-}
 
 def fileMap = [:]
 
