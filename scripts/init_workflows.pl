@@ -107,6 +107,7 @@ foreach $dtype (keys %samples) {
   open SSOUT, ">$outdir\/design.txt" or die $!;
   print SSOUT join("\t","SampleMergeName",'SampleID','SampleName','SubjectID','FullPathToFqR1','FullPathToFqR2'),"\n";
   my @copyfq;
+  my @directories;
   foreach $project (keys %{$samples{$dtype}}) {
     my $datadir =  "/project/PHG/PHG_Clinical/illumina/$prjid/$project/";
     foreach $samp (@{$samples{$dtype}{$project}}) {
@@ -121,22 +122,28 @@ foreach $dtype (keys %samples) {
       if (-e $finalrestingplace) {
 	  $finalrestingplace .= "_".(split(/_|-/,$prjid))[-1];
       }
-      system("mkdir $finalrestingplace");
+      push @directories, $finalrestingplace;
       $completeout{$info{MergeName}} = $finalrestingplace;
       print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $finalrestingplace\/$samp\.R1.fastq.gz\n";
       print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $finalrestingplace\/$samp\.R2.fastq.gz\n";
       print SSOUT join("\t",$info{MergeName},$info{Sample_ID},$info{Sample_Name},$info{SubjectID},"$samp\.R1.fastq.gz","$samp\.R2.fastq.gz"),"\n";
     }
   }
+  my %thash;
+  my @unique_directories = grep{!$thash{$_}++}@directories;#unique array
+  foreach my $directory(@unique_directories){
+  system("mkdir $directory");}
   close SSOUT;
   my $tnpairs = 0;
   my $tonlys = 0;
+  my %completeout_somatic;
   if ($dtype =~ m/panel1385|medexome/) {
     open TONLY, ">$outdir\/design_tumor_only.txt" or die $!;
     open TNPAIR, ">$outdir\/design_tumor_normal.txt" or die $!;
     print TNPAIR join("\t",'TumorID','NormalID','TumorBAM','NormalBAM',
 		      'TumorOntargetBAM','NormalOntargetBAM'),"\n";
     print TONLY join("\t",'SampleID','BAM','OntargetBAM'),"\n";
+    my @directories_somatic;
     foreach my $subjid (keys %samps) {
       my @ctypes = keys %{$samps{$subjid}};
       foreach $clast (@ctypes) {
@@ -151,9 +158,28 @@ foreach $dtype (keys %samples) {
 			  $samps{$subjid}{normal}.".bam",
 			  $samps{$subjid}{tumor}.".final.bam",
 			  $samps{$subjid}{normal}.".final.bam"),"\n";
-	$tnpairs ++;
+      $tnpairs ++;
+      my $somatic_name=$samps{$subjid}{tumor}."_".$samps{$subjid}{normal};
+      my %som_info;
+      foreach my $saminfo(keys %sampleinfo){
+         if ($saminfo =~ m/$samps{$subjid}{tumor}/){
+            %som_info =%{$sampleinfo{$saminfo}};
+         }
+      }
+      my $finaloutput_somatic = '/project/PHG/PHG_Clinical/'.$som_info{ClinRes};
+      unless (-e "$finaloutput_somatic\/$subjid") {
+          system("mkdir $finaloutput_somatic\/$subjid");
+      }
+       my $finalrestingplace_somatic = "$finaloutput_somatic\/$subjid\/$somatic_name";
+      if (-e $finalrestingplace_somatic) {
+          $finalrestingplace_somatic .= "_".(split(/_|-/,$prjid))[-1];
+      }
+      push @directories_somatic, $finalrestingplace_somatic;
+      $completeout_somatic{$somatic_name} = $finalrestingplace_somatic;
       }
     }
+    foreach my $directory(@directories_somatic){
+        system("mkdir $directory");}
     close TNPAIR;
     close TONLY;
   }
@@ -170,6 +196,10 @@ foreach $dtype (keys %samples) {
     $mdup = 'mark' if ($dtype eq 'wholernaseq');
     print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/rnaseq.nf --design $outdir\/design.txt --input $outdir --output $outnf --markdups $mdup &> $outnf\/nextflow_rnaseq.log &\n";
     print CAS "wait\n";
+  }
+  foreach my $somid(keys %completeout_somatic){
+      $finalrestingplace_somatic = $completeout_somatic{$somid};
+      print CAS "mv $outnf\/$somid\* $finalrestingplace_somatic\n";
   }
   foreach $sampid (keys %completeout) {
       $finalrestingplace = $completeout{$sampid};

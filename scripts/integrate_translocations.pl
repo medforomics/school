@@ -99,7 +99,7 @@ foreach my $id (keys %svs) {
 					 join("-",$t1[1],$t1[2]),$t1[6]];
     }else {
       $bnder{$t1[0]}{$t1[1]}{$t1[5]} = $t1[4];
-      $transloc = 1 if ($t1[0] eq $prevchr && $t1[1] - $prevpos > 1e7);
+      $transloc = 1 if ($t1[0] eq $prevchr && $t1[1] - $prevpos > 1e-7);
     }
   }
   next unless ($allprots);
@@ -149,19 +149,54 @@ foreach my $id (keys %svs) {
   }
 }
 
+my %entrez;
+open ENT, "</project/shared/bicf_workflow_ref/gene_info.human.txt" or die $!;
+
+  my $header = <ENT>;
+  chomp($header);
+  my @hline = split(/\t/,$header);
+  while (my $line = <ENT>) {
+    chomp($line);
+    my @row = split(/\t/,$line);{
+      $entrez{$row[2]} = $row[1];
+    }
+  }
+
 $tloc_out = $opt{svcf};
 $tloc_out =~ s/sv.annot.txt/translocations.txt/;
 open OUT, ">$tloc_out" or die $!;
+$tloc_out =~ s/translocations.txt/translocations_ir.txt/;
+open OUTIR, ">$tloc_out" or die $!;
+$tloc_out =~ s/.translocations_ir.txt//;
+my @file_path = split(/\//,$tloc_out);
+my @sampleName = split(/_DNA_panel1385/,$file_path[-1]);
+my $tumor_sample_barcode = $sampleName[0];
 print OUT join("\t","FusionName","LeftGene","RightGene","LefttBreakpoint",
 	       "RightBreakpoint","LeftStrand","RightStrand","RNAReads",
 	       "DNAReads"),"\n";
-
+print OUTIR join("\t","Hugo_Symbol","Entrez_Gene_Id","Center","Tumor_Sample_Barcode",
+               "Fusion","DNA support","RNA support","Method","Frame"),"\n";
 foreach $fname (keys %tloc) {
   $keepbp = 0;
-  if ($known{$fname} && ($tloc{$fname}{SumRNAReads} >= 3 || $tloc{$fname}{DNAReads} >= 20)) {
+
+  my $entrez_name="";
+  my @hugo_names = split(/--/,$fname);
+    foreach my $hugo(@hugo_names){
+      if($entrez{$hugo}){
+        if($entrez_name eq ""){$entrez_name=$entrez{$hugo};}
+        else{$entrez_name = $entrez_name."--".$entrez{$hugo};}
+      }
+  }
+
+  my ($dna_support,$rna_support)=("no") x 2;
+  if ($known{$fname} && ($tloc{$fname}{SumRNAReads} >= 1 || $tloc{$fname}{DNAReads} >= 3 )) {
     $keepbp = 1;
-  }elsif (($tloc{$fname}{SumRNAReads} >= 5 || $tloc{$fname}{DNAReads} >= 100)) {
+    if($tloc{$fname}{SumRNAReads} >= 1){$rna_support = "yes";}
+    if($tloc{$fname}{DNAReads} >= 3){$dna_support = "yes";}
+  }elsif (($tloc{$fname}{SumRNAReads} >= 2 || $tloc{$fname}{DNAReads} >= 20)) {
     $keepbp = 1; 
+    if($tloc{$fname}{SumRNAReads} >= 2){$rna_support = "yes";}
+    if($tloc{$fname}{DNAReads} >= 20){$dna_support = "yes";}
   }
   next unless ($keepbp);
   foreach $bps (@{$tloc{$fname}{RNAInfo}}) {
@@ -169,10 +204,12 @@ foreach $fname (keys %tloc) {
     print OUT join("\t",$fname,$tloc{$fname}{LeftGene},$tloc{$fname}{RightGene},
 		   $leftbp, $rightbp,$tloc{$fname}{LeftStrand},
 		   $tloc{$fname}{RightStrand},$rnareads,$tloc{$fname}{DNAReads}),"\n";
+    print OUTIR join("\t",$fname,$entrez_name,"UTSW NGS Clinical Sequencing Lab",$tumor_sample_barcode,$fname." fusion",
+                   $dna_support,$rna_support,"STAR 2.5.2b","N/A"),"\n";
   }
 }
 close OUT;
-
+close OUTIR;
 $reag_out = $opt{svcf};
 $reag_out =~ s/sv.annot.txt/svcalls.txt/;
 open OUT, ">$reag_out" or die $!;
