@@ -38,7 +38,6 @@ if($tumorid ne "no_tumor" && $normalid ne "no_normal"){
 
 #Calls final scripts for Philips and moves them into approrpriate Philip monitored directory
 system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_vcfs.pl $subject $subject $tumorid $somaticid $rnaseqid");
-system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_translocations.pl -svcf $svcf -fusion $fusion");
 my $philipsvcf = $refdir."/".$subject.".philips.vcf.gz"; 
 system("cp $philipsvcf /project/PHG/PHG_Sap/input/GenomicsFiles/");
 if($tumorid ne "no_tumor" && $rnaseqid ne "no_rnaseq"){
