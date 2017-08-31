@@ -38,9 +38,7 @@ if($tumorid ne "no_tumor" && $normalid ne "no_normal"){
 
 #Calls final scripts for Philips and moves them into approrpriate Philip monitored directory
 system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_vcfs.pl $subject $subject $tumorid $somaticid $rnaseqid");
-<<<<<<< HEAD
 system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_translocations.pl -svcf $svcf -fusion $fusion");
-=======
 my $philipsvcf = $refdir."/".$subject.".philips.vcf.gz"; 
 system("cp $philipsvcf /project/PHG/PHG_Sap/input/GenomicsFiles/");
 if($tumorid ne "no_tumor" && $rnaseqid ne "no_rnaseq"){
@@ -51,7 +49,6 @@ if($tumorid ne "no_tumor" && $rnaseqid ne "no_rnaseq"){
   $philipsFile =~ s/translocations.txt/svcalls.txt/;
   system("cp $philipsFile /project/PHG/PHG_Sap/input/GenomicsFiles/")
 }
->>>>>>> devel
 system("python /project/PHG/PHG_Clinical/clinseq_workflow/IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p UGMP_Cl1nS3q -o /project/PHG/PHG_Sap/input/GenomicsFiles/$subject.xml");
 system("ln -s /project/shared/bicf_workflow_ref/vcf2maf/.vep ~/.vep");
 system("zcat $refdir/$subject.philips.vcf.gz | java -jar /cm/shared/apps/snpeff/4.2/SnpSift.jar filter \"(FILTER = 'PASS')\"  > $refdir/$subject.pass.vcf");
