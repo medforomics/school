@@ -204,8 +204,10 @@ foreach $fname (keys %tloc) {
     print OUT join("\t",$fname,$tloc{$fname}{LeftGene},$tloc{$fname}{RightGene},
 		   $leftbp, $rightbp,$tloc{$fname}{LeftStrand},
 		   $tloc{$fname}{RightStrand},$rnareads,$tloc{$fname}{DNAReads}),"\n";
-    print OUTIR join("\t",$fname,$entrez_name,"UTSW NGS Clinical Sequencing Lab",$tumor_sample_barcode,$fname." fusion",
+    if($rna_support eq "yes"){
+      print OUTIR join("\t",$fname,$entrez_name,"UTSW NGS Clinical Sequencing Lab",$tumor_sample_barcode,$fname." fusion",
                    $dna_support,$rna_support,"STAR 2.5.2b","N/A"),"\n";
+    }
   }
 }
 close OUT;

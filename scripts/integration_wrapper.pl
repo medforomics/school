@@ -7,7 +7,7 @@ $year += 1900;
 $month++;
 my $date=$year.sprintf("%02s",$month);
 
-#Extracts subject name and identifies directories in given path
+#Determines subject name and identifies directories in given path
 my ($refdir) = $ARGV[0];
 my @splitPath = split(/\//, $refdir);
 my $subject =$splitPath[-1];
@@ -34,9 +34,11 @@ foreach my $directory(@directories){
       $fusion=$refdir."/".$rnaseqid."/".$rnaseqid.".starfusion.txt";}
 }
 if($tumorid ne "no_tumor" && $normalid ne "no_normal"){
-  $somaticid =$tumorid."_".$normalid;}
-
-#Calls final scripts for Philips and moves them into approrpriate Philip monitored directory
+  $somaticid =$tumorid."_".$normalid;
+}
+#Run scripts to generate final vcfs, translocations and xml output and moves them into a Philips monitored directory
+#Translocations formatted file for Information Resources
+#Determines the MAF of 'PASS'ing variants
 system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_vcfs.pl $subject $subject $tumorid $somaticid $rnaseqid");
 my $philipsvcf = $refdir."/".$subject.".philips.vcf.gz"; 
 system("cp $philipsvcf /project/PHG/PHG_Sap/input/GenomicsFiles/");
@@ -45,8 +47,6 @@ if($tumorid ne "no_tumor" && $rnaseqid ne "no_rnaseq"){
   my $philipsFile = $svcf;
   $philipsFile =~ s/sv.annot.txt/translocations.txt/;
   system("cp $philipsFile /project/PHG/PHG_Sap/input/GenomicsFiles/");
-  $philipsFile =~ s/translocations.txt/svcalls.txt/;
-  system("cp $philipsFile /project/PHG/PHG_Sap/input/GenomicsFiles/")
 }
 system("python /project/PHG/PHG_Clinical/clinseq_workflow/IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p UGMP_Cl1nS3q -o /project/PHG/PHG_Sap/input/GenomicsFiles/$subject.xml");
 system("ln -s /project/shared/bicf_workflow_ref/vcf2maf/.vep ~/.vep");
