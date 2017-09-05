@@ -323,7 +323,7 @@ process annot {
   script:
   """
   source /etc/profile.d/modules.sh
-  module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3
+  module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/1.4.1 samtools/intel/1.3
   tabix ${unionvcf}
   bcftools annotate -Oz -a ${index_path}/ExAC.vcf.gz -o ${fname}.exac.vcf.gz --columns CHROM,POS,AC_Het,AC_Hom,AC_Hemi,AC_Adj,AN_Adj,AC_POPMAX,AN_POPMAX,POPMAX ${unionvcf}
   tabix ${fname}.exac.vcf.gz 
@@ -331,7 +331,7 @@ process annot {
   tabix ${fname}.dbsnp.vcf.gz
   bcftools annotate -Oz -a ${index_path}/clinvar.vcf.gz -o ${fname}.clinvar.vcf.gz --columns CHROM,POS,CLNSIG,CLNDSDB,CLNDSDBID,CLNDBN,CLNREVSTAT,CLNACC ${fname}.dbsnp.vcf.gz
   tabix ${fname}.clinvar.vcf.gz
-  bcftools annotate -Oz -a ${index_path}/cosmic.vcf.gz -o ${fname}.cosmic.vcf.gz -m -c CHROM,POS,ID,CNT ${fname}.clinvar.vcf.gz
+  bcftools annotate -Oz -a ${index_path}/cosmic.vcf.gz -o ${fname}.cosmic.vcf.gz --collapse none --columns CHROM,POS,ID,CNT ${fname}.clinvar.vcf.gz
   tabix ${fname}.cosmic.vcf.gz
   java -Xmx10g -jar \$SNPEFF_HOME/snpEff.jar -no-intergenic -lof -c \$SNPEFF_HOME/snpEff.config ${snpeff_vers} ${fname}.cosmic.vcf.gz | java -Xmx10g -jar \$SNPEFF_HOME/SnpSift.jar dbnsfp -v -db ${index_path}/dbNSFP.txt.gz - | java -Xmx10g -jar \$SNPEFF_HOME/SnpSift.jar gwasCat -db ${index_path}/gwas_catalog.tsv - |bgzip > ${fname}.annot.vcf.gz
   tabix ${fname}.annot.vcf.gz

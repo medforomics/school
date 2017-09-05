@@ -1,3 +1,2 @@
 process.executor = 'slurm'
-process.queue = 'super'
 process.clusterOptions = '--hold'
