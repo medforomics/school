@@ -55,4 +55,3 @@ system("perl /project/shared/bicf_workflow_ref/vcf2maf/vcf2maf.pl --input $refdi
 
 
 
-
