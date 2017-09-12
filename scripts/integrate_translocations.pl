@@ -31,6 +31,10 @@ while (my $line = <OM>) {
 }
 close OM;
 
+my @splitPath = split(/\//,$opt{svcf});
+my $subjectid = $splitPath[-3];
+my $projectDirectory = join("/", @splitPath[0..$#splitPath-2]);
+
 if ($opt{fusion} && -e $opt{fusion}) {
   open FUSION, "<$opt{fusion}" or die $!;
   my $header = <FUSION>;
@@ -50,7 +54,7 @@ if ($opt{fusion} && -e $opt{fusion}) {
     $hash{LeftGene} = (split(/\^/,$hash{LeftGene}))[0];
     $hash{RightGene} = (split(/\^/,$hash{RightGene}))[0];
     next unless ($fusion{$hash{LeftGene}} || $fusion{$hash{RightGene}});
-    next unless ($prots{$hash{LeftGene}} && $prots{$hash{RightGene}});
+    next unless ($prots{$hash{LeftGene}} || $prots{$hash{RightGene}});
     my $fusionname = join("--",sort {$a cmp $b} ($hash{LeftGene},$hash{RightGene}));
     if ($tloc{$fusionname}) {
       push @{$tloc{$fusionname}{RNAInfo}},[$hash{JunctionReadCount}+$hash{SpanningFragCount},join(":",$left_chr,$left_pos),join(":",$right_chr,$right_pos)];
@@ -99,7 +103,7 @@ foreach my $id (keys %svs) {
 					 join("-",$t1[1],$t1[2]),$t1[6]];
     }else {
       $bnder{$t1[0]}{$t1[1]}{$t1[5]} = $t1[4];
-      $transloc = 1 if ($t1[0] eq $prevchr && $t1[1] - $prevpos > 1e-7);
+      $transloc = 1 if ($t1[0] eq $prevchr && $t1[1] - $prevpos > 1e7);
     }
   }
   next unless ($allprots);
@@ -162,10 +166,10 @@ open ENT, "</project/shared/bicf_workflow_ref/gene_info.human.txt" or die $!;
     }
   }
 
+my $trans_loc_out = $projectDirectory."/".$subjectid.".translocations.txt";
 $tloc_out = $opt{svcf};
-$tloc_out =~ s/sv.annot.txt/translocations.txt/;
-open OUT, ">$tloc_out" or die $!;
-$tloc_out =~ s/translocations.txt/translocations_ir.txt/;
+$tloc_out =~ s/sv.annot.txt/translocations_ir.txt/;
+open OUT, ">$trans_loc_out" or die $!;
 open OUTIR, ">$tloc_out" or die $!;
 $tloc_out =~ s/.translocations_ir.txt//;
 my @file_path = split(/\//,$tloc_out);
@@ -189,14 +193,14 @@ foreach $fname (keys %tloc) {
   }
 
   my ($dna_support,$rna_support)=("no") x 2;
-  if ($known{$fname} && ($tloc{$fname}{SumRNAReads} >= 1 || $tloc{$fname}{DNAReads} >= 3 )) {
+  if ($known{$fname} && ($tloc{$fname}{SumRNAReads} >= 3 || $tloc{$fname}{DNAReads} >= 20 )) {
     $keepbp = 1;
-    if($tloc{$fname}{SumRNAReads} >= 1){$rna_support = "yes";}
-    if($tloc{$fname}{DNAReads} >= 3){$dna_support = "yes";}
-  }elsif (($tloc{$fname}{SumRNAReads} >= 2 || $tloc{$fname}{DNAReads} >= 20)) {
-    $keepbp = 1; 
-    if($tloc{$fname}{SumRNAReads} >= 2){$rna_support = "yes";}
+    if($tloc{$fname}{SumRNAReads} >= 3){$rna_support = "yes";}
     if($tloc{$fname}{DNAReads} >= 20){$dna_support = "yes";}
+  }elsif (($tloc{$fname}{SumRNAReads} >= 5 || $tloc{$fname}{DNAReads} >= 100)) {
+    $keepbp = 1; 
+    if($tloc{$fname}{SumRNAReads} >= 5){$rna_support = "yes";}
+    if($tloc{$fname}{DNAReads} >= 100){$dna_support = "yes";}
   }
   next unless ($keepbp);
   foreach $bps (@{$tloc{$fname}{RNAInfo}}) {
