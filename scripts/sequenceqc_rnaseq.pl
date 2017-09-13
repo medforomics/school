@@ -18,8 +18,8 @@ chomp($dbsnp_ref);
 my $gencode_ref = `head -n 10 $opt{refdir}\/gencode.gtf|grep version`;
 $gencode_ref =~ s/.*(version\s[\d]+).*/$1/;
 chomp($gencode_ref);
-my $gen_ref = (split(/\//,$opt{refdir}))[-2];
-my $gittag = `cd /project/PHG/PHG_Clinical/clinseq_workflows;git describe --tag`;
+my $gen_ref = (split(/\//,$opt{refdir}))[-1];
+my $gittag = `cd /project/PHG/PHG_Clinical/clinseq_workflows;git describe --abbrev=0 --tags`;
 chomp $gittag;
 #### End Version Information ######
 

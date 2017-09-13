@@ -318,7 +318,7 @@ foreach my $chrom (keys %somline) {
 }
 close OUT;
 
-system("vcf-sort $inputdir\/$tumorid\.final.vcf | bgzip > $inputdir\/$subject\.philips.vcf.gz");
+system("vcf-sort $inputdir\/$tumorid\.final.vcf | bgzip > $inputdir\/$subject\.vcf.gz");
 system("rm $inputdir\/$tumorid\.final.vcf");
 system("rm -fr $inputdir\/rnaoverlap");
 
