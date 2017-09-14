@@ -49,8 +49,8 @@ if ($opt{fusion} && -e $opt{fusion}) {
     my ($right_chr,$right_pos,$right_strand) = split(/:/,$hash{RightBreakpoint});
     $hash{LeftGene} = (split(/\^/,$hash{LeftGene}))[0];
     $hash{RightGene} = (split(/\^/,$hash{RightGene}))[0];
-    next unless ($fusion{$hash{LeftGene}} || $fusion{$hash{RightGene}});
-    next unless ($prots{$hash{LeftGene}} && $prots{$hash{RightGene}});
+    next unless ($prots{$hash{LeftGene}} || $prots{$hash{RightGene}});
+    #next unless ($fusion{$hash{LeftGene}} || $fusion{$hash{RightGene}});
     my $fusionname = join("--",sort {$a cmp $b} ($hash{LeftGene},$hash{RightGene}));
     if ($tloc{$fusionname}) {
       push @{$tloc{$fusionname}{RNAInfo}},[$hash{JunctionReadCount}+$hash{SpanningFragCount},join(":",$left_chr,$left_pos),join(":",$right_chr,$right_pos)];
@@ -123,12 +123,13 @@ foreach my $id (keys %svs) {
 	}
       }
     }
+    my @g = @gene; 
     my $fusionname = join("--",sort {$a cmp $b} @gene);
     if ($tloc{$fusionname}) {
       $tloc{$fusionname}{DNAReads} += $kloci[0][2];
     }else {
-      $tloc{$fusionname} = {LeftGene=>$gene[0],
-			    RightGene=>$gene[1],
+      $tloc{$fusionname} = {LeftGene=>$g[0],
+			    RightGene=>$g[1],
 			    LeftStrand=>'',
 			    RightStrand=>'',
 			    SumRNAReads=>0,

@@ -100,6 +100,7 @@ if ($somatic ne 'no_normal') {
       my @mutallfreq = ();
       foreach my $k (0..$#ainfo) {
 	  $gtinfo{$deschead[$k]} = $ainfo[$k];
+	  $hash{$deschead[$k]} = $ainfo[$k] if ($subjid eq $tumorid);
       }
       next W1 if ($gtinfo{DP} < 10);
       my @altct = split(/,/,$gtinfo{AO});
@@ -107,6 +108,7 @@ if ($somatic ne 'no_normal') {
 	push @mutallfreq, sprintf("%.4f",$act/$gtinfo{DP});
       }
       push @dp, $gtinfo{DP};
+      push @ad, $gtinfo{AD};
       push @maf, \@mutallfreq;
       my @sortao = sort {$b <=> $a} @altct;
       push @ao, $sortao[0];
@@ -114,6 +116,7 @@ if ($somatic ne 'no_normal') {
     if ($gtheader[1] eq $tumorid) {
       @maf = reverse(@maf);
       @dp = reverse(@dp);
+      @ad = reverse(@ad);
       @ao = reverse(@ao);
       @genotypes = reverse(@genotypes);
     }
@@ -121,6 +124,7 @@ if ($somatic ne 'no_normal') {
     $hash{NormalAF} =  join(",",@{$maf[1]});
     $hash{DP} = $dp[0];
     $hash{NormalDP} = $dp[1];
+    $hash{AD} = $ad[0];
     next if ($maf[1][0] > 0.005 || $maf[1][0]*5 > $maf[0][0]);
     my $newgt = $genotypes[0];
     foreach (@dp) {
