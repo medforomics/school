@@ -24,8 +24,8 @@ chomp($cosmic_ref);
 my $dbsnp_source = `zgrep '#' $opt{refdir}\/dbSnp.vcf.gz |grep dbSNP_BUILD_ID`;
 my $dbsnp_ref = (split(/=/, $dbsnp_source))[1];
 chomp($dbsnp_ref);
-my $gen_ref = (split(/\//,$opt{refdir}))[-2];
-my $gittag = `cd /project/PHG/PHG_Clinical/clinseq_workflows;git describe --tag`;
+my $gen_ref = (split(/\//,$opt{refdir}))[-1];
+my $gittag = `cd /project/PHG/PHG_Clinical/clinseq_workflows;git describe --abbrev=0 --tags`;
 chomp $gittag;
 ### End Version Information ###
 

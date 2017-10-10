@@ -95,10 +95,10 @@ process trimpe {
   errorStrategy 'ignore'
   //publishDir "$params.output", mode: 'copy'
   input:
-  val pair_ids from read_pe.buffer(size: 20, remainder: true)
-  val mnames from merg.buffer(size: 20, remainder: true)
-  file(read1s) from read1.buffer(size: 20, remainder: true)
-  file(read2s) from read2.buffer(size: 20, remainder: true)
+  val pair_ids from read_pe.buffer(size: 24, remainder: true)
+  val mnames from merg.buffer(size: 24, remainder: true)
+  file(read1s) from read1.buffer(size: 24, remainder: true)
+  file(read2s) from read2.buffer(size: 24, remainder: true)
   val ct from counter
   output:
   file("*_val_1.fq.gz") into trimpe_r1s mode flatten
@@ -114,7 +114,6 @@ process trimpe {
     cmd +="mv ${read2s[i]} ${mnames[i]}.batch${ct}_${i}.R2.fq.gz\n"
     cmd +="trim_galore --paired --stringency 3 -q 25 --illumina --gzip --length 35 ${mnames[i]}.batch${ct}_${i}.R1.fq.gz ${mnames[i]}.batch${ct}_${i}.R2.fq.gz &\n"
   }
-
   """
   source /etc/profile.d/modules.sh
   module load trimgalore/0.4.1 cutadapt/1.9.1
