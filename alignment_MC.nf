@@ -155,19 +155,20 @@ aligned
 
 process mergebam {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id,file(bams) from bamgrp
   output:
   file("${pair_id}.hist.txt") into insertsize
-  set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into hlabam
+  file("${pair_id}*hla.*") into hla
   set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into qcbam
   set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into targetbam
+
   script:
   """
   source /etc/profile.d/modules.sh
-  module load samtools/1.4.1 picard/2.10.3
+  module load samtools/1.4.1 picard/2.10.3 bwakit/0.7.15
 
   count=\$(ls *.bam |wc -l)
   if [ \$count -gt 1 ]
@@ -176,45 +177,26 @@ process mergebam {
   else
   mv *.bam merge.bam
   fi
-  samtools sort --threads \$SLURM_CPUS_ON_NODE -o ${pair_id}.bam merge.bam
+  samtools sort -n --threads \$SLURM_CPUS_ON_NODE -o output.nsort.bam merge.bam
+  samtools view -h output.nsort.bam | k8 /cm/shared/apps/bwa/intel/0.7.15/bwakit/bwa-postalt.js -p ${pair_id}.hla ${index_path}/hs38DH.fa.alt | samtools view -1 - > alt.bam
+  run-HLA ${pair_id}.hla > ${pair_id}.hla.top 2> ${pair_id}.hla.log
+  touch ${pair_id}.hla.HLA-dummy.gt
+  cat ${pair_id}.hla.HLA*.gt | grep ^GT | cut -f2- > ${pair_id}.hla.all
+  samtools sort --threads \$SLURM_CPUS_ON_NODE -o ${pair_id}.bam alt.bam
   samtools index ${pair_id}.bam
   java -Xmx4g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${pair_id}.bam HISTOGRAM_FILE=${pair_id}.hist.ps REFERENCE_SEQUENCE=${reffa} OUTPUT=${pair_id}.hist.txt
   """
 }
 
-process hla {
-
-  errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
-
-  input:
-  set pair_id,file(bam) from hlabam
-
-  output:
-  file("${pair_id}*hla.*") into hla
-  script:
-  """
-  source /etc/profile.d/modules.sh
-  module load samtools/1.4.1 speedseq/20160506 picard/2.10.3 bwa/intel/0.7.15 bwakit/0.7.15 
-
-  samtools sort -n --threads \$SLURM_CPUS_ON_NODE -o output.nsort.bam ${bam}
-  samtools view output.nsort.bam | k8 /cm/shared/apps/bwa/intel/0.7.15/bwakit/bwa-postalt.js -p ${pair_id}.hla ${index_path}/hs38DH.fa.alt &> ${pair_id}.alt.bam
-  run-HLA ${pair_id}.hla > ${pair_id}.hla.top 2> ${pair_id}.hla.log
-  touch ${pair_id}.hla.HLA-dummy.gt
-  cat ${pair_id}.hla.HLA*.gt | grep ^GT | cut -f2- > ${pair_id}.hla.all
-  """
-}
-
 process seqqc {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id, file(sbam),file(idx) from qcbam
   output:
   file("${pair_id}.flagstat.txt") into alignstats
   file("${pair_id}.ontarget.flagstat.txt") into ontarget
-  file("${pair_id}.mapqualcov.txt") into mapqualcov
   file("${pair_id}.dedupcov.txt") into dedupcov
   file("${pair_id}.meanmap.txt") into meanmap
   file("${pair_id}.libsizeest.txt") into libsize
@@ -228,20 +210,20 @@ process seqqc {
   source /etc/profile.d/modules.sh
   module load bedtools/2.26.0 picard/2.10.3 samtools/1.4.1 fastqc/0.11.2
   fastqc -f bam ${sbam}
-  samtools flagstat --threads \$SLURM_CPUS_ON_NODE ${sbam} > ${pair_id}.flagstat.txt
+  samtools flagstat ${sbam} > ${pair_id}.flagstat.txt
   samtools view -b --threads \$SLURM_CPUS_ON_NODE -L ${capture_bed} -o ${pair_id}.ontarget.bam ${sbam}
   samtools index ${pair_id}.ontarget.bam
-  samtools flagstat --threads \$SLURM_CPUS_ON_NODE ${pair_id}.ontarget.bam > ${pair_id}.ontarget.flagstat.txt
+  samtools flagstat ${pair_id}.ontarget.bam > ${pair_id}.ontarget.flagstat.txt
   samtools view -b -q 1 ${pair_id}.ontarget.bam | bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b stdin -a ${capture_bed}  >  ${pair_id}.mapqualcov.txt
   samtools view -b -F 1024 ${pair_id}.ontarget.bam | bedtools coverage -sorted -g  ${index_path}/genomefile.txt -a ${capture_bed} -b stdin -hist | grep ^all > ${pair_id}.dedupcov.txt 
   java -Xmx32g -jar \$PICARD/picard.jar CollectAlignmentSummaryMetrics R=${reffa} I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.alignmentsummarymetrics.txt
-  java -Xmx32g -jar \$PICARD/picard.jar EstimateLibraryComplexity I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.libsizeest.txt
+  java -Xmx64g -jar \$PICARD/picard.jar EstimateLibraryComplexity I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.libsizeest.txt
   samtools view -F 1024 ${pair_id}.ontarget.bam | awk '{sum+=\$5} END { print "Mean MAPQ =",sum/NR}' > ${pair_id}.meanmap.txt
   """
 }
 process genocov {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id, file(sbam),file(idx) from genocovbam
@@ -249,11 +231,13 @@ process genocov {
   file("${pair_id}.genomecov.txt") into genomecov
   file("${pair_id}.covhist.txt") into covhist
   file("*coverage.txt") into capcovstat
+  file("${pair_id}.mapqualcov.txt") into mapqualcov
   script:
   """
   source /etc/profile.d/modules.sh
   module load bedtools/2.26.0 picard/2.10.3 samtools/1.4.1
-  bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b ${sbam} -a ${capture_bed} >  ${pair_id}.covhist.txt
+  samtools view -b -q 1 ${pair_id}.ontarget.bam | bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b stdin -a ${capture_bed}  >  ${pair_id}.mapqualcov.txt
+  bedtools coverage -sorted -g  ${index_path}/genomefile.txt -a ${capture_bed} -b ${sbam} -hist > ${pair_id}.covhist.txt
   perl $baseDir/scripts/calculate_depthcov.pl ${pair_id}.covhist.txt
   grep ^all ${pair_id}.covhist.txt >  ${pair_id}.genomecov.txt
   """
@@ -290,7 +274,7 @@ process parse_stat {
 }
 process gatkbam {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id, file(dbam), file(idx) from targetbam

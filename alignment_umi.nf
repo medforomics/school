@@ -9,7 +9,6 @@ params.design="$params.input/design.txt"
 params.genome="/project/shared/bicf_workflow_ref/GRCh38"
 params.capture="$params.genome/UTSWV2.bed"
 params.pairs="pe"
-params.cancer="detect"
 
 reffa=file("$params.genome/genome.fa")
 dbsnp="$params.genome/dbSnp.vcf.gz"
@@ -22,13 +21,6 @@ knownindel=file(indel)
 index_path = file(params.genome)
 capture_bed = file(params.capture)
 
-snpeff_vers = 'GRCh38.82';
-if (params.genome == '/project/shared/bicf_workflow_ref/GRCm38') {
-   snpeff_vers = 'GRCm38.82';
-}
-if (params.genome == '/project/shared/bicf_workflow_ref/GRCh37') {
-   snpeff_vers = 'GRCh37.75';
-}
 
 def fileMap = [:]
 
@@ -136,76 +128,55 @@ trimpe_r1_tuples
   .map { it -> it.flatten() }
   .set { trimpe }
 
-process alignpe {
+process bwa_concensus {
   errorStrategy 'ignore'
   //publishDir "$params.output", mode: 'copy'
 
   input:
   set pair_id, file(fq1), file(fq2) from trimpe
   output:
-  set val("${fq1.baseName.split("\\.batch", 2)[0]}"), file("${pair_id}.bam") into aligned
-  file("${pair_id}.libcomplex.txt") into libcomplex
+  set pair_id, file("${pair_id}.bam") into aligned
   when:
   params.pairs == 'pe'
   script:
   """
   source /etc/profile.d/modules.sh
-  module load bwa/intel/0.7.15 samtools/intel/1.3 speedseq/20160506 picard/1.131
-  bwa mem -M -t \$SLURM_CPUS_ON_NODE -R '@RG\\tID:${fq1.baseName.split("\\.batch", 2)[0]}\\tLB:tx\\tPL:illumina\\tPU:barcode\\tSM:${fq1.baseName.split("\\.batch", 2)[0]}' ${reffa} ${fq1} ${fq2} | samtools view -1 - > output.unsort.bam
-  sambamba sort -t \$SLURM_CPUS_ON_NODE -o output.sort.bam output.unsort.bam
-  java -Xmx20g -jar \$PICARD/picard.jar MarkDuplicates I=output.sort.bam O=${pair_id}.bam M=${pair_id}.libcomplex.txt ASSUME_SORTED=true
-  """
- }
-
-aligned
-   .groupTuple(by:0)
-   .set {bamgrp}
-
-process mergebam {
-   publishDir "$params.output", mode: 'copy'
-
-  input:
-  set pair_id,file(bams) from bamgrp
-  output:
-  file("${pair_id}*hla.*") into hla
-  file("${pair_id}.hist.txt") into insertsize
-  set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into qcbam
-  set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into targetbam
-  script:
-  """
-  source /etc/profile.d/modules.sh
-  module load samtools/intel/1.3 speedseq/20160506 picard/1.131 bwa/intel/0.7.15 bwakit/0.7.15 
-  which sambamba
-  count=\$(ls *.bam |wc -l)
-  if [ \$count -gt 1 ]
-  then
-  sambamba merge -t \$SLURM_CPUS_ON_NODE merge.bam *.bam
-  else
-  mv *.bam merge.bam
-  fi
-  sambamba sort -t \$SLURM_CPUS_ON_NODE -o ${pair_id}.bam merge.bam
-  sambamba sort -N -t \$SLURM_CPUS_ON_NODE -o output.nsort.bam merge.bam
-  java -Xmx4g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${pair_id}.bam HISTOGRAM_FILE=${pair_id}.hist.ps REFERENCE_SEQUENCE=${reffa} OUTPUT=${pair_id}.hist.txt
-  samtools view output.nsort.bam | k8 /cm/shared/apps/bwa/intel/0.7.15/bwakit/bwa-postalt.js -p ${pair_id}.hla ${index_path}/hs38DH.fa.alt &> tmp
+  module load bwa/intel/0.7.15 samtools/1.4.1 picard/2.10.3
+  bwa mem -M -t \$SLURM_CPUS_ON_NODE -R '@RG\\tID:${pair_id}\\tLB:tx\\tPL:illumina\\tPU:barcode\\tSM:${pair_id}' ${reffa} ${fq1} ${fq2} | samtools view -1 - > output.unsort.bam
+  samtools sort --threads \$SLURM_CPUS_ON_NODE -n -o output.nsort.bam output.unsort.bam
+  java -jar $PICARD/picard.jar FixMateInformation I=output.nsort.bam O=output.fix.bam ASSUME_SORTED=TRUE SORT_ORDER=coordinate ADD_MATE_CIGAR=TRUE
+  samtools index output.fix.bam
+  source activate fgbiotools
+  fgbio GroupReadsByUmi -s identity -i output.fix.bam -o output.group.bam -m 10
+  fgbio CallMolecularConsensusReads -i output.group.bam -p HFYK2BCXY -M 1 -R SampleA -o output.consensus.bam -S ':none:'
+  samtools index output.consensus.bam
+  samtools fastq --threads \$SLURM_CPUS_ON_NODE -1 ${pair_id}.consensus.R1.fastq -2 ${pair_id}.consensus.R2.fastq output.consensus.bam
+  gzip ${pair_id}.consensus.R1.fastq
+  gzip ${pair_id}.consensus.R2.fastq
+  bwa mem -M -t \$SLURM_CPUS_ON_NODE -R '@RG\\tID:${pair_id}\\tLB:tx\\tPL:illumina\\tPU:barcode\\tSM:${pair_id}' ${reffa} ${pair_id}.consensus.R1.fastq.gz ${pair_id}.consensus.R2.fastq | samtools view -1 - > output.unsort.bam
+  samtools sort -n --threads \$SLURM_CPUS_ON_NODE -o output.nsort.bam output.unsort.bam
+  samtools view -h output.nsort.bam | k8 /cm/shared/apps/bwa/intel/0.7.15/bwakit/bwa-postalt.js -p ${pair_id}.hla ${index_path}/hs38DH.fa.alt | samtools view -1 - > alt.bam
   run-HLA ${pair_id}.hla > ${pair_id}.hla.top 2> ${pair_id}.hla.log
   touch ${pair_id}.hla.HLA-dummy.gt
   cat ${pair_id}.hla.HLA*.gt | grep ^GT | cut -f2- > ${pair_id}.hla.all
+  samtools sort --threads \$SLURM_CPUS_ON_NODE -o ${pair_id}.bam alt.bam
+  samtools index ${pair_id}.bam
   """
-}
+ }
 
 process seqqc {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id, file(sbam),file(idx) from qcbam
   output:
   file("${pair_id}.flagstat.txt") into alignstats
   file("${pair_id}.ontarget.flagstat.txt") into ontarget
-  file("${pair_id}.mapqualcov.txt") into mapqualcov
   file("${pair_id}.dedupcov.txt") into dedupcov
   file("${pair_id}.meanmap.txt") into meanmap
-  file("${pair_id}.libsizeest.txt") into libsize
+  file("${pair_id}.libcomplex.txt") into libsize
+  file("${pair_id}.hist.txt") into insertsize
   file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
   set file("${pair_id}_fastqc.zip"),file("${pair_id}_fastqc.html") into fastqc
   set pair_id, file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into ontargetbam
@@ -214,21 +185,23 @@ process seqqc {
   script:
   """
   source /etc/profile.d/modules.sh
-  module load bedtools/2.25.0 picard/1.131 samtools/intel/1.3 fastqc/0.11.2 speedseq/20160506
+  module load bedtools/2.26.0 picard/2.10.3 samtools/1.4.1 fastqc/0.11.2
   fastqc -f bam ${sbam}
-  sambamba flagstat -t 30 ${sbam} > ${pair_id}.flagstat.txt
-  sambamba view -t 30 -f bam -L  ${capture_bed} -o ${pair_id}.ontarget.bam ${sbam}
-  sambamba flagstat -t 30 ${pair_id}.ontarget.bam > ${pair_id}.ontarget.flagstat.txt
+  samtools flagstat ${sbam} > ${pair_id}.flagstat.txt
+  samtools view -b --threads \$SLURM_CPUS_ON_NODE -L ${capture_bed} -o ${pair_id}.ontarget.bam ${sbam}
+  samtools index ${pair_id}.ontarget.bam
+  samtools flagstat ${pair_id}.ontarget.bam > ${pair_id}.ontarget.flagstat.txt
   samtools view -b -q 1 ${pair_id}.ontarget.bam | bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b stdin -a ${capture_bed}  >  ${pair_id}.mapqualcov.txt
   samtools view -b -F 1024 ${pair_id}.ontarget.bam | bedtools coverage -sorted -g  ${index_path}/genomefile.txt -a ${capture_bed} -b stdin -hist | grep ^all > ${pair_id}.dedupcov.txt 
-  java -Xmx20g -jar \$PICARD/picard.jar CollectAlignmentSummaryMetrics R=${reffa} I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.alignmentsummarymetrics.txt
-  java -Xmx20g -jar \$PICARD/picard.jar EstimateLibraryComplexity I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.libsizeest.txt
+  java -Xmx32g -jar \$PICARD/picard.jar CollectAlignmentSummaryMetrics R=${reffa} I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.alignmentsummarymetrics.txt
+  java -Xmx64g -jar \$PICARD/picard.jar EstimateLibraryComplexity I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.libcomplex.txt
   samtools view -F 1024 ${pair_id}.ontarget.bam | awk '{sum+=\$5} END { print "Mean MAPQ =",sum/NR}' > ${pair_id}.meanmap.txt
+  java -Xmx4g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${pair_id}.bam HISTOGRAM_FILE=${pair_id}.hist.ps REFERENCE_SEQUENCE=${reffa} OUTPUT=${pair_id}.hist.txt
   """
 }
 process genocov {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id, file(sbam),file(idx) from genocovbam
@@ -236,11 +209,13 @@ process genocov {
   file("${pair_id}.genomecov.txt") into genomecov
   file("${pair_id}.covhist.txt") into covhist
   file("*coverage.txt") into capcovstat
+  file("${pair_id}.mapqualcov.txt") into mapqualcov
   script:
   """
   source /etc/profile.d/modules.sh
-  module load bedtools/2.25.0 picard/1.131 samtools/intel/1.3 fastqc/0.11.2 speedseq/20160506
-  bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b ${sbam} -a ${capture_bed} >  ${pair_id}.covhist.txt
+  module load bedtools/2.26.0 picard/2.10.3 samtools/1.4.1
+  samtools view -b -q 1 ${pair_id}.ontarget.bam | bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b stdin -a ${capture_bed}  >  ${pair_id}.mapqualcov.txt
+  bedtools coverage -sorted -g  ${index_path}/genomefile.txt -a ${capture_bed} -b ${sbam} -hist > ${pair_id}.covhist.txt
   perl $baseDir/scripts/calculate_depthcov.pl ${pair_id}.covhist.txt
   grep ^all ${pair_id}.covhist.txt >  ${pair_id}.genomecov.txt
   """
@@ -253,7 +228,6 @@ process parse_stat {
   input:
   file(txt) from alignstats.toList()
   file(lc) from libcomplex.toList()
-  file(ls) from libsize.toList()
   file(is) from insertsize.toList()
   file(gc) from genomecov.toList()
   file(on) from ontarget.toList()
@@ -270,14 +244,14 @@ process parse_stat {
   """
   source /etc/profile.d/modules.sh
   module load R/3.2.1-intel git/gcc/v2.12.2
-  perl $baseDir/scripts/sequenceqc_alignment.pl -r ${index_path} *.genomecov.txt
+  perl $baseDir/scripts/sequenceqc_alignment.pl -r ${index_path} *.genomecov.txt ## need umi version no libsize
   perl $baseDir/scripts/covstats.pl *.mapqualcov.txt
   Rscript $baseDir/scripts/plot_hist_genocov.R
   """
 }
 process gatkbam {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id, file(dbam), file(idx) from targetbam
@@ -288,7 +262,7 @@ process gatkbam {
   script:
   """
   source /etc/profile.d/modules.sh
-  module load gatk/3.5 samtools/intel/1.3
+  module load gatk/3.7 samtools/1.4.1
   samtools index ${dbam}
   java -Xmx32g -jar \$GATK_JAR -T RealignerTargetCreator -known ${knownindel} -R ${reffa} -o ${pair_id}.bam.list -I ${dbam} -nt \$SLURM_CPUS_ON_NODE -nct 1
   java -Xmx32g -jar \$GATK_JAR -I ${dbam} -R ${reffa} --filter_mismatching_base_and_quals -T IndelRealigner -targetIntervals ${pair_id}.bam.list -o ${pair_id}.realigned.bam

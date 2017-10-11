@@ -5,7 +5,11 @@ my $vcffile = shift @ARGV;
 my $prefix = $vcffile;
 $prefix =~ s/\.vcf.gz//;
 my $input = "$vcffile" or die $!;
-my $num_mutations;
+open OUT, ">$prefix\.tumornormal.txt" or die $!;
+print OUT join("\t",'CHROM','POS','ID','Gene','AminoAcid',
+	       'TumorAF','TumorDepth','NormalAF','NormalDepth',
+	       'RnaSeqAF','RnaSeqDepth'),"\n";
+
 open IN, "gunzip -c $input|" or die $!;
 W1:while (my $line = <IN>) {
   chomp($line);
@@ -15,6 +19,7 @@ W1:while (my $line = <IN>) {
      $filter,$info,$format,@gtheader) = split(/\t/, $line);
   }
   if ($line =~ m/^#/) {
+    print OUT $line,"\n";
     next;
   }
   my ($chrom, $pos,$id,$ref,$alt,$score,
@@ -26,16 +31,16 @@ W1:while (my $line = <IN>) {
     my ($key,$val) = split(/=/,$a);
     $hash{$key} = $val unless ($hash{$key});
   }
-  next unless ($hash{Somatic} && $hash{Somatic} == 1);
-  
+  $hash{NormalAF} = $hash{NormalMAF} if ($hash{NormalMAF});
+  $hash{RnaSeqDP} = 0 unless $hash{RnaSeqDP};
+  $hash{RnaSeqMAF} = 0 unless $hash{RnaSeqMAF};
+
   foreach $trx (split(/,/,$hash{ANN})) {
     my ($allele,$effect,$impact,$gene,$geneid,$feature,
 	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
 	$cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
     next unless ($impact =~ m/HIGH|MODERATE/);
-    $num_mutations ++;
+    print OUT join("\t",$chrom,$pos,$id,$gene,$aa,$hash{AF},$hash{DP},$hash{NormalAF},$hash{NormalDP},$hash{RnaSeqMAF},$hash{RnaSeqDP}),"\n";
     next W1;
   }
 }
-
-print sprintf("%.2f",$num_mutations/3.322076),"\n";
