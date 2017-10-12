@@ -5,8 +5,8 @@ my $vcffile = shift @ARGV;
 my $prefix = $vcffile;
 $prefix =~ s/\.vcf.gz//;
 my $input = "$vcffile" or die $!;
-open OUT, ">$prefix\.tumornormal.txt" or die $!;
-print OUT join("\t",'CHROM','POS','ID','Gene','AminoAcid',
+open OUT, ">$prefix\.tumornormal.csv" or die $!;
+print OUT join(",",'CHROM','POS','ID','Gene','AminoAcid',
 	       'TumorAF','TumorDepth','NormalAF','NormalDepth',
 	       'RnaSeqAF','RnaSeqDepth'),"\n";
 
@@ -19,7 +19,7 @@ W1:while (my $line = <IN>) {
      $filter,$info,$format,@gtheader) = split(/\t/, $line);
   }
   if ($line =~ m/^#/) {
-    print OUT $line,"\n";
+    #print OUT $line,"\n";
     next;
   }
   my ($chrom, $pos,$id,$ref,$alt,$score,
@@ -29,18 +29,19 @@ W1:while (my $line = <IN>) {
   my %hash = ();
   foreach $a (split(/;/,$annot)) {
     my ($key,$val) = split(/=/,$a);
+    $val =~ s/,/\|/g;
     $hash{$key} = $val unless ($hash{$key});
   }
   $hash{NormalAF} = $hash{NormalMAF} if ($hash{NormalMAF});
   $hash{RnaSeqDP} = 0 unless $hash{RnaSeqDP};
   $hash{RnaSeqMAF} = 0 unless $hash{RnaSeqMAF};
-
+  
   foreach $trx (split(/,/,$hash{ANN})) {
     my ($allele,$effect,$impact,$gene,$geneid,$feature,
 	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
 	$cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
     next unless ($impact =~ m/HIGH|MODERATE/);
-    print OUT join("\t",$chrom,$pos,$id,$gene,$aa,$hash{AF},$hash{DP},$hash{NormalAF},$hash{NormalDP},$hash{RnaSeqMAF},$hash{RnaSeqDP}),"\n";
+    print OUT join(",",$chrom,$pos,$id,$gene,$aa,$hash{AF},$hash{DP},$hash{NormalAF},$hash{NormalDP},$hash{RnaSeqMAF},$hash{RnaSeqDP}),"\n";
     next W1;
   }
 }

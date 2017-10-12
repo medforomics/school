@@ -336,7 +336,6 @@ process annot {
   bgzip ${fname}.somatic.vcf
   tabix ${fname}.somatic.vcf.gz
   bcftools stats ${fname}.somatic.vcf.gz > ${fname}.stats.txt
-  perl $baseDir/scripts/calc_tmb.pl ${fname} ${fname}.stats.txt
   plot-vcfstats -s -p ${fname}.statplot ${fname}.stats.txt
   """
 }

@@ -257,7 +257,7 @@ if ($somatic ne 'no_normal') {
 	  $featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
 	  $cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
       next unless $keep{$gene};
-      my @fail = keys %fail;
+      my @fail = sort {$a cmp $b} keys %fail;
       if (scalar(@fail) == 0) {
 	$filter = 'PASS';
       }else {
@@ -422,7 +422,7 @@ W1:while (my $line = <IN>) {
     $keepforvcf = $gene;
   }
   next unless $keepforvcf;
-  my @fail = keys %fail;
+  my @fail = sort {$a cmp $b} keys %fail;
   if (scalar(@fail) < 1) {
     $filter = 'PASS';
   }elsif (scalar(@fail) > 0) {
@@ -444,7 +444,8 @@ W1:while (my $line = <IN>) {
 }
 
 system("vcf-sort $inputdir\/$tumorid\.final.vcf |grep -v LowFreqNormalMAF |bgzip  > $inputdir\/$subject\.vcf.gz");
-system("vcf-sort $inputdir\/$tumorid\.final.vcf |grep LowFreqNormalMAF |bgzip  > $inputdir\/$subject\.LowFreqNormal.vcf.gz");
+system("vcf-sort $inputdir\/$tumorid\.final.vcf |grep '#\\|LowFreqNormalMAF' |bgzip  > $inputdir\/$subject\.LowFreqNormal.vcf.gz");
+system("vcf-sort $inputdir\/$tumorid\.final.vcf |grep -v 'FailedQC' |bgzip  > $inputdir\/$subject\.PASS.vcf.gz");
 
 system("rm $inputdir\/$tumorid\.final.vcf");
 
