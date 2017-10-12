@@ -113,7 +113,7 @@ process checkmates {
   script:
   """
   source /etc/profile.d/modules.sh
-  module load python/2.7.x-anaconda bcftools/intel/1.3 samtools/intel/1.3 
+  module load python/2.7.x-anaconda bcftools/intel/1.3 samtools/intel/1.3 git/v2.5.3
   python /project/shared/bicf_workflow_ref/seqprg/NGSCheckMate/ncm.py -B -d ./ -bed ${index_path}/NGSCheckMate.bed -O ./ -N ${tid}_${nid}
   perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${tid}_${nid}_all.txt -o ${tid}_${nid}.sequence.stats.txt
   """
