@@ -29,10 +29,10 @@ W1:while (my $line = <IN>) {
   my %hash = ();
   foreach $a (split(/;/,$annot)) {
     my ($key,$val) = split(/=/,$a);
-    $val =~ s/,/\|/g;
+    $val =~ s/,/\|/g if ($val);
     $hash{$key} = $val unless ($hash{$key});
   }
-  $hash{NormalAF} = $hash{NormalMAF} if ($hash{NormalMAF});
+  $hash{NormalAF} = $hash{NormalMAF} if (exists $hash{NormalMAF});
   $hash{RnaSeqDP} = 0 unless $hash{RnaSeqDP};
   $hash{RnaSeqMAF} = 0 unless $hash{RnaSeqMAF};
   
@@ -40,7 +40,7 @@ W1:while (my $line = <IN>) {
     my ($allele,$effect,$impact,$gene,$geneid,$feature,
 	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
 	$cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
-    next unless ($impact =~ m/HIGH|MODERATE/);
+    next unless ($impact =~ m/HIGH|MODERATE/ && $aa);
     print OUT join(",",$chrom,$pos,$id,$gene,$aa,$hash{AF},$hash{DP},$hash{NormalAF},$hash{NormalDP},$hash{RnaSeqMAF},$hash{RnaSeqDP}),"\n";
     next W1;
   }

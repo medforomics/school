@@ -98,9 +98,8 @@ if ($somatic ne 'no_normal') {
       my @header = split(/\t/,$line);
       ($chrom, $pos,$id,$ref,$alt,$score,
        $filter,$info,$format,@gtheader) = split(/\t/, $line);
-    }
-    if ($line =~ m/^#/) {
-      print OUT $line,"\n";
+      next;
+    }elsif ($line =~ m/^#/) {
       next;
     }
     my ($chrom, $pos,$id,$ref,$alt,$score,
@@ -136,8 +135,9 @@ if ($somatic ne 'no_normal') {
       my @header = split(/\t/,$line);
       ($chrom, $pos,$id,$ref,$alt,$score,
        $filter,$info,$format,@gtheader) = split(/\t/, $line);
-    }
-    if ($line =~ m/^#/) {
+      print OUT join("\t",$chrom,$pos,$id,$ref,$alt,$score,$filter,$info,$format,$tumorid),"\n";
+      
+   } elsif ($line =~ m/^#/) {
       print OUT $line,"\n";
       next;
     }
@@ -234,19 +234,19 @@ if ($somatic ne 'no_normal') {
     if ($rnaval{$chrom}{$pos}) {
       my ($rnaad,$rnamaf,$rnadp) = @{$rnaval{$chrom}{$pos}};
       $hash{RnaSeqValidation} = 1 if ($rnamaf && $rnamaf =~ m/\d+/ && $rnamaf > 0.01);
-      $hash{RnaSeqMAF} = $rnamaf;
+      $hash{RnaSeqAF} = $rnamaf;
       $hash{RnaSeqDP} = $rnadp;
       $hash{RnaSeqAD} = $rnaad;
       $hash{fpkm} = $rnadp;
     }
     delete $hash{SOMATIC};
     if ($maf[1][0] >= 0.30) {
-      #$hash{Somatic} = 0;
+      $hash{Germline} = 1;
     }elsif ($maf[0][0] < 0.05 && ($maf[1][0] > 0.01 || $maf[1][0]*5 > $maf[0][0])) {
       next;
     }elsif ($maf[1][0] >= 0.05 || $maf[1][0]*5 > $maf[0][0]) {
       #$hash{Somatic} = 0;
-      $hash{'LowFreqNormalMAF'} = 1;
+      $hash{'LowFreqNormalAF'} = 1;
     }else {
       $hash{Somatic} = 1;
       $hash{SomaticCallSet}=$hash{CallSet};
@@ -256,26 +256,30 @@ if ($somatic ne 'no_normal') {
       my ($allele,$effect,$impact,$gene,$geneid,$feature,
 	  $featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
 	  $cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
+      next unless ($impact =~ m/HIGH|MODERATE/);
       next unless $keep{$gene};
-      my @fail = sort {$a cmp $b} keys %fail;
-      if (scalar(@fail) == 0) {
-	$filter = 'PASS';
+      push @aa, $aa if ($aa ne '');
+      $keepforvcf = $gene;
+    }
+    next unless $keepforvcf;
+    my @fail = sort {$a cmp $b} keys %fail;
+    if (scalar(@fail) == 0) {
+      $filter = 'PASS';
+    }else {
+      $filter = join(";", 'FailedQC',@fail);
+    }
+    my @nannot;
+    foreach $info (sort {$a cmp $b} keys %hash) {
+      if (defined $hash{$info}) {
+	push @nannot, $info."=".$hash{$info};
       }else {
-	$filter = join(";", 'FailedQC',@fail);
-      }
-      my @nannot;
-      foreach $info (sort {$a cmp $b} keys %hash) {
-	if (defined $hash{$info}) {
-	  push @nannot, $info."=".$hash{$info};
-	}else {
 	  push @nannot, $info;
 	}
-      }
-      $newannot = join(";",@nannot);
-      print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,
-		     $filter,$newannot,$format,$newgt),"\n";
-      next W1;
     }
+    $newannot = join(";",@nannot);
+    print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,
+		   $filter,$newannot,$format,$newgt),"\n";
+    next W1;
   }
 }
 close IN;
@@ -290,7 +294,9 @@ W1:while (my $line = <IN>) {
      $filter,$info,$format,@gtheader) = split(/\t/, $line);
   }
   if ($line =~ m/^#/) {
-    #    print OUT $line,"\n";
+    if ($somatic eq 'no_normal') {
+      print OUT $line,"\n";
+    }
     next;
   }
   my ($chrom, $pos,$id,$ref,$alt,$score,
@@ -305,7 +311,7 @@ W1:while (my $line = <IN>) {
   if ($rnaval{$chrom}{$pos}) {
     my ($rnaad,$rnamaf,$rnadp) = @{$rnaval{$chrom}{$pos}};
     $hash{RnaSeqValidation} = 1 if ($rnamaf && $rnamaf =~ m/\d+/ && $rnamaf > 0.01);
-    $hash{RnaSeqMAF} = $rnamaf;
+    $hash{RnaSeqAF} = $rnamaf;
     $hash{RnaSeqDP} = $rnadp;
     $hash{RnaSeqAD} = $rnaad;
     $hash{fpkm} = $rnadp;
@@ -373,8 +379,8 @@ W1:while (my $line = <IN>) {
       $totalaltct += $acts[$i];
     }
   }
-  $hash{NormalMAF} = join(",",@normmaf) if @normmaf;
-  $hash{NormalAD} = join(",",@normaltct) if @normmaf;
+  $hash{NormalAF} = join(",",@normmaf) if scalar(@normmaf> 0);
+  $hash{NormalAD} = join(",",@normaltct) if scalar(@normmaf> 0);
   next unless ($altct[0] && $altct[0] > 2);
   if ($hash{DP} =~ m/,/) {
     $hash{DP} = $totalaltct+$hash{RO};
@@ -389,12 +395,12 @@ W1:while (my $line = <IN>) {
   $hash{AF} = join(",",@mutallfreq);
   if ($normals{$chrom}{$pos}) {
     if ($normmaf[0] >= 0.30) {
-      #$hash{Somatic} = 0;
+      $hash{Germline} = 1;
     }elsif ($mutallfreq[0] < 0.05 && ($normmaf[0] > 0.01 || $normmaf[0]*5 > $mutallfreq[0])) {
       next;
     }elsif ($normmaf[0] >= 0.05 || $normmaf[0]*5 > $mutallfreq[0]) {
       #$hash{Somatic} = 0;
-      $hash{'LowFreqNormalMAF'} = 1;
+      $hash{'LowFreqNormalAF'} = 1;
     }
   }
   if ($hash{DP} < 20) {
@@ -416,8 +422,8 @@ W1:while (my $line = <IN>) {
     my ($allele,$effect,$impact,$gene,$geneid,$feature,
 	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
 	$cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
-    next unless ($impact =~ m/HIGH|MODERATE/);
     next unless $keep{$gene};
+    next unless ($impact =~ m/HIGH|MODERATE/);
     push @aa, $aa if ($aa ne '');
     $keepforvcf = $gene;
   }
@@ -443,8 +449,8 @@ W1:while (my $line = <IN>) {
 		 $filter,$newannot,$format,$allele_info),"\n";
 }
 
-system("vcf-sort $inputdir\/$tumorid\.final.vcf |grep -v LowFreqNormalMAF |bgzip  > $inputdir\/$subject\.vcf.gz");
-system("vcf-sort $inputdir\/$tumorid\.final.vcf |grep '#\\|LowFreqNormalMAF' |bgzip  > $inputdir\/$subject\.LowFreqNormal.vcf.gz");
+system("vcf-sort $inputdir\/$tumorid\.final.vcf |grep -v LowFreqNormalAF |bgzip  > $inputdir\/$subject\.utsw.vcf.gz");
+system("vcf-sort $inputdir\/$tumorid\.final.vcf |grep '#\\|LowFreqNormalAF' |bgzip  > $inputdir\/$subject\.LowFreqNormal.vcf.gz");
 system("vcf-sort $inputdir\/$tumorid\.final.vcf |grep -v 'FailedQC' |bgzip  > $inputdir\/$subject\.PASS.vcf.gz");
 
 system("rm $inputdir\/$tumorid\.final.vcf");
