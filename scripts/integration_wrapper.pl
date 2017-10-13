@@ -1,6 +1,9 @@
 #!/usr/bin/perl -w
 #integration_wrapper.pl
-#use Time::localtime;
+
+#Need to load modules for samtools, snpsift, and vcftools
+
+#perl integration_wrapper.pl /project/PHG/PHG_Clinical/complete/SU16-1323
 
 my ($month,$year) = (localtime)[4,5];
 $year += 1900;
@@ -11,13 +14,14 @@ my $date=$year.sprintf("%02s",$month);
 my ($refdir) = $ARGV[0];
 my @splitPath = split(/\//, $refdir);
 my $subject =$splitPath[-1];
+my $prefix = $refdir."/".$subject;
 my @directories = `find $refdir -type d| sed 's|$refdir/||'`;
 
 #Identifies folders as tumor,normal,somatic or rnaseq
 my ($fusion,$svcf)=("") x 2;
 my $tumorid="no_tumor";
 my $normalid="no_normal";
-my $somaticid="no_somatic";
+my $somaticid="no_normal";
 my $rnaseqid="no_rnaseq";
 
 foreach my $directory(@directories){
@@ -39,19 +43,19 @@ if($tumorid ne "no_tumor" && $normalid ne "no_normal"){
 #Run scripts to generate final vcfs, translocations and xml output and moves them into a Philips monitored directory
 #Translocations formatted file for Information Resources
 #Determines the MAF of 'PASS'ing variants
-system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_vcfs.pl $subject $subject $tumorid $somaticid $rnaseqid");
-my $philipsvcf = $refdir."/".$subject.".philips.vcf.gz"; 
-system("cp $philipsvcf /project/PHG/PHG_Sap/input/GenomicsFiles/");
-if($tumorid ne "no_tumor" && $rnaseqid ne "no_rnaseq"){
+if($tumorid ne "no_tumor"){
+  system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_vcfs.pl $subject $subject $tumorid $somaticid $rnaseqid");
+  system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/calc_tmb.pl $prefix\.vcf.gz");
+  #system("cp $pefix\.vcf.gz /project/PHG/PHG_Sap/input/GenomicsFiles/");
   system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_translocations.pl -svcf $svcf -fusion $fusion");
-  my $philipsFile = $svcf;
-  $philipsFile =~ s/sv.annot.txt/translocations.txt/;
-  system("cp $philipsFile /project/PHG/PHG_Sap/input/GenomicsFiles/");
+  my $philipsTranslocation = $svcf;
+  $philipsTranslocation =~ s/sv.annot.txt/translocations.txt/;
+  #system("cp $philipsTranslocation /project/PHG/PHG_Sap/input/GenomicsFiles/");
+  #system("ln -s /project/shared/bicf_workflow_ref/vcf2maf/.vep ~/.vep");
+  system("zcat $prefix\.vcf.gz | java -jar /cm/shared/apps/snpeff/4.2/SnpSift.jar filter \"(FILTER = 'PASS')\"  >$prefix\.pass.vcf");
+  system("perl /project/shared/bicf_workflow_ref/vcf2maf/vcf2maf.pl --input $prefix\.pass.vcf --output $prefix\.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta /project/shared/bicf_workflow_ref/vcf2maf/.vep/homo_sapiens/87_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa --cache-version 87 --vep-path /project/shared/bicf_workflow_ref/vcf2maf/variant_effect_predictor --tumor-id $tumorid");
+  system("python /project/PHG/PHG_Clinical/clinseq_workflows/IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p UGMP_Cl1nS3q -o /project/PHG/PHG_Sap/input/GenomicsFiles/$subject.xml");
+  system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/calc_tmb.pl $prefix\.vcf.gz");
 }
-system("python /project/PHG/PHG_Clinical/clinseq_workflow/IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p UGMP_Cl1nS3q -o /project/PHG/PHG_Sap/input/GenomicsFiles/$subject.xml");
-system("ln -s /project/shared/bicf_workflow_ref/vcf2maf/.vep ~/.vep");
-system("zcat $refdir/$subject.philips.vcf.gz | java -jar /cm/shared/apps/snpeff/4.2/SnpSift.jar filter \"(FILTER = 'PASS')\"  > $refdir/$subject.pass.vcf");
-system("perl /project/shared/bicf_workflow_ref/vcf2maf/vcf2maf.pl --input $refdir/$subject.pass.vcf --output $refdir/$subject.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta /project/shared/bicf_workflow_ref/vcf2maf/.vep/homo_sapiens/87_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa --cache-version 87 --vep-path /project/shared/bicf_workflow_ref/vcf2maf/variant_effect_predictor --tumor-id $tumorid");
-
 
 
