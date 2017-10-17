@@ -3,11 +3,12 @@
 
 my $refdir = '/project/shared/bicf_workflow_ref/GRCh38/';
 
-open OM, "</project/shared/bicf_workflow_ref/GRCh38/validation.genelist.txt" or die $!;
+open OM, "<$refdir\/panel1385.genelist.txt" or die $!;
 while (my $line = <OM>) {
   chomp($line);
   $keep{$line} = 1;
 }
+
 my ($subject,$samplename,$tumorid,$somatic,$rnaseqid) = @ARGV;
 my $inputdir = "/project/PHG/PHG_Clinical/complete/$subject";
 system("tabix -f $inputdir\/$tumorid/$tumorid\.annot.vcf.gz");
@@ -136,7 +137,7 @@ if ($somatic ne 'no_normal') {
       ($chrom, $pos,$id,$ref,$alt,$score,
        $filter,$info,$format,@gtheader) = split(/\t/, $line);
       print OUT join("\t",$chrom,$pos,$id,$ref,$alt,$score,$filter,$info,$format,$tumorid),"\n";
-      
+      next;
    } elsif ($line =~ m/^#/) {
       print OUT $line,"\n";
       next;
@@ -226,10 +227,12 @@ if ($somatic ne 'no_normal') {
     if ($id =~ m/COS/ && $cosmicsubj >= 5) {
       $fail{'LowAltCt'} = 1 if ($ao[0] < 3);
       $fail{'LowMAF'} = 1 if ($maf[0][0] < 0.01);
+      #$fail{'LowMAF'} = 1 if ($maf[0][0] < 0.03 && $hash{TYPE} ne 'snp');
     }else {
       $fail{'OneCaller'} = 1 if (scalar(@callers) < 2);
       $fail{'LowAltCt'} = 1 if ($ao[0] < 8);
       $fail{'LowMAF'} = 1 if ($maf[0][0] < 0.05);
+      #$fail{'LowMAF'} = 1 if ($maf[0][0] < 0.10 && $hash{TYPE} ne 'snp');
     }
     if ($rnaval{$chrom}{$pos}) {
       my ($rnaad,$rnamaf,$rnadp) = @{$rnaval{$chrom}{$pos}};
@@ -357,7 +360,9 @@ W1:while (my $line = <IN>) {
   my @normmaf;
   my %normalcts;
   if ($normals{$chrom}{$pos}) {
-    %normalcts = %{$normals{$chrom}{$pos}{BaseCts}};
+      if ($normals{$chrom}{$pos}{BaseCts}) {
+	  %normalcts = %{$normals{$chrom}{$pos}{BaseCts}};
+      }
     $hash{NormalDP} = $normals{$chrom}{$pos}{NormalDP};
     my $refct = 0;
     my $refdepth = 0;
@@ -410,10 +415,12 @@ W1:while (my $line = <IN>) {
   if ((grep(/hotspot/,@callers) || $id =~ m/COS/) && $cosmicsubj >= 5) {
     $fail{'LowAltCt'} = 1 if ($altct[0] < 3);
     $fail{'LowMAF'} = 1 if ($mutallfreq[0] < 0.01);
+    #$fail{'LowMAF'} = 1 if ($mutallfreq[0] < 0.03 && $hash{TYPE} ne 'snp');
   }else {
     $fail{'OneCaller'} = 1 if (scalar(@callers) < 2);
     $fail{'LowAltCt'} = 1 if ($altct[0] < 8);
     $fail{'LowMAF'} = 1 if ($mutallfreq[0] < 0.05);
+    #$fail{'LowMAF'} = 1 if ($mutallfreq[0] < 0.10 && $hash{TYPE} ne 'snp');
   }
   my $keepforvcf = 0;
   my @aa;

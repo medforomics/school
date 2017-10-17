@@ -151,8 +151,8 @@ process alignpe {
   source /etc/profile.d/modules.sh
   module load bwa/intel/0.7.15 samtools/intel/1.3 speedseq/20160506 picard/1.131
   bwa mem -M -t \$SLURM_CPUS_ON_NODE -R '@RG\\tID:${fq1.baseName.split("\\.batch", 2)[0]}\\tLB:tx\\tPL:illumina\\tPU:barcode\\tSM:${fq1.baseName.split("\\.batch", 2)[0]}' ${reffa} ${fq1} ${fq2} | samtools view -1 - > output.unsort.bam
-  sambamba sort -t \$SLURM_CPUS_ON_NODE -o output.sort.bam output.unsort.bam
-  java -Xmx20g -jar \$PICARD/picard.jar MarkDuplicatesWithMateCigar I=output.sort.bam O=${pair_id}.bam M=${pair_id}.libcomplex.txt ASSUME_SORTED=true MINIMUM_DISTANCE=300
+  sambamba sort --tmpdir=./ -t \$SLURM_CPUS_ON_NODE -o output.sort.bam output.unsort.bam
+  java -Djava.io.tmpdir=./ -Xmx20g -jar \$PICARD/picard.jar MarkDuplicatesWithMateCigar I=output.sort.bam O=${pair_id}.bam M=${pair_id}.libcomplex.txt ASSUME_SORTED=true MINIMUM_DISTANCE=300
   """
  }
 
@@ -182,9 +182,9 @@ process mergebam {
   else
   mv *.bam merge.bam
   fi
-  sambamba sort -t \$SLURM_CPUS_ON_NODE -o ${pair_id}.bam merge.bam
-  sambamba sort -N -t \$SLURM_CPUS_ON_NODE -o output.nsort.bam merge.bam
-  java -Xmx4g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${pair_id}.bam HISTOGRAM_FILE=${pair_id}.hist.ps REFERENCE_SEQUENCE=${reffa} OUTPUT=${pair_id}.hist.txt
+  sambamba sort --tmpdir=./ -t \$SLURM_CPUS_ON_NODE -o ${pair_id}.bam merge.bam
+  sambamba sort --tmpdir=./ -N -t \$SLURM_CPUS_ON_NODE -o output.nsort.bam merge.bam
+  java -Djava.io.tmpdir=./ -Xmx4g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${pair_id}.bam HISTOGRAM_FILE=${pair_id}.hist.ps REFERENCE_SEQUENCE=${reffa} OUTPUT=${pair_id}.hist.txt
   samtools view output.nsort.bam | k8 /cm/shared/apps/bwa/intel/0.7.15/bwakit/bwa-postalt.js -p ${pair_id}.hla ${index_path}/hs38DH.fa.alt &> tmp
   run-HLA ${pair_id}.hla > ${pair_id}.hla.top 2> ${pair_id}.hla.log
   touch ${pair_id}.hla.HLA-dummy.gt
@@ -220,8 +220,8 @@ process seqqc {
   sambamba flagstat -t 30 ${pair_id}.ontarget.bam > ${pair_id}.ontarget.flagstat.txt
   samtools view -b -q 1 ${pair_id}.ontarget.bam | bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b stdin -a ${capture_bed}  >  ${pair_id}.mapqualcov.txt
   samtools view -b -F 1024 ${pair_id}.ontarget.bam | bedtools coverage -sorted -g  ${index_path}/genomefile.txt -a ${capture_bed} -b stdin -hist | grep ^all > ${pair_id}.dedupcov.txt 
-  java -Xmx32g -jar \$PICARD/picard.jar CollectAlignmentSummaryMetrics R=${reffa} I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.alignmentsummarymetrics.txt
-  java -Xmx32g -jar \$PICARD/picard.jar EstimateLibraryComplexity I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.libsizeest.txt
+  java -Djava.io.tmpdir=./ -Xmx32g -jar \$PICARD/picard.jar CollectAlignmentSummaryMetrics R=${reffa} I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.alignmentsummarymetrics.txt
+  java -Djava.io.tmpdir=./ -Xmx32g -jar \$PICARD/picard.jar EstimateLibraryComplexity I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.libsizeest.txt
   samtools view -F 1024 ${pair_id}.ontarget.bam | awk '{sum+=\$5} END { print "Mean MAPQ =",sum/NR}' > ${pair_id}.meanmap.txt
   """
 }
@@ -289,9 +289,9 @@ process gatkbam {
   source /etc/profile.d/modules.sh
   module load gatk/3.5 samtools/intel/1.3
   samtools index ${dbam}
-  java -Xmx32g -jar \$GATK_JAR -T RealignerTargetCreator -known ${knownindel} -R ${reffa} -o ${pair_id}.bam.list -I ${dbam} -nt \$SLURM_CPUS_ON_NODE -nct 1
-  java -Xmx32g -jar \$GATK_JAR -I ${dbam} -R ${reffa} --filter_mismatching_base_and_quals -T IndelRealigner -targetIntervals ${pair_id}.bam.list -o ${pair_id}.realigned.bam
-  java -Xmx32g -jar \$GATK_JAR -l INFO -R ${reffa} --knownSites ${dbsnp} -I ${pair_id}.realigned.bam -T BaseRecalibrator -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov ContextCovariate -o ${pair_id}.recal_data.grp -nt 1 -nct \$SLURM_CPUS_ON_NODE
-  java -Xmx32g -jar \$GATK_JAR -T PrintReads -R ${reffa} -I ${pair_id}.realigned.bam -BQSR ${pair_id}.recal_data.grp -o ${pair_id}.final.bam -nt 1 -nct 8
+  java -Djava.io.tmpdir=./ -Xmx32g -jar \$GATK_JAR -T RealignerTargetCreator -known ${knownindel} -R ${reffa} -o ${pair_id}.bam.list -I ${dbam} -nt \$SLURM_CPUS_ON_NODE -nct 1
+  java -Djava.io.tmpdir=./ -Xmx32g -jar \$GATK_JAR -I ${dbam} -R ${reffa} --filter_mismatching_base_and_quals -T IndelRealigner -targetIntervals ${pair_id}.bam.list -o ${pair_id}.realigned.bam
+  java -Djava.io.tmpdir=./ -Xmx32g -jar \$GATK_JAR -l INFO -R ${reffa} --knownSites ${dbsnp} -I ${pair_id}.realigned.bam -T BaseRecalibrator -cov ReadGroupCovariate -cov QualityScoreCovariate -cov CycleCovariate -cov ContextCovariate -o ${pair_id}.recal_data.grp -nt 1 -nct \$SLURM_CPUS_ON_NODE
+  java -Djava.io.tmpdir=./ -Xmx32g -jar \$GATK_JAR -T PrintReads -R ${reffa} -I ${pair_id}.realigned.bam -BQSR ${pair_id}.recal_data.grp -o ${pair_id}.final.bam -nt 1 -nct 8
   """
 }

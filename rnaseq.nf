@@ -167,7 +167,7 @@ process alignpe {
   module load hisat2/2.0.1-beta-intel samtools/intel/1.3 fastqc/0.11.2 picard/1.131 speedseq/20160506
   hisat2 -p 30 --no-unal --dta -x ${index_path}/${index_name} -1 ${fq1} -2 ${fq2} -S out.sam 2> ${pair_id}.hisatout.txt
   sambamba view -t 30 -f bam -S -o output.bam out.sam
-  sambamba sort -t 30 -o ${pair_id}.bam output.bam
+  sambamba sort --tmpdir=./ -t 30 -o ${pair_id}.bam output.bam
   sambamba flagstat -t 30 ${pair_id}.bam > ${pair_id}.flagstat.txt
   fastqc -f bam ${pair_id}.bam
   """
@@ -177,7 +177,7 @@ process alignpe {
   module load star/2.4.2a samtools/intel/1.3 fastqc/0.11.2 picard/1.131 speedseq/20160506
   STAR --genomeDir ${index_path}/${star_index} --readFilesIn ${fq1} ${fq2} --readFilesCommand zcat --genomeLoad NoSharedMemory --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterMultimapNmax 20 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --outSAMheaderCommentFile COfile.txt --outSAMheaderHD @HD VN:1.4 SO:coordinate --outSAMunmapped Within --outFilterType BySJout --outSAMattributes NH HI AS NM MD --outSAMstrandField intronMotif --outSAMtype BAM SortedByCoordinate --quantMode TranscriptomeSAM --sjdbScore 1 --limitBAMsortRAM 60000000000 --outFileNamePrefix out
   mv outLog.final.out ${pair_id}.hisatout.txt
-  sambamba sort -t 30 -o ${pair_id}.bam outAligned.sortedByCoord.out.bam
+  sambamba --tmpdir=./ sort -t 30 -o ${pair_id}.bam outAligned.sortedByCoord.out.bam
   sambamba flagstat -t 30 ${pair_id}.bam > ${pair_id}.flagstat.txt
   fastqc -f bam ${pair_id}.bam
   """
@@ -201,7 +201,7 @@ process alignse {
   module load hisat2/2.0.1-beta-intel samtools/intel/1.3 fastqc/0.11.2 speedseq/20160506 picard/1.131
   hisat2 -p 30 --no-unal --dta -x ${index_path}/${index_name} -U ${fq1} -S out.sam 2> ${pair_id}.hisatout.txt
   sambamba view -t 30 -f bam -S -o output.bam out.sam
-  sambamba sort -t 30 -o ${pair_id}.bam output.bam
+  sambamba sort --tmpdir=./ -t 30 -o ${pair_id}.bam output.bam
   sambamba flagstat -t 30 ${pair_id}.bam > ${pair_id}.flagstat.txt
   fastqc -f bam ${pair_id}.bam
   """
@@ -212,7 +212,7 @@ process alignse {
   STAR --genomeDir ${index_path}/${star_index} --readFilesIn ${fq1} --readFilesCommand zcat --genomeLoad NoSharedMemory --outFilterMismatchNmax 999 --outFilterMismatchNoverReadLmax 0.04 --outFilterMultimapNmax 20 --alignSJoverhangMin 8 --alignSJDBoverhangMin 1 --alignIntronMin 20 --alignIntronMax 1000000 --alignMatesGapMax 1000000 --outSAMheaderCommentFile COfile.txt --outSAMheaderHD @HD VN:1.4 SO:coordinate --outSAMunmapped Within --outFilterType BySJout --outSAMattributes NH HI AS NM MD --outSAMstrandField intronMotif --outSAMtype SAM --quantMode TranscriptomeSAM --sjdbScore 1 --limitBAMsortRAM 60000000000 --outFileNamePrefix out
   mv outLog.final.out ${pair_id}.hisatout.txt
   sambamba view -t 30 -f bam -S -o output.bam outAligned.out.sam
-  sambamba sort -t 30 -o ${pair_id}.bam output.bam
+  sambamba --tmpdir=./ sort -t 30 -o ${pair_id}.bam output.bam
   sambamba flagstat -t 30 ${pair_id}.bam > ${pair_id}.flagstat.txt
   fastqc -f bam ${pair_id}.bam
   """
@@ -259,7 +259,7 @@ process markdups {
   """
   source /etc/profile.d/modules.sh
   module load picard/1.131 speedseq/20160506
-  sambamba markdup -t 20 -r ${sbam} ${pair_id}.dedup.bam
+  sambamba markdup --tmpdir=./ -t 20 -r ${sbam} ${pair_id}.dedup.bam
   """
   else
   """

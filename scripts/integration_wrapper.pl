@@ -44,18 +44,18 @@ if($tumorid ne "no_tumor" && $normalid ne "no_normal"){
 #Translocations formatted file for Information Resources
 #Determines the MAF of 'PASS'ing variants
 if($tumorid ne "no_tumor"){
-  system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_vcfs.pl $subject $subject $tumorid $somaticid $rnaseqid");
-  system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/calc_tmb.pl $prefix\.vcf.gz");
+    system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_vcfs.pl $subject $subject $tumorid $somaticid $rnaseqid");
+    system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/calc_tmb.pl $prefix\.utsw.vcf.gz");
+    system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/convert4philips.pl $prefix\.utsw.vcf.gz");
+    system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/extract_greyzone.pl $prefix\.PASS.vcf.gz $rnaseqid\/$rnaseqid.fpkm.txt");
   #system("cp $pefix\.vcf.gz /project/PHG/PHG_Sap/input/GenomicsFiles/");
-  system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_translocations.pl -svcf $svcf -fusion $fusion");
-  my $philipsTranslocation = $svcf;
-  $philipsTranslocation =~ s/sv.annot.txt/translocations.txt/;
-  #system("cp $philipsTranslocation /project/PHG/PHG_Sap/input/GenomicsFiles/");
-  #system("ln -s /project/shared/bicf_workflow_ref/vcf2maf/.vep ~/.vep");
-  system("zcat $prefix\.vcf.gz | java -jar /cm/shared/apps/snpeff/4.2/SnpSift.jar filter \"(FILTER = 'PASS')\"  >$prefix\.pass.vcf");
-  system("perl /project/shared/bicf_workflow_ref/vcf2maf/vcf2maf.pl --input $prefix\.pass.vcf --output $prefix\.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta /project/shared/bicf_workflow_ref/vcf2maf/.vep/homo_sapiens/87_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa --cache-version 87 --vep-path /project/shared/bicf_workflow_ref/vcf2maf/variant_effect_predictor --tumor-id $tumorid");
-  system("python /project/PHG/PHG_Clinical/clinseq_workflows/IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p UGMP_Cl1nS3q -o /project/PHG/PHG_Sap/input/GenomicsFiles/$subject.xml");
-  system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/calc_tmb.pl $prefix\.vcf.gz");
+    system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_translocations.pl -svcf $svcf -fusion $fusion");
+    my $philipsTranslocation = $svcf;
+    $philipsTranslocation =~ s/sv.annot.txt/translocations.txt/;
+    #system("cp $philipsTranslocation /project/PHG/PHG_Sap/input/GenomicsFiles/");
+    #system("ln -s /project/shared/bicf_workflow_ref/vcf2maf/.vep ~/.vep");
+    system("perl /project/shared/bicf_workflow_ref/vcf2maf/vcf2maf.pl --input $prefix\.PASS.vcf --output $prefix\.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta /project/shared/bicf_workflow_ref/vcf2maf/.vep/homo_sapiens/87_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa --cache-version 87 --vep-path /project/shared/bicf_workflow_ref/vcf2maf/variant_effect_predictor --tumor-id $tumorid");
+    system("python /project/PHG/PHG_Clinical/clinseq_workflows/IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p UGMP_Cl1nS3q -o /project/PHG/PHG_Sap/input/GenomicsFiles/$subject.xml");
 }
 
 

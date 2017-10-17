@@ -2,13 +2,37 @@
 #extract_greyzone.pl
 
 my $vcffile = shift @ARGV;
+my $fpkmfile = shift @ARGV;
 my $prefix = $vcffile;
 $prefix =~ s/\.vcf.gz//;
 my $input = "$vcffile" or die $!;
 open OUT, ">$prefix\.tumornormal.csv" or die $!;
-print OUT join(",",'CHROM','POS','ID','Gene','AminoAcid',
-	       'TumorAF','TumorDepth','NormalAF','NormalDepth',
-	       'RnaSeqAF','RnaSeqDepth'),"\n";
+print OUT join(",",'Chr:Pos','ID','Gene','AminoAcid','Effect','Ref','Alt',
+	       'SomaticStatus','RNASeqValidation','RNASeq FPKM','NofOne','Cosmic',
+	       'TumorAF','TumorDepth','NormalAF','NormalDepth','RnaSeqAF','RnaSeqDepth'),"\n";
+
+my $refdir = '/project/shared/bicf_workflow_ref/GRCh38/';
+my %cosmic;
+open OM, "<$refdir\/cosmic_consenus.genelist.txt" or die $!;
+while (my $line = <OM>) {
+  chomp($line);
+  $cosmic{$line} = 1;
+}
+close OM;
+my %nofone;
+open OM, "<$refdir\/nofone.genelist.txt" or die $!;
+while (my $line = <OM>) {
+  chomp($line);
+  $nofone{$line} = 1;
+}
+close OM;
+open RNACT, "<$fpkmfile" or die $!;
+while (my $line = <RNACT>) {
+    chomp($line);
+    next if ($line =~ m/^#|Geneid|FPKM/);
+    my ($ensid,$gene,$chr,$strand,$start,$end,$cov,$fpkm,$tmp) = split(/\t/,$line);
+    $fpkm{$gene} = $fpkm if ($fpkm > 1);
+}
 
 open IN, "gunzip -c $input|" or die $!;
 W1:while (my $line = <IN>) {
@@ -32,16 +56,26 @@ W1:while (my $line = <IN>) {
     $val =~ s/,/\|/g if ($val);
     $hash{$key} = $val unless ($hash{$key});
   }
-  $hash{NormalAF} = $hash{NormalMAF} if (exists $hash{NormalMAF});
   $hash{RnaSeqDP} = 0 unless $hash{RnaSeqDP};
-  $hash{RnaSeqMAF} = 0 unless $hash{RnaSeqMAF};
-  
+  $hash{RnaSeqAF} = 0 unless $hash{RnaSeqAF};
+  $hash{RnaSeqValidation} = 0 unless ($hash{RnaSeqValidation});
+  my $somstatus = 'unk';
+  $somstatus = 'Somatic' if ($hash{Somatic});
+  $somstatus = 'Germline' if ($hash{Germline});
+  my $rnaexpress = 0;
+  my $incosmic = 0;
+  my $innofone = 0;
   foreach $trx (split(/,/,$hash{ANN})) {
     my ($allele,$effect,$impact,$gene,$geneid,$feature,
 	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
 	$cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
     next unless ($impact =~ m/HIGH|MODERATE/ && $aa);
-    print OUT join(",",$chrom,$pos,$id,$gene,$aa,$hash{AF},$hash{DP},$hash{NormalAF},$hash{NormalDP},$hash{RnaSeqMAF},$hash{RnaSeqDP}),"\n";
+    $rnaexpress = $fpkm{$gene} if ($fpkm{$gene});
+    $incosmic = $cosmic{$gene} if ($cosmic{$gene});
+    $innofone = $nofone{$gene} if ($nofone{$gene});
+    print OUT join(",",join(":",$chrom,$pos),$id,$gene,$aa,$effect,$ref,$alt,
+		   $somstatus,$hash{RnaSeqValidation},$rnaexpress,$innofone,$incosmic,
+		   $hash{AF},$hash{DP},$hash{NormalAF},$hash{NormalDP},$hash{RnaSeqAF},$hash{RnaSeqDP}),"\n";
     next W1;
   }
 }

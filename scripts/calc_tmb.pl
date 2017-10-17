@@ -38,4 +38,4 @@ W1:while (my $line = <IN>) {
   }
 }
 
-print sprintf("%.2f",$num_mutations/3.322076),"\n";
+print sprintf("%.2f",$num_mutations/4.6),"\n";
