@@ -109,7 +109,7 @@ while (my $line = <IN>) {
 open OUT, ">$run\.calcsnps.summary" or die $!;
 print OUT join ("\t","Sample_Name","Caller","TP_SNP","FP_SNP","FN_SNP","SNP_Sensitivity",
                 "SNP_PPV","TP_INDEL","FP_INDEL","FN_INDEL","INDEL_Sensitivity","INDEL_PPV",
-                "TP_Variant,FP_Variant,FN_Variant,Variant_Sensitivity,Variant_PPV"),"\n";
+                "TP_Variant","FP_Variant","FN_Variant","Variant_Sensitivity","Variant_PPV"),"\n";
 foreach ((@allcallers,'genomeseer','union')) {
   $fp{'snp'}{$_} = 0 unless $fp{'snp'}{$_};
   $fp{'indel'}{$_} = 0 unless $fp{'indel'}{$_};

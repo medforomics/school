@@ -15,7 +15,7 @@ my ($refdir) = $ARGV[0];
 my @splitPath = split(/\//, $refdir);
 my $subject =$splitPath[-1];
 my $prefix = $refdir."/".$subject;
-my @directories = `find $refdir -type d| sed 's|$refdir/||'`;
+my @directories = `find $refdir -type d -maxdepth 1| sed 's|$refdir/||'`;
 
 #Identifies folders as tumor,normal,somatic or rnaseq
 my ($fusion,$svcf)=("") x 2;
