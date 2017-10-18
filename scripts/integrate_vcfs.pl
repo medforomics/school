@@ -412,6 +412,7 @@ W1:while (my $line = <IN>) {
     next;
   }
   my @callers = split(/,/,$hash{CallSet});
+  next if ($hash{CallSet} eq 'hotspot' && $mutallfreq[0] > 0.1);
   if ((grep(/hotspot/,@callers) || $id =~ m/COS/) && $cosmicsubj >= 5) {
     $fail{'LowAltCt'} = 1 if ($altct[0] < 3);
     $fail{'LowMAF'} = 1 if ($mutallfreq[0] < 0.01);
