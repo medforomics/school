@@ -139,9 +139,9 @@ if ($somatic ne 'no_normal') {
       print OUT join("\t",$chrom,$pos,$id,$ref,$alt,$score,$filter,$info,$format,$tumorid),"\n";
       next;
    } elsif ($line =~ m/^#/) {
-      print OUT $line,"\n";
-      next;
-    }
+     print OUT $line,"\n";
+     next;
+   }
     my ($chrom, $pos,$id,$ref,$alt,$score,
 	$filter,$annot,$format,@gts) = split(/\t/, $line);
     next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
@@ -242,15 +242,18 @@ if ($somatic ne 'no_normal') {
       $hash{RnaSeqAD} = $rnaad;
       $hash{fpkm} = $rnadp;
     }
+    $hash{SS} = 5;
     delete $hash{SOMATIC};
     if ($maf[1][0] >= 0.30) {
-      $hash{Germline} = 1;
+      $hash{SS} = 1;
     }elsif ($maf[0][0] < 0.05 && ($maf[1][0] > 0.01 || $maf[1][0]*5 > $maf[0][0])) {
       next;
     }elsif ($maf[1][0] >= 0.05 || $maf[1][0]*5 > $maf[0][0]) {
+      $hash{SS} = 5;
       #$hash{Somatic} = 0;
       $hash{'LowFreqNormalAF'} = 1;
     }else {
+      $hash{SS} = 2;
       $hash{Somatic} = 1;
       $hash{SomaticCallSet}=$hash{CallSet};
     }
@@ -398,13 +401,13 @@ W1:while (my $line = <IN>) {
   }
   my @sortao = sort {$b <=> $a} @altct;
   $hash{AF} = join(",",@mutallfreq);
+  $hash{SS} = 5;
   if ($normals{$chrom}{$pos}) {
     if ($normmaf[0] >= 0.30) {
-      $hash{Germline} = 1;
+      $hash{SS} = 1;
     }elsif ($mutallfreq[0] < 0.05 && ($normmaf[0] > 0.01 || $normmaf[0]*5 > $mutallfreq[0])) {
       next;
     }elsif ($normmaf[0] >= 0.05 || $normmaf[0]*5 > $mutallfreq[0]) {
-      #$hash{Somatic} = 0;
       $hash{'LowFreqNormalAF'} = 1;
     }
   }
