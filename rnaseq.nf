@@ -451,8 +451,7 @@ process annot {
   
   output:
   file("${fname}.annot.vcf.gz") into annotvcf
-  file("${fname}.stats.txt") into stats
-  file("${fname}.statplot*") into plotstats
+  
   when:
   params.variant == "detect"
   script:
