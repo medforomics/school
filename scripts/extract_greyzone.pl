@@ -10,7 +10,7 @@ open OUT, ">$prefix\.tumornormal.csv" or die $!;
 print OUT join(",",'Chr:Pos','ID','Gene','AminoAcid','Effect','Ref','Alt',
 	       'SomaticStatus','RNASeqValidation; 1=YES; 0=NO','Gene Abundance (FPKM)','NofOne','Cosmic Disease',
 	       'Cosmic Role','Tumor DNA AF','Tumor DNA Depth','Normal DNA AF','Normal DNA Depth','Tumor RNA AF',
-	       'Tumor RNA Depth','CIVIC Gene Annotation'),"\n";
+	       'Tumor RNA Depth','StrandBias','CIVIC Gene Annotation'),"\n";
 
 my $refdir = '/project/shared/bicf_workflow_ref/GRCh38/';
 my %cosmic;
@@ -72,28 +72,56 @@ W1:while (my $line = <IN>) {
   $hash{RnaSeqDP} = 0 unless $hash{RnaSeqDP};
   $hash{RnaSeqAF} = 0 unless $hash{RnaSeqAF};
   $hash{RnaSeqValidation} = 0 unless ($hash{RnaSeqValidation});
+  $strandbias = $hash{SAP} if (defined($hash{SAP}));
+  $strandbias = $hash{FS} if (defined($hash{FS}));
   my $somstatus = 'unk';
-  $somstatus = 'Somatic' if ($hash{Somatic});
-  $somstatus = 'Germline' if ($hash{Germline});
+  $somstatus = 'Somatic' if ($hash{SS} == 2);
+  $somstatus = 'Germline' if ($hash{SS} == 1);
   my $rnaexpress = 0;
   my $incosmic = 0;
   my $innofone = 0;
   my $inrole = 0;
   my $incivic = 0;
+  my $aachange;
+  my $genechange;
+  my $effectchange;
+  my $aa;
   foreach $trx (split(/,/,$hash{ANN})) {
-    my ($allele,$effect,$impact,$gene,$geneid,$feature,
-	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
-	$cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
-    next unless ($impact =~ m/HIGH|MODERATE/ && $aa);
-    $rnaexpress = $fpkm{$gene} if ($fpkm{$gene});
-    $incosmic = $cosmic{$gene} if ($cosmic{$gene});
-    $innofone = $nofone{$gene} if ($nofone{$gene});
-    $inrole = $roleincancer{$gene} if ($roleincancer{$gene});
-    $incivic = $civic{$gene} if ($civic{$gene});
-    print OUT join(",",join(":",$chrom,$pos),$id,$gene,$aa,$effect,$ref,$alt,
-		   $somstatus,$hash{RnaSeqValidation},$rnaexpress,$innofone,$incosmic,$inrole,
-		   $hash{AF},$hash{DP},$hash{NormalAF},$hash{NormalDP},$hash{RnaSeqAF},
-		   $hash{RnaSeqDP},$incivic),"\n";
-    next W1;
+      my ($allele,$effect,$impact,$gene,$geneid,$feature,
+	  $featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
+	  $cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
+      next unless ($impact =~ m/HIGH|MODERATE/);
+      next if ($effect eq 'sequence_feature');
+      $genechange = $gene unless $genechange;
+      $effectchange = $effect unless $effectchange;
+      unless ($aachange) {
+	  $aachange = $trx if ($aa);
+      }
   }
+  next W1 unless ($genechange);
+  if ($aachange) {
+      ($allele,$effect,$impact,$gene,$geneid,$feature,
+       $featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
+       $cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$aachange);
+  }else {
+      $gene = $genechange;
+      $effect = $effectchange;
+  }
+  
+  $rnaexpress = $fpkm{$gene} if ($fpkm{$gene});
+  $incosmic = $cosmic{$gene} if ($cosmic{$gene});
+  $innofone = $nofone{$gene} if ($nofone{$gene});
+  $inrole = $roleincancer{$gene} if ($roleincancer{$gene});
+  $incivic = $civic{$gene} if ($civic{$gene});
+  #if ($hash{NF}) {
+  #    $hash{SAR} = $hash{TR} - $hash{NF};
+  #    $hash{SAF} = $hash{NF};
+  #    $hash{SRR} = $hash{TCR}-$hash{SAR};
+  #    $hash{SRF} = $hash{TCF}-$hash{SAF};
+  #}
+  print OUT join(",",join(":",$chrom,$pos),$id,$gene,$aa,$effect,$ref,$alt,
+		 $somstatus,$hash{RnaSeqValidation},$rnaexpress,$innofone,$incosmic,$inrole,
+		 $hash{AF},$hash{DP},$hash{NormalAF},$hash{NormalDP},$hash{RnaSeqAF},
+		 $hash{RnaSeqDP},$strandbias,$incivic),"\n";
 }
+

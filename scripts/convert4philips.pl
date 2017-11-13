@@ -23,6 +23,7 @@ W1:while (my $line = <IN>) {
   next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
   next if ($somline{$chrom}{$pos});
   my %hash = ();
+  $filter =~ s/;StrandBias//;
   foreach $a (split(/;/,$annot)) {
     my ($key,$val) = split(/=/,$a);
     next if ($key =~ m/^Normal|RnaSeqAF|RnaSeqDP|RnaSeqAD|Germline/);

@@ -17,7 +17,7 @@ system("/project/PHG/PHG_Clinical/clinseq_workflows/scripts/vcf2bed.pl tumor.vcf
 
 if ($rnaseqid ne 'no_rnaseq') {
   system("cat tumor.bed |perl -p -e 's/chr//g' > tumor.nochr.bed");
-  system("/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 10 -b 25 -l tumor.nochr.bed -f /project/shared/bicf_workflow_ref/GRCh38/hisat_genome.fa $inputdir\/$rnaseqid\/$rnaseqid\.final.bam > rnaseq.bamreadct.txt");
+  system("/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.nochr.bed -f /project/shared/bicf_workflow_ref/GRCh38/hisat_genome.fa $inputdir\/$rnaseqid\/$rnaseqid\.final.bam > rnaseq.bamreadct.txt");
   open NRC, "<rnaseq.bamreadct.txt" or die $!;
   while (my $line = <NRC>) {
     chomp($line);
@@ -77,7 +77,7 @@ open OUT, ">$inputdir\/$tumorid\.final.vcf" or die $!;
 if ($somatic ne 'no_normal') {
   $somatic =~ m/$tumorid\_(.+)/;
   $normal = $1;
-  system("/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 10 -b 25 -l tumor.bed -f /project/shared/bicf_workflow_ref/GRCh38/genome.fa $inputdir\/$normal/$normal\.final.bam > normal.readcts.txt");
+  system("/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.bed -f /project/shared/bicf_workflow_ref/GRCh38/genome.fa $inputdir\/$normal/$normal\.final.bam > normal.readcts.txt");
   open NRC, "<normal.readcts.txt" or die $!;
   while (my $line = <NRC>) {
     chomp($line);
@@ -169,6 +169,9 @@ if ($somatic ne 'no_normal') {
     }
     unless ($exacaf eq '' || $exacaf <= 0.01) {
       $fail{'COMMON'} = 1;
+    }
+    if ($hash{FS} && $hash{FS} > 60) {
+	$fail{'StrandBias'} = 1;
     }
     my $cosmicsubj = 0;
     if ($hash{CNT}) {
@@ -341,6 +344,9 @@ W1:while (my $line = <IN>) {
   unless ($exacaf eq '' || $exacaf <= 0.01) {
     $fail{'COMMON'} = 1;
   }
+  if ($hash{FS} && $hash{FS} > 60) {
+      $fail{'StrandBias'} = 1;
+  }
   my @deschead = split(/:/,$format);
   my $allele_info = $gts[0];
   @ainfo = split(/:/, $allele_info);
@@ -460,7 +466,7 @@ W1:while (my $line = <IN>) {
 		 $filter,$newannot,$format,$allele_info),"\n";
 }
 
-system("vcf-sort $inputdir\/$tumorid\.final.vcf |grep -v LowFreqNormalAF |bgzip  > $inputdir\/$subject\.utsw.vcf.gz");
+system("vcf-sort $inputdir\/$tumorid\.final.vcf |bgzip  > $inputdir\/$subject\.utsw.vcf.gz");
 system("vcf-sort $inputdir\/$tumorid\.final.vcf |grep '#\\|LowFreqNormalAF' |bgzip  > $inputdir\/$subject\.LowFreqNormal.vcf.gz");
 system("vcf-sort $inputdir\/$tumorid\.final.vcf |grep -v 'FailedQC' |bgzip  > $inputdir\/$subject\.PASS.vcf.gz");
 

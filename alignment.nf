@@ -194,7 +194,7 @@ process mergebam {
 
 process seqqc {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  //publishDir "$params.output", mode: 'copy'
 
   input:
   set pair_id, file(sbam),file(idx) from qcbam
@@ -207,7 +207,6 @@ process seqqc {
   file("${pair_id}.libsizeest.txt") into libsize
   file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
   set file("${pair_id}_fastqc.zip"),file("${pair_id}_fastqc.html") into fastqc
-  set pair_id, file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into ontargetbam
   set pair_id,file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into genocovbam
 
   script:
