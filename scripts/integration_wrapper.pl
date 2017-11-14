@@ -47,7 +47,8 @@ if($tumorid ne "no_tumor"){
     system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_vcfs.pl $subject $subject $tumorid $somaticid $rnaseqid");
     system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/calc_tmb.pl $prefix\.utsw.vcf.gz");
     system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/convert4philips.pl $prefix\.utsw.vcf.gz");
-    system("python /cm/shared/apps/crossmap/0.2.5/bin/Crossmap.py /project/shared/bicf_workflow_ref/hg38ToHg19.over.chain.gz $prefix\.PASS.vcf.gz  /project/shared/bicf_workflow_ref/hg38ToHg19.over.chain.gz $prefix\.PASS.hg19.vcf.gz");
+    system("python /cm/shared/apps/crossmap/0.2.5/bin/CrossMap.py vcf /project/shared/bicf_workflow_ref/hg38ToHg19.over.chain.gz $prefix\.PASS.vcf.gz /project/apps_database/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa $prefix\.PASS.hg19.vcf");
+    system("bgzip $prefix\.PASS.hg19.vcf");
     system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/extract_greyzone.pl $prefix\.PASS.vcf.gz $rnaseqid\/$rnaseqid.fpkm.txt");
     system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/extract_greyzone.pl $prefix\.PASS.hg19.vcf.gz $rnaseqid\/$rnaseqid.fpkm.txt");
     system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/philipsCSV.pl $prefix\.PASS.tumoronly.csv $prefix\.PASS.hg19.tumoronly.csv");
@@ -60,6 +61,7 @@ if($tumorid ne "no_tumor"){
     system("gunzip $prefix\.PASS.vcf.gz");
     system("perl /project/shared/bicf_workflow_ref/vcf2maf/vcf2maf.pl --input $prefix\.PASS.vcf --output $prefix\.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta /project/shared/bicf_workflow_ref/vcf2maf/.vep/homo_sapiens/87_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa --cache-version 87 --vep-path /project/shared/bicf_workflow_ref/vcf2maf/variant_effect_predictor --tumor-id $tumorid");
     system("bgzip $prefix.PASS.vcf");
+  prinl OUT $final_line;
     system("python /project/PHG/PHG_Clinical/clinseq_workflows/IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p UGMP_Cl1nS3q -o /project/PHG/PHG_Sap/input/GenomicsFiles/$subject.xml");
 }
 
