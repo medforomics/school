@@ -104,6 +104,7 @@ foreach $dtype (keys %samples) {
   system("mkdir $outnf") unless (-e $outnf);
   system("mkdir $workdir") unless (-e $workdir);
   my %completeout; 
+  my %control;#Positive Control 
   open SSOUT, ">$outdir\/design.txt" or die $!;
   print SSOUT join("\t","SampleMergeName",'SampleID','SampleName','SubjectID','FullPathToFqR1','FullPathToFqR2'),"\n";
   my @copyfq;
@@ -112,6 +113,7 @@ foreach $dtype (keys %samples) {
     my $datadir =  "/project/PHG/PHG_Clinical/illumina/$prjid/$project/";
     foreach $samp (@{$samples{$dtype}{$project}}) {
       my %info = %{$sampleinfo{$samp}};
+      if($info{SubjectID} eq 'GM12878'){$control{$info{MergeName}}='GM12878';}#Positive Control
       print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outdir\/$samp\.R1.fastq.gz\n";
       print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outdir\/$samp\.R2.fastq.gz\n";
       my $finaloutput = '/project/PHG/PHG_Clinical/'.$info{ClinRes};
@@ -197,6 +199,13 @@ foreach $dtype (keys %samples) {
     print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/rnaseq.nf --design $outdir\/design.txt --input $outdir --output $outnf --markdups $mdup &> $outnf\/nextflow_rnaseq.log &\n";
     print CAS "wait\n";
   }
+  #Positive Controls Start
+  print CAS "cd $outnf\n";
+  foreach my $posCtrls(keys %control){
+    my $prefixName = $posCtrls;
+    print CAS "bash /project/PHG/PHG_Clinical/clinseq_workflows/scripts/snsp.sh $prefixName >$prefixName\.snsp\.txt\n";
+  }
+  #Positive Controls End
   foreach my $somid(keys %completeout_somatic){
       $finalrestingplace_somatic = $completeout_somatic{$somid};
       print CAS "mv $outnf\/$somid\* $finalrestingplace_somatic\n";
