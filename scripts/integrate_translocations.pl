@@ -180,7 +180,7 @@ print OUT join("\t","FusionName","LeftGene","RightGene","LefttBreakpoint",
 	       "RightBreakpoint","LeftStrand","RightStrand","RNAReads",
 	       "DNAReads"),"\n";
 print OUTIR join("\t","Hugo_Symbol","Entrez_Gene_Id","Center","Tumor_Sample_Barcode",
-               "Fusion","DNA support","RNA support","Method","Frame"),"\n";
+               "Fusion","DNA_support","RNA_support","Method","Frame"),"\n";
 foreach $fname (keys %tloc) {
   $keepbp = 0;
 
