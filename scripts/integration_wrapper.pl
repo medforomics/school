@@ -45,7 +45,8 @@ if($tumorid ne "no_tumor" && $normalid ne "no_normal"){
 #Determines the MAF of 'PASS'ing variants
 if($tumorid ne "no_tumor"){
     system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/integrate_vcfs.pl $subject $subject $tumorid $somaticid $rnaseqid");
-    system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/calc_tmb.pl $prefix\.utsw.vcf.gz");
+    system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/calc_tmb.pl $prefix\.utsw.vcf.gz >$prefix\.tmb.txt");
+    system("cat $somaticid/$somaticid\.sequence.stats.txt $prefix\.tmb.txt >$prefix\.sequence.stats.tmb.txt")
     system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/convert4philips.pl $prefix\.utsw.vcf.gz");
     system("python /cm/shared/apps/crossmap/0.2.5/bin/CrossMap.py vcf /project/shared/bicf_workflow_ref/hg38ToHg19.over.chain.gz $prefix\.PASS.vcf.gz /project/apps_database/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa $prefix\.PASS.hg19.vcf");
     system("bgzip $prefix\.PASS.hg19.vcf");
