@@ -38,10 +38,10 @@ def tarbam = []
 new File(params.design).withReader { reader ->
     def hline = reader.readLine()
     def header = hline.split("\t")
-    sidx = header.findIndexOf{it == 'SubjectID'};
+    sidx = header.findIndexOf{it == 'FamilyID'};
     tidx = header.findIndexOf{it == 'SampleID'};
     oneidx = header.findIndexOf{it == 'BAM'};
-    taridx = header.findIndexOf{it == 'OntargetBAM'};
+    taridx = header.findIndexOf{it == 'FinalBAM'};
     while (line = reader.readLine()) {
     	   def row = line.split("\t")
 	   if (fileMap.get(row[oneidx]) != null) {

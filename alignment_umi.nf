@@ -73,7 +73,7 @@ Channel
 
 process trimpe {
   errorStrategy 'ignore'
-  //publishDir "$params.output", mode: 'copy'
+  //publishDir "$params.output/$pair_id", mode: 'copy'
   input:
   val pair_ids from read_pe.buffer(size: 20, remainder: true)
   file(read1s) from read1.buffer(size: 20, remainder: true)
@@ -113,35 +113,48 @@ trimpe_r1_tuples
   .mix(trimpe_r2_tuples)
   .groupTuple(by: 0, sort:true )
   .map { it -> it.flatten() }
-  .set { trimpe }
+  .set { trimread }
 
 process align {
   errorStrategy 'ignore'
-  //publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
-  set pair_id, file(fq1), file(fq2) from trimpe
+  set pair_id, file(fq1), file(fq2) from trimread
   output:
   set pair_id, file("${pair_id}.bam") into aligned
-
+  set pair_id, file("${pair_id}.bam") into aligned2
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2
+  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2 -u
   """
  }
 
-process markdups {
-  publishDir "$baseDir/output", mode: 'copy'
+process markdups_consensus {
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id, file(sbam) from aligned
   output:
-  set pair_id, file("${pair_id}.dedup.bam") into qcbam
-  set pair_id, file("${pair_id}.dedup.bam") into deduped
+  set pair_id, file("${pair_id}.consensus.bam") into deduped
   script:
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/alignment/markdups.sh -a params.markdups -b $sbam -p $pair_id
+  bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id
+  mv ${pair_id}.dedup.bam ${pair_id}.consensus.bam
+  """
+}
+process markdups_picard {
+  //publishDir "$params.output/$pair_id", mode: 'copy'
+
+  input:
+  set pair_id, file(sbam) from aligned2
+  output:
+  set pair_id, file("${pair_id}.dedup.bam") into qcbam
+  script:
+  """
+  source /etc/profile.d/modules.sh
+  bash $baseDir/process_scripts/alignment/markdups.sh -a picard_umi -b $sbam -p $pair_id
   """
 }
 
@@ -150,7 +163,7 @@ process seqqc {
   publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
-  set pair_id, file(sbam),file(idx) from qcbam
+  set pair_id, file(sbam) from qcbam
   output:
   file("${pair_id}.flagstat.txt") into alignstats
   file("${pair_id}.ontarget.flagstat.txt") into ontarget
@@ -159,7 +172,7 @@ process seqqc {
   file("${pair_id}.libcomplex.txt") into libcomplex
   file("${pair_id}.hist.txt") into insertsize
   file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
-  set file("${pair_id}_fastqc.zip"),file("${pair_id}_fastqc.html") into fastqc
+  file("*fastqc*") into fastqc
   set pair_id, file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into ontargetbam
   set pair_id,file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into genocovbam
   file("${pair_id}.genomecov.txt") into genomecov
@@ -169,7 +182,7 @@ process seqqc {
   script:
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/bamqc.sh -c $capture_bed -n dna -r $index_path -b $sbam -p $pair_id
+  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b $sbam -p $pair_id
   perl $baseDir/scripts/calculate_depthcov.pl ${pair_id}.covhist.txt
   """
 }
@@ -217,6 +230,6 @@ process gatkbam {
   """
   source /etc/profile.d/modules.sh
   module load gatk/3.7 samtools/1.4.1
-  bash $baseDir/process_scripts/gatkrunner.sh -a gatkbam -b $sbam -r ${index_path} -p $pair_id
+  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r ${index_path} -p $pair_id
   """
 }
