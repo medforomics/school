@@ -65,8 +65,7 @@ process indexoribams {
   script:
   """
   source /etc/profile.d/modules.sh
-  module load speedseq/20160506 samtools/intel/1.3
-  sambamba index -t \$SLURM_CPUS_ON_NODE ${tumor}
+  bash $baseDir/process_scripts/alignment/indexbams.sh 
   """
 }
 
@@ -78,8 +77,7 @@ process indexbams {
   script:
   """
   source /etc/profile.d/modules.sh
-  module load speedseq/20160506 samtools/intel/1.3
-  sambamba index -t \$SLURM_CPUS_ON_NODE ${tumor}
+  bash $baseDir/process_scripts/alignment/indexbams.sh 
   """
 }
 

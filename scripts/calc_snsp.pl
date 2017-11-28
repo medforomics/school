@@ -76,6 +76,7 @@ while (my $line = <IN>) {
     next if $maf < 0.1;
     $vartype = 'indel';
   }
+  #next if (exists $hash{FS} && $hash{FS} > 60);
   $is_gs = 1;
   $is_gs = 0 if ($hash{CallSet} eq 'hotspot' && $maf > 0.1);
   if (($id =~ m/COS/) && $cosmicsubj >= 5) {

@@ -4,7 +4,7 @@
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
 my %opt = ();
-my $results = GetOptions (\%opt,'svcf|v=s','fusion|f=s','help|h');
+my $results = GetOptions (\%opt,'svcf|v=s','fusion|f=s','prefix|p','help|h');
 
 open OM, "</project/shared/bicf_workflow_ref/GRCh38/utswv2_fusion.keep.txt" or die $!;
 while (my $line = <OM>) {
@@ -20,18 +20,18 @@ while (my $line = <OM>) {
 close OM;
 open OM, "</project/shared/bicf_workflow_ref/GRCh38/genenames.txt" or die $!;
 while (my $line = <OM>) {
-  chomp($line);
-  my ($chr,$start,$end,$ensid,$gene,$type) = split(/\t/,$line);
-  $prots{$gene} = 1 if ($type eq 'protein_coding');
+    chomp($line);
+    my ($chr,$start,$end,$ensid,$gene,$type) = split(/\t/,$line);
+    $prots{$gene} = 1 if ($type eq 'protein_coding');
 }
 open OM, "</project/shared/bicf_workflow_ref/GRCh38/utswv2_rearrangement.keep.txt" or die $!;
 while (my $line = <OM>) {
-  chomp($line);
-  $rearrag{$line} = 1;
+    chomp($line);
+    $rearrag{$line} = 1;
 }
 close OM;
 
-my @splitPath = split(/\//,$opt{svcf});
+my @splitPath = split(/\//,$opt{fusion});
 my $subjectid = $splitPath[-3];
 my $projectDirectory = join("/", @splitPath[0..$#splitPath-2]);
 
@@ -73,87 +73,88 @@ if ($opt{fusion} && -e $opt{fusion}) {
 
 my %svs;
 my %annot;
-open LUMPY, "<$opt{svcf}" or die $!;
-while (my $line = <LUMPY>) {
-  chomp($line);
+if ($opt{svcf}) {
+  open LUMPY, "<$opt{svcf}" or die $!;
+  while (my $line = <LUMPY>) {
+    chomp($line);
     my ($id,$chr,$start,$end,$svtype,$cnv,$numreads,$gene,$exons,$sample,$dgv) = split(/\t/,$line);
-  push @{$svs{$id}}, [$chr,$start,$end,$svtype,$numreads,$gene,$exons,$sample];
-  $annot{$chr}{$start}{$gene} = $exons;
-}
-
-my %svs_gene;
-foreach my $id (keys %svs) {
-  my @loci = @{$svs{$id}};
-  my %gene;
-  my %chr;
-  my $prevpos = 0;
-  my $prevchr = 'chrZ';
-  my $toptier = 0;
-  my $transloc = 0;
-  my $relreads = 0;
-  my $allprots = 1;
-  my %bnder;
-  foreach $locus (sort {$a->[0] cmp $b->[0] && $a->[1] cmp $b->[1]} @loci) {
-    my @t1 = @{$locus};
-    $relreads ++ if ($rearrag{$t1[5]});
-    $allprots = 0 unless $prots{$t1[5]}; 
-    if ($t1[3] ne 'BND') {
-      next unless ($fusion{$t1[5]});
-      push @{$svs_gene{$t1[5]}{$t1[3]}}, [$t1[4],$t1[0],
-					 join("-",$t1[1],$t1[2]),$t1[6]];
-    }else {
-      $bnder{$t1[0]}{$t1[1]}{$t1[5]} = $t1[4];
-      $transloc = 1 if ($t1[0] eq $prevchr && $t1[1] - $prevpos > 1e7);
-    }
+    push @{$svs{$id}}, [$chr,$start,$end,$svtype,$numreads,$gene,$exons,$sample];
+    $annot{$chr}{$start}{$gene} = $exons;
   }
-  next unless ($allprots);
-  my @chr = keys %bnder;
-  if ($#chr > 0 || $transloc == 1) {
-    my @gene;
-    my @kloci;
-    foreach $chr (keys %bnder) {
-      foreach $pos (keys %{$bnder{$chr}}) {
-	my @ogen = keys %{$bnder{$chr}{$pos}};
-	if (scalar(@ogen) > 1) {
-	  if($ogen[0] =~ m/^RP\d+_|^RP\d+-/) {
-	    push @kloci, [$chr,$pos,$bnder{$chr}{$pos}{$ogen[1]}];
-	    push @gene, $ogen[1];
+  
+  my %svs_gene;
+  foreach my $id (keys %svs) {
+    my @loci = @{$svs{$id}};
+    my %gene;
+    my %chr;
+    my $prevpos = 0;
+    my $prevchr = 'chrZ';
+    my $toptier = 0;
+    my $transloc = 0;
+    my $relreads = 0;
+    my $allprots = 1;
+    my %bnder;
+    foreach $locus (sort {$a->[0] cmp $b->[0] && $a->[1] cmp $b->[1]} @loci) {
+      my @t1 = @{$locus};
+      $relreads ++ if ($rearrag{$t1[5]});
+      $allprots = 0 unless $prots{$t1[5]}; 
+      if ($t1[3] ne 'BND') {
+	next unless ($fusion{$t1[5]});
+	push @{$svs_gene{$t1[5]}{$t1[3]}}, [$t1[4],$t1[0],
+					    join("-",$t1[1],$t1[2]),$t1[6]];
+      }else {
+	$bnder{$t1[0]}{$t1[1]}{$t1[5]} = $t1[4];
+	$transloc = 1 if ($t1[0] eq $prevchr && $t1[1] - $prevpos > 1e7);
+      }
+    }
+    next unless ($allprots);
+    my @chr = keys %bnder;
+    if ($#chr > 0 || $transloc == 1) {
+      my @gene;
+      my @kloci;
+      foreach $chr (keys %bnder) {
+	foreach $pos (keys %{$bnder{$chr}}) {
+	  my @ogen = keys %{$bnder{$chr}{$pos}};
+	  if (scalar(@ogen) > 1) {
+	    if($ogen[0] =~ m/^RP\d+_|^RP\d+-/) {
+	      push @kloci, [$chr,$pos,$bnder{$chr}{$pos}{$ogen[1]}];
+	      push @gene, $ogen[1];
+	    }else {
+	      push @kloci, [$chr,$pos,$bnder{$chr}{$pos}{$ogen[0]}];
+	      push @gene, $ogen[0]};
 	  }else {
 	    push @kloci, [$chr,$pos,$bnder{$chr}{$pos}{$ogen[0]}];
-	    push @gene, $ogen[0]};
-	}else {
-	  push @kloci, [$chr,$pos,$bnder{$chr}{$pos}{$ogen[0]}];
-	  push @gene, $ogen[0];
+	    push @gene, $ogen[0];
+	  }
+	}
+      }
+      my @g = @gene; 
+      my $fusionname = join("--",sort {$a cmp $b} @gene);
+      if ($tloc{$fusionname}) {
+	$tloc{$fusionname}{DNAReads} += $kloci[0][2];
+      }else {
+	$tloc{$fusionname} = {LeftGene=>$g[0],
+			      RightGene=>$g[1],
+			      LeftStrand=>'',
+			      RightStrand=>'',
+			      SumRNAReads=>0,
+			      DNAReads=>$kloci[0][2]};
+	push @{$tloc{$fusionname}{RNAInfo}},[0,join(":",$kloci[0][0],$kloci[0][1]),join(":",$kloci[1][0],$kloci[1][1])];
+      }
+    } else {
+      next unless $relreads;
+      foreach $chr (keys %bnder) {
+	foreach $pos (keys %{$bnder{$chr}}) {
+	  my @genes = keys %{$bnder{$chr}{$pos}};
+	  next unless $#genes < 1;
+	  my $gene = $genes[0];
+	  next unless ($rearrag{$gene});
+	  push @{$svs_gene{$gene}{'REARG'}}, [$bnder{$chr}{$pos}{$gene},$chr,$pos,$annot{$chr}{$pos}{$gene}];
 	}
       }
     }
-    my @g = @gene; 
-    my $fusionname = join("--",sort {$a cmp $b} @gene);
-    if ($tloc{$fusionname}) {
-      $tloc{$fusionname}{DNAReads} += $kloci[0][2];
-    }else {
-      $tloc{$fusionname} = {LeftGene=>$g[0],
-			    RightGene=>$g[1],
-			    LeftStrand=>'',
-			    RightStrand=>'',
-			    SumRNAReads=>0,
-			    DNAReads=>$kloci[0][2]};
-     push @{$tloc{$fusionname}{RNAInfo}},[0,join(":",$kloci[0][0],$kloci[0][1]),join(":",$kloci[1][0],$kloci[1][1])];
-    }
-  } else {
-    next unless $relreads;
-    foreach $chr (keys %bnder) {
-      foreach $pos (keys %{$bnder{$chr}}) {
-	my @genes = keys %{$bnder{$chr}{$pos}};
-	next unless $#genes < 1;
-	my $gene = $genes[0];
-	next unless ($rearrag{$gene});
-	push @{$svs_gene{$gene}{'REARG'}}, [$bnder{$chr}{$pos}{$gene},$chr,$pos,$annot{$chr}{$pos}{$gene}];
-      }
-    }
   }
 }
-
 my %entrez;
 open ENT, "</project/shared/bicf_workflow_ref/gene_info.human.txt" or die $!;
 
@@ -168,8 +169,8 @@ open ENT, "</project/shared/bicf_workflow_ref/gene_info.human.txt" or die $!;
   }
 
 my $trans_loc_out = $projectDirectory."/".$subjectid.".translocations.txt";
-$tloc_out = $opt{svcf};
-$tloc_out =~ s/sv.annot.txt/translocations_ir.txt/;
+$tloc_out = $projectDirectory."/".$subjectid.".translocations_ir.txt";
+
 open OUT, ">$trans_loc_out" or die $!;
 open OUTIR, ">$tloc_out" or die $!;
 $tloc_out =~ s/.translocations_ir.txt//;
@@ -217,8 +218,7 @@ foreach $fname (keys %tloc) {
 }
 close OUT;
 close OUTIR;
-$reag_out = $opt{svcf};
-$reag_out =~ s/sv.annot.txt/svcalls.txt/;
+$reag_out = $projectDirectory."/".$subjectid.".svcalls.txt";
 open OUT, ">$reag_out" or die $!;
 print OUT join("\t","SVType","Gene","NumberReads","Chr","Loci","Exons"),"\n";
 foreach $gene (keys %svs_gene) {

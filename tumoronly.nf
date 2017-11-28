@@ -113,10 +113,10 @@ process svcall {
   delly2 call -t DEL -o delly_deletion.bcf -q 30 -g ${reffa} ${ssbam}
   delly2 call -t INS -o delly_insertion.bcf -q 30 -g ${reffa} ${ssbam}
   delly2 filter -t BND -o  delly_tra.bcf -f germline delly_translocations.bcf
-  delly2 filter -t DUP -o  delly_dup.bcf -f germline delly_translocations.bcf
-  delly2 filter -t INV -o  delly_inv.bcf -f germline delly_translocations.bcf
-  delly2 filter -t DEL -o  delly_del.bcf -f germline delly_translocations.bcf
-  delly2 filter -t INS -o  delly_ins.bcf -f germline delly_translocations.bcf
+  delly2 filter -t DUP -o  delly_dup.bcf -f germline delly_duplications.bcf
+  delly2 filter -t INV -o  delly_inv.bcf -f germline delly_inversions.bcf
+  delly2 filter -t DEL -o  delly_del.bcf -f germline delly_deletion.bcf
+  delly2 filter -t INS -o  delly_ins.bcf -f germline delly_insertion.bcf
   bcftools concat -a -O v delly_dup.bcf delly_inv.bcf delly_tra.bcf delly_del.bcf delly_ins.bcf | vcf-sort > ${pair_id}.delly.vcf
   perl $baseDir/scripts/vcf2bed.sv.pl ${pair_id}.delly.vcf > delly.bed
   bgzip ${pair_id}.delly.vcf
