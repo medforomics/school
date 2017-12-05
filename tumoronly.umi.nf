@@ -108,8 +108,9 @@ process svcall {
   output:
   file("${pair_id}.delly.vcf.gz") into dellyvcf
   file("${pair_id}.sssv.sv.vcf.gz") into svvcf
-  file("${pair_id}.sv.vcf.gz") into svintvcf
+  file("${pair_id}.sv.annot.vcf.gz") into svintvcf
   file("${pair_id}.sv.annot.txt") into svannot
+  file("${pair_id}.sv.annot.genefusion.txt") into gfusion
   script:
   """
   source /etc/profile.d/modules.sh	

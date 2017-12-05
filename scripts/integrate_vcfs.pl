@@ -10,14 +10,14 @@ while (my $line = <OM>) {
 }
 
 my ($subject,$samplename,$tumorid,$somatic,$rnaseqid) = @ARGV;
-my $inputdir = "/project/PHG/PHG_Clinical/complete/$subject";
+my $inputdir = "/project/PHG/PHG_Clinical/toarchive/$subject";
 system("tabix -f $inputdir\/$tumorid/$tumorid\.annot.vcf.gz");
 system("zcat $inputdir\/$tumorid/$tumorid\.annot.vcf.gz > tumor.vcf");
 system("/project/PHG/PHG_Clinical/clinseq_workflows/scripts/vcf2bed.pl tumor.vcf |cut -f 1,2,3 > tumor.bed");
 
 if ($rnaseqid ne 'no_rnaseq') {
   system("cat tumor.bed |perl -p -e 's/chr//g' > tumor.nochr.bed");
-  system("/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.nochr.bed -f /project/shared/bicf_workflow_ref/GRCh38/hisat_genome.fa $inputdir\/$rnaseqid\/$rnaseqid\.final.bam > rnaseq.bamreadct.txt");
+  system("/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.nochr.bed -f /project/shared/bicf_workflow_ref/GRCh38/hisat_genome.fa $inputdir\/$rnaseqid\/$rnaseqid\.bam > rnaseq.bamreadct.txt");
   open NRC, "<rnaseq.bamreadct.txt" or die $!;
   while (my $line = <NRC>) {
     chomp($line);
@@ -77,7 +77,7 @@ open OUT, ">$inputdir\/$tumorid\.final.vcf" or die $!;
 if ($somatic ne 'no_normal') {
   $somatic =~ m/$tumorid\_(.+)/;
   $normal = $1;
-  system("/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.bed -f /project/shared/bicf_workflow_ref/GRCh38/genome.fa $inputdir\/$normal/$normal\.final.bam > normal.readcts.txt");
+  system("/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.bed -f /project/shared/bicf_workflow_ref/GRCh38/genome.fa $inputdir\/$normal/$normal\.bam > normal.readcts.txt");
   open NRC, "<normal.readcts.txt" or die $!;
   while (my $line = <NRC>) {
     chomp($line);
