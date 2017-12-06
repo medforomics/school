@@ -122,7 +122,7 @@ process svcall {
   module load novoBreak/v1.1.3 delly2/v0.7.7-multi bcftools/intel/1.3 samtools/intel/1.3 bedtools/2.25.0 speedseq/20160506 snpeff/4.2 vcftools/0.1.14
   mkdir temp
   perl $baseDir/scripts/make_delly_sample.pl ${tid} ${nid}
-  bash $baseDir/process_scripts/svcalling.sh -r ${index_path} -p ${tid}_${nid} -b ${tumor} -n ${normal} -k ${tid}
+  bash $baseDir/process_scripts/variants/svcalling.sh -r ${index_path} -p ${tid}_${nid} -b ${tumor} -n ${normal} -k ${tid}
   """
 }
 process sstumor {

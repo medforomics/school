@@ -42,6 +42,9 @@ new File(params.design).withReader { reader ->
     tidx = header.findIndexOf{it == 'SampleID'};
     oneidx = header.findIndexOf{it == 'BAM'};
     taridx = header.findIndexOf{it == 'FinalBAM'};
+    if (sidx == -1) {
+       sidx = tidx
+       }
     while (line = reader.readLine()) {
     	   def row = line.split("\t")
 	   if (fileMap.get(row[oneidx]) != null) {
@@ -195,30 +198,25 @@ process platypus {
   """
 }
 
-ssvcf .phase(gatkvcf)
-      .map {p,q -> [p[0],p[1],q[1]]}
-      .set { twovcf }
-twovcf .phase(samvcf)
-      .map {p,q -> [p[0],p[1],p[2],q[1]]}
-      .set { threevcf }
-threevcf .phase(platvcf)
-      .map {p,q -> [p[0],p[1],p[2],p[3],q[1]]}
-      .set { fourvcf }
-fourvcf .phase(hsvcf)
-      .map {p,q -> [p[0],p[1],p[2],p[3],p[4],q[1]]}
-      .set { vcflist }
+Channel
+  .empty()
+  .mix(ssvcf,gatkvcf,samvcf,platvcf,hsvcf)
+  .groupTuple(by:0)
+  .into { vcflist}
+
+
 
 process integrate {
   errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
   input:
-  set subjid,file(ss),file(gatk),file(sam),file(hs) from vcflist
+  set famid,file(vcf) from vcflist
     
   output:
-  set subjid,file("${subjid}.union.vcf.gz") into union
+  set famid,file("${famid}.union.vcf.gz") into union
   script:
   """
-  bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
+  bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $famid
   """
 }
 
@@ -227,12 +225,12 @@ process annot {
   publishDir "$params.output", mode: 'copy'
 
   input:
-  set subjid,unionvcf from union
+  set famid,unionvcf from union
   
   output:
-  file("${subjid}.annot.vcf.gz") into annotvcf
+  file("${famid}.annot.vcf.gz") into annotvcf
   script:
   """
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v $unionvcf
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p $famid -r $index_path -v $unionvcf
   """
 }
