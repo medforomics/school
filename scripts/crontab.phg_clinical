@@ -1,0 +1,1 @@
+0 0 1 * * perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/archive_samples.pl

@@ -156,8 +156,8 @@ process svcall {
   perl $baseDir/scripts/vcf2bed.sv.pl novoBreak.pass.flt.vcf |sort -T temp -V -k 1,1 -k 2,2n > novobreak.bed
   mv novoBreak.pass.flt.vcf ${tid}_${nid}.novobreak.vcf
   bgzip ${tid}_${nid}.novobreak.vcf
-  sambamba sort -t \$SLURM_CPUS_ON_NODE -n -o tumor.namesort.bam ${tumor}
-  sambamba sort -t \$SLURM_CPUS_ON_NODE -n -o normal.namesort.bam ${normal}
+  sambamba sort --tmpdir=./ -t \$SLURM_CPUS_ON_NODE -n -o tumor.namesort.bam ${tumor}
+  sambamba sort --tmpdir=./ -t \$SLURM_CPUS_ON_NODE -n -o normal.namesort.bam ${normal}
   sambamba view -h tumor.namesort.bam | samblaster -M -a --excludeDups --addMateTags --maxSplitCount 2 --minNonOverlap 20 -d discordants.sam -s splitters.sam > temp.sam
   gawk '{ if (\$0~"^@") { print; next } else { \$10="*"; \$11="*"; print } }' OFS="\\t" splitters.sam | samtools  view -S -b - | samtools sort -o tumor.splitters.bam -
   gawk '{ if (\$0~"^@") { print; next } else { \$10="*"; \$11="*"; print } }' OFS="\\t" discordants.sam | samtools  view -S  -b - | samtools sort -o tumor.discordants.bam -
@@ -223,8 +223,8 @@ process varscan {
   """
   source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 bcftools/intel/1.3 samtools/intel/1.3 VarScan/2.4.2 speedseq/20160506 vcftools/0.1.14
-  sambamba mpileup -L ${target_panel} -t \$SLURM_CPUS_ON_NODE ${tumor} --samtools "-C 50 -f ${reffa}"  > t.mpileup
-  sambamba mpileup -L ${target_panel} -t \$SLURM_CPUS_ON_NODE ${normal} --samtools "-C 50 -f ${reffa}"  > n.mpileup
+  sambamba mpileup --tmpdir=./ -L ${target_panel} -t \$SLURM_CPUS_ON_NODE ${tumor} --samtools "-C 50 -f ${reffa}"  > t.mpileup
+  sambamba mpileup --tmpdir=./ -L ${target_panel} -t \$SLURM_CPUS_ON_NODE ${normal} --samtools "-C 50 -f ${reffa}"  > n.mpileup
   VarScan somatic n.mpileup t.mpileup ${tid}.vscan --output-vcf 1
   VarScan copynumber n.mpileup t.mpileup ${tid}.vscancnv 
   vcf-concat ${tid}.vscan*.vcf | vcf-sort | vcf-annotate -n --fill-type -n | java -jar \$SNPEFF_HOME/SnpSift.jar filter '((exists SOMATIC) & (GEN[*].DP >= 10))' | perl -pe 's/TUMOR/${tid}/' | perl -pe 's/NORMAL/${nid}/g' |bedtools intersect -header -a stdin -b ${target_panel} |bgzip > ${tid}_${nid}.varscan.vcf.gz

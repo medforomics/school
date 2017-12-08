@@ -105,37 +105,7 @@ process svcall {
   script:
   """
   source /etc/profile.d/modules.sh
-  module load novoBreak/v1.1.3 delly2/v0.7.7-multi samtools/intel/1.3 bedtools/2.25.0 bcftools/intel/1.3 snpeff/4.2 speedseq/20160506 vcftools/0.1.14
-  mkdir temp
-  delly2 call -t BND -o delly_translocations.bcf -q 30 -g ${reffa} ${ssbam}
-  delly2 call -t DUP -o delly_duplications.bcf -q 30 -g ${reffa} ${ssbam}
-  delly2 call -t INV -o delly_inversions.bcf -q 30 -g ${reffa} ${ssbam}
-  delly2 call -t DEL -o delly_deletion.bcf -q 30 -g ${reffa} ${ssbam}
-  delly2 call -t INS -o delly_insertion.bcf -q 30 -g ${reffa} ${ssbam}
-  delly2 filter -t BND -o  delly_tra.bcf -f germline delly_translocations.bcf
-  delly2 filter -t DUP -o  delly_dup.bcf -f germline delly_duplications.bcf
-  delly2 filter -t INV -o  delly_inv.bcf -f germline delly_inversions.bcf
-  delly2 filter -t DEL -o  delly_del.bcf -f germline delly_deletion.bcf
-  delly2 filter -t INS -o  delly_ins.bcf -f germline delly_insertion.bcf
-  bcftools concat -a -O v delly_dup.bcf delly_inv.bcf delly_tra.bcf delly_del.bcf delly_ins.bcf | vcf-sort > ${pair_id}.delly.vcf
-  perl $baseDir/scripts/vcf2bed.sv.pl ${pair_id}.delly.vcf > delly.bed
-  bgzip ${pair_id}.delly.vcf
-  tabix ${pair_id}.delly.vcf.gz
-  sambamba sort -t \$SLURM_CPUS_ON_NODE -n -o namesort.bam ${ssbam}
-  sambamba view -h namesort.bam | samblaster -M -a --excludeDups --addMateTags --maxSplitCount 2 --minNonOverlap 20 -d discordants.sam -s splitters.sam > temp.sam
-  gawk '{ if (\$0~"^@") { print; next } else { \$10="*"; \$11="*"; print } }' OFS="\\t" splitters.sam | samtools  view -S -b - | samtools sort -o splitters.bam -
-  gawk '{ if (\$0~"^@") { print; next } else { \$10="*"; \$11="*"; print } }' OFS="\\t" discordants.sam | samtools  view -S  -b - | samtools sort -o discordants.bam -
-  speedseq sv -t \$SLURM_CPUS_ON_NODE -o ${pair_id}.sssv -R ${reffa} -B ${ssbam} -D discordants.bam -S splitters.bam -x ${index_path}/exclude_alt.bed
-  java -jar \$SNPEFF_HOME/SnpSift.jar filter "GEN[0].SU > 2" ${pair_id}.sssv.sv.vcf.gz > lumpy.vcf
-  perl $baseDir/scripts/vcf2bed.sv.pl lumpy.vcf > lumpy.bed
-  bedtools intersect -v -a lumpy.bed -b delly.bed > lumpy_only.bed
-  bedtools intersect -header -b lumpy_only.bed -a lumpy.vcf |bgzip > lumpy_only.vcf.gz
-  vcf-concat ${pair_id}.delly.vcf.gz lumpy_only.vcf.gz |vcf-sort -t temp > ${pair_id}.sv.vcf
-  perl $baseDir/scripts/vcf2bed.sv.pl ${pair_id}.sv.vcf |sort -V -k 1,1 -k 2,2n | grep -v 'alt' |grep -v 'random' |uniq > svs.bed
-  bedtools intersect -header -wb -a svs.bed -b ${index_path}/gencode.exons.bed > exonoverlap_sv.txt
-  bedtools intersect -v -header -wb -a svs.bed -b ${index_path}/gencode.exons.bed | bedtools intersect -header -wb -a stdin -b ${index_path}/gencode.genes.chr.bed > geneoverlap_sv.txt
-  perl $baseDir/scripts/annot_sv.pl -r ${index_path} -i ${pair_id}.sv.vcf
-  bgzip ${pair_id}.sv.vcf
+  bash $baseDir/process_scripts/variants/svcalling.sh -b $ssbam -r $index_path -p $pair_id
   """
 }
 

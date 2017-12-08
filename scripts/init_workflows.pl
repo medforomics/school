@@ -17,17 +17,30 @@ EOF
 }
 
 my $prjid = $opt{prjid};
+my $oriss = "/project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.csv";
+my $newss = "/project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.bcl2fastq.csv";
 
-open SS, "</project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.csv" or die $!;
-open SSOUT, ">/project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.bcl2fastq.csv" or die $!;
+my $seqdatadir = "/project/PHG/PHG_Illumina/BioCenter/$prjid";
+if (-e "/project/PHG/PHG_Illumina/Research/$prjid") {
+  $seqdatadir = "/project/PHG/PHG_Illumina/Research/$prjid";
+}
+
+$umi = `grep "<Read Number=\\\"2\\\" NumCycles=\\\"14\\\" IsIndexedRead=\\\"Y\\\" />" $seqdatadir/RunInfo.xml`;
+
+open SS, "<$oriss" or die $!;
+open SSOUT, ">$newss" or die $!;
+
 my %sampleinfo;
 while (my $line = <SS>){
   chomp($line);
   $line =~ s/\r//g;
   $line =~ s/ //g;
   $line =~ s/,+$//g;
-  print SSOUT $line,"\n";
   if ($line =~ m/^\[Data\]/) {
+    if ($umi) {
+      print SSOUT join("\n","[Settings]","ReverseComplement,0","Read2UMILength,8"),"\n";
+    }
+    print SSOUT $line,"\n";
     $header = <SS>;
     $header =~ s/\r//g;
     chomp($header);
@@ -49,6 +62,7 @@ while (my $line = <SS>){
       $hash{ClinRes} = $clinres;
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
+      $hash{Assay} = 'panel1385' if ($hash{Assay} eq 'dnaseqdevelopment');
       my @samplename = split(/_/,$hash{Sample_Name});
       unless ($hash{Class}) {
 	$hash{Class} = 'tumor';
@@ -70,10 +84,12 @@ while (my $line = <SS>){
       push @{$samples{lc($hash{Assay})}{$hash{SubjectID}}}, $samp;
       my @newline;
       foreach my $j (0..$#row) {
-	push @newline, $hash{$colnames[$j]};
+	  push @newline, $hash{$colnames[$j]};
       }
       print SSOUT join(",",@newline),"\n";
     }
+  } else {
+    print SSOUT $line,"\n";
   }
 }
 close SSOUT;
@@ -84,31 +100,36 @@ print CAS "#SBATCH -t 14-0:0:00\n#SBATCH -o $prjid.out\n#SBATCH -e $prjid.err\n"
 print CAS "#SBATCH --mail-type ALL\n#SBATCH --mail-user erika.villa\@utsouthwestern.edu\n";
 print CAS "source /etc/profile.d/modules.sh\n";
 print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.24.1-SNAPSHOT\n";
-my $seqdatadir = "/project/PHG/PHG_Illumina/BioCenter/$prjid";
-if (-e "/project/PHG/PHG_Illumina/Research/$prjid") {
-  $seqdatadir = "/project/PHG/PHG_Illumina/Research/$prjid";
-}
 
 print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --ignore-missing-positions --no-lane-splitting --ignore-missing-filter --ignore-missing-bcls --runfolder-dir $seqdatadir --sample-sheet /project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.bcl2fastq.csv &> /project/PHG/PHG_Clinical/illumina/logs/run_casava_$prjid\.log\n";
 print CAS "mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid");
 print CAS "mv /project/PHG/PHG_Clinical/illumina/$prjid\/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Reports");
 print CAS "mv /project/PHG/PHG_Clinical/illumina/$prjid\/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Stats");
 
+my %completeout; 
+my %control;
+my %completeout_somatic;
+
+my $prodir = "/project/PHG/PHG_Clinical/processing";
+my $outdir = "$prodir\/$prjid/fastq";
+my $outnf = "$prodir\/$prjid/analysis";
+my $workdir = "$prodir\/$prjid/work";
+system("mkdir $prodir\/$prjid") unless (-e "$prodir\/$prjid");
+system("mkdir $outdir") unless (-e $outdir);
+system("mkdir $outnf") unless (-e $outnf);
+system("mkdir $workdir") unless (-e $workdir);
+print CAS "cd /project/PHG/PHG_Clinical/processing/$prjid\n";
+
 foreach $dtype (keys %samples) {
-  my $prodir = "/project/PHG/PHG_Clinical/processing";
-  my $outdir = "$prodir\/$prjid/fastq";
-  my $outnf = "$prodir\/$prjid/analysis";
-  my $workdir = "$prodir\/$prjid/work";
-  system("mkdir $prodir\/$prjid") unless (-e "$prodir\/$prjid");
-  system("mkdir $outdir") unless (-e $outdir);
-  system("mkdir $outnf") unless (-e $outnf);
-  system("mkdir $workdir") unless (-e $workdir);
-  my %completeout; 
-  my %control;#Positive Control 
-  open SSOUT, ">$outdir\/design.txt" or die $!;
-  print SSOUT join("\t","SampleMergeName",'SampleID','SampleName','SubjectID','FullPathToFqR1','FullPathToFqR2'),"\n";
-  my @copyfq;
-  my @directories;
+  open SSOUT, ">$outdir\/$dtype\.design.txt" or die $!;
+  if ($umi) {
+    print SSOUT join("\t","SampleID",'SampleID2','SampleName','FamilyID','FqR1','FqR2','BAM','FinalBAM'),"\n";
+  }else {
+    print SSOUT join("\t","SampleMergeName",'SampleID','SampleName','SubjectID',
+		     'FullPathToFqR1','FullPathToFqR2','BAM','OntargetBAM'),"\n";
+  }
+  open TNPAIR, ">$outdir\/$dtype\.design_tumor_normal.txt" or die $!;
+  my %thash;
   foreach $project (keys %{$samples{$dtype}}) {
     my $datadir =  "/project/PHG/PHG_Clinical/illumina/$prjid/$project/";
     foreach $samp (@{$samples{$dtype}{$project}}) {
@@ -118,101 +139,95 @@ foreach $dtype (keys %samples) {
       print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outdir\/$samp\.R2.fastq.gz\n";
       my $finaloutput = '/project/PHG/PHG_Clinical/'.$info{ClinRes};
       unless (-e "$finaloutput\/$info{SubjectID}") {
-	  system("mkdir $finaloutput\/$info{SubjectID}");
+	system("mkdir $finaloutput\/$info{SubjectID}");
       }
       my $finalrestingplace = "$finaloutput\/$info{SubjectID}\/$info{MergeName}";
       if (-e $finalrestingplace) {
-	  $finalrestingplace .= "_".(split(/_|-/,$prjid))[-1];
+	$finalrestingplace .= "_".(split(/_|-/,$prjid))[-1];
       }
-      push @directories, $finalrestingplace;
+      $thash{$finalrestingplace} = 1;
       $completeout{$info{MergeName}} = $finalrestingplace;
       print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $finalrestingplace\/$samp\.R1.fastq.gz\n";
       print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $finalrestingplace\/$samp\.R2.fastq.gz\n";
-      print SSOUT join("\t",$info{MergeName},$info{Sample_ID},$info{Sample_Name},$info{SubjectID},"$samp\.R1.fastq.gz","$samp\.R2.fastq.gz"),"\n";
+      print SSOUT join("\t",$info{MergeName},$info{Sample_ID},$info{Sample_Name},
+		       $info{SubjectID},"$samp\.R1.fastq.gz","$samp\.R2.fastq.gz",
+		       "$info{MergeName}\.bam","$info{MergeName}\.final.bam"),"\n";
     }
   }
-  my %thash;
-  my @unique_directories = grep{!$thash{$_}++}@directories;#unique array
-  foreach my $directory(@unique_directories){
-  system("mkdir $directory");}
+  foreach my $directory(keys %thash){
+    system("mkdir $directory");}
   close SSOUT;
   my $tnpairs = 0;
-  my $tonlys = 0;
-  my %completeout_somatic;
-  if ($dtype =~ m/panel1385|medexome/) {
-    open TONLY, ">$outdir\/design_tumor_only.txt" or die $!;
-    open TNPAIR, ">$outdir\/design_tumor_normal.txt" or die $!;
+  if ($umi) {
     print TNPAIR join("\t",'TumorID','NormalID','TumorBAM','NormalBAM',
 		      'TumorOntargetBAM','NormalOntargetBAM'),"\n";
-    print TONLY join("\t",'SampleID','BAM','OntargetBAM'),"\n";
-    my @directories_somatic;
-    foreach my $subjid (keys %samps) {
-      my @ctypes = keys %{$samps{$subjid}};
-      foreach $clast (@ctypes) {
-	print TONLY join("\t",$samps{$subjid}{$clast},
-			 $samps{$subjid}{$clast}.".bam",
-			 $samps{$subjid}{$clast}.".final.bam"),"\n";
-	$tonlys ++;
-      }
-      if ($samps{$subjid}{tumor} && $samps{$subjid}{normal}) {
-	print TNPAIR join("\t",$samps{$subjid}{tumor},$samps{$subjid}{normal},
-			  $samps{$subjid}{tumor}.".bam",
-			  $samps{$subjid}{normal}.".bam",
-			  $samps{$subjid}{tumor}.".final.bam",
-			  $samps{$subjid}{normal}.".final.bam"),"\n";
+  }else {
+    print TNPAIR join("\t",'TumorID','NormalID','TumorBAM','NormalBAM',
+		      'TumorFinalBAM','NormalFinalBAM'),"\n";
+  }
+  my %sthash;
+  foreach my $subjid (keys %samps) {
+    if ($samps{$subjid}{tumor} && $samps{$subjid}{normal}) {
+      print TNPAIR join("\t",$samps{$subjid}{tumor},$samps{$subjid}{normal},
+			$samps{$subjid}{tumor}.".bam",
+			$samps{$subjid}{normal}.".bam",
+			$samps{$subjid}{tumor}.".final.bam",
+			$samps{$subjid}{normal}.".final.bam"),"\n";
       $tnpairs ++;
       my $somatic_name=$samps{$subjid}{tumor}."_".$samps{$subjid}{normal};
       my %som_info;
       foreach my $saminfo(keys %sampleinfo){
-         if ($saminfo =~ m/$samps{$subjid}{tumor}/){
-            %som_info =%{$sampleinfo{$saminfo}};
-         }
+	if ($saminfo =~ m/$samps{$subjid}{tumor}/){
+	  %som_info =%{$sampleinfo{$saminfo}};
+	}
       }
       my $finaloutput_somatic = '/project/PHG/PHG_Clinical/'.$som_info{ClinRes};
       unless (-e "$finaloutput_somatic\/$subjid") {
-          system("mkdir $finaloutput_somatic\/$subjid");
-      }
-       my $finalrestingplace_somatic = "$finaloutput_somatic\/$subjid\/$somatic_name";
+	system("mkdir $finaloutput_somatic\/$subjid");
+	}
+      my $finalrestingplace_somatic = "$finaloutput_somatic\/$subjid\/$somatic_name";
       if (-e $finalrestingplace_somatic) {
-          $finalrestingplace_somatic .= "_".(split(/_|-/,$prjid))[-1];
+	$finalrestingplace_somatic .= "_".(split(/_|-/,$prjid))[-1];
       }
-      push @directories_somatic, $finalrestingplace_somatic;
+      $sthash{$finalrestingplace_somatic} = 1;
       $completeout_somatic{$somatic_name} = $finalrestingplace_somatic;
-      }
     }
-    foreach my $directory(@directories_somatic){
-        system("mkdir $directory");}
-    close TNPAIR;
-    close TONLY;
   }
+  foreach my $directory (keys %sthash) {
+    system("mkdir $directory");
+  }
+  close TNPAIR;
   my $capture = '/project/shared/bicf_workflow_ref/GRCh38/UTSWV2.bed';
   $capture = '/project/shared/bicf_workflow_ref/GRCh38/MedExome_Plus.bed' if ($dtype eq 'medexomeplus');
-  print CAS "cd /project/PHG/PHG_Clinical/processing/$prjid\n";
-  if ($dtype eq 'panel1385' || $dtype eq 'medexomeplus') {
-    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment.nf --design $outdir\/design.txt --capture $capture --input $outdir --output $outnf >> $outnf\/nextflow_alignment.log\n";
-    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic.nf --design $outdir\/design_tumor_normal.txt --capture $capture --input $outnf --output $outnf >> $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
-    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly.nf --design $outdir\/design_tumor_only.txt --capture $capture --input $outnf --output $outnf >> $outnf\/nextflow_tumoronly.log &\n" if ($tonlys);
-    print CAS "wait\n";
+  if ($dtype =~ /panel1385|exome|dnaseq/) {
+    if ($umi) {
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment_umi.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf >> $outnf\/$dtype\.nextflow_alignment.log\n";
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic_umi.nf --design $outdir\/$dtype\.design_tumor_normal.txt --capture $capture --input $outnf --output $outnf >> $outnf\/$dtype\.nextflow_somatic.log &\n" if ($tnpairs);
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly_umi.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outnf --output $outnf >> $outnf\/$dtype\.nextflow_tumoronly.log &\n";
+    }else {
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf >> $outnf\/$dtype\.nextflow_alignment.log\n";
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic.nf --design $outdir\/$dtype\.design_tumor_normal.txt --capture $capture --input $outnf --output $outnf >> $outnf\/$dtype\.nextflow_somatic.log &\n" if ($tnpairs);
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outnf --output $outnf >> $outnf\/$dtype\.nextflow_tumoronly.log &\n";
+    }
   }elsif ($dtype eq 'panelrnaseq' || $dtype eq 'wholernaseq') {
     my $mdup = 'skip';
     $mdup = 'mark' if ($dtype eq 'wholernaseq');
-    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/rnaseq.nf --design $outdir\/design.txt --input $outdir --output $outnf --markdups $mdup &> $outnf\/nextflow_rnaseq.log &\n";
-    print CAS "wait\n";
+    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/rnaseq.nf --design $outdir\/design.txt --input $outdir --output $outnf --markdups $mdup &> $outnf\/$dtype\.nextflow_rnaseq.log &\n";
   }
-  #Positive Controls Start
+  print CAS "wait\n";
   print CAS "cd $outnf\n";
+  foreach my $somid(keys %completeout_somatic){
+    $finalrestingplace_somatic = $completeout_somatic{$somid};
+    print CAS "mv $outnf\/$somid\* $finalrestingplace_somatic\n";
+  }
+  foreach $sampid (keys %completeout) {
+    $finalrestingplace = $completeout{$sampid};
+    print CAS "mv $outnf\/$sampid\* $finalrestingplace\n";
+  }
   foreach my $posCtrls(keys %control){
     my $prefixName = $posCtrls;
     print CAS "bash /project/PHG/PHG_Clinical/clinseq_workflows/scripts/snsp.sh $prefixName >$prefixName\.snsp\.txt\n";
   }
-  #Positive Controls End
-  foreach my $somid(keys %completeout_somatic){
-      $finalrestingplace_somatic = $completeout_somatic{$somid};
-      print CAS "mv $outnf\/$somid\* $finalrestingplace_somatic\n";
-  }
-  foreach $sampid (keys %completeout) {
-      $finalrestingplace = $completeout{$sampid};
-      print CAS "mv $outnf\/$sampid\* $finalrestingplace\n";
-  }
 }
+
 close CAS;

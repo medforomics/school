@@ -117,7 +117,7 @@ trimpe_r1_tuples
 
 process align {
   errorStrategy 'ignore'
-  publishDir "$params.output/$pair_id", mode: 'copy'
+  publishDir "$params.output", mode: 'copy'
 
   input:
   set pair_id, file(fq1), file(fq2) from trimread
@@ -131,7 +131,7 @@ process align {
  }
 
 process markdups_consensus {
-  publishDir "$params.output/$pair_id", mode: 'copy'
+  //publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id, file(sbam) from aligned
@@ -218,7 +218,7 @@ process parse_stat {
 
 process gatkbam {
   errorStrategy 'ignore'
-  publishDir "$params.output/$pair_id", mode: 'copy'
+  publishDir "$params.output", mode: 'copy'
 
   input:
   set pair_id, file(sbam), file(idx) from deduped
