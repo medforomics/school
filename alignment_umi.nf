@@ -140,7 +140,7 @@ process markdups_consensus {
   script:
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id
+  bash $baseDir/process_scripts/alignment/markdups.sh -a fgbio_umi -b $sbam -p $pair_id
   mv ${pair_id}.dedup.bam ${pair_id}.consensus.bam
   """
 }
@@ -217,7 +217,7 @@ process parse_stat {
 }
 
 process gatkbam {
-  errorStrategy 'ignore'
+  //errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 
   input:

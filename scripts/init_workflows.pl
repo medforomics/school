@@ -128,7 +128,6 @@ foreach $dtype (keys %samples) {
     print SSOUT join("\t","SampleMergeName",'SampleID','SampleName','SubjectID',
 		     'FullPathToFqR1','FullPathToFqR2','BAM','OntargetBAM'),"\n";
   }
-  open TNPAIR, ">$outdir\/$dtype\.design_tumor_normal.txt" or die $!;
   my %thash;
   foreach $project (keys %{$samples{$dtype}}) {
     my $datadir =  "/project/PHG/PHG_Clinical/illumina/$prjid/$project/";
@@ -151,22 +150,34 @@ foreach $dtype (keys %samples) {
       print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $finalrestingplace\/$samp\.R2.fastq.gz\n";
       print SSOUT join("\t",$info{MergeName},$info{Sample_ID},$info{Sample_Name},
 		       $info{SubjectID},"$samp\.R1.fastq.gz","$samp\.R2.fastq.gz",
-		       "$info{MergeName}\.bam","$info{MergeName}\.final.bam"),"\n";
+		       $info{MergeName}.".bam",$info{MergeName}.".final.bam"),"\n";
     }
   }
   foreach my $directory(keys %thash){
     system("mkdir $directory");}
   close SSOUT;
+  open TONLY, ">$outdir\/$dtype\.design_tumor_only.txt" or die $!;
+  open TNPAIR, ">$outdir\/$dtype\.design_tumor_normal.txt" or die $!;
   my $tnpairs = 0;
+  my $tonlys = 0;
   if ($umi) {
     print TNPAIR join("\t",'TumorID','NormalID','TumorBAM','NormalBAM',
-		      'TumorOntargetBAM','NormalOntargetBAM'),"\n";
+		      'TumorFinalBAM','NormalFinalBAM'),"\n";
+    print TONLY join("\t","SampleID",'BAM','FinalBAM'),"\n";
   }else {
     print TNPAIR join("\t",'TumorID','NormalID','TumorBAM','NormalBAM',
-		      'TumorFinalBAM','NormalFinalBAM'),"\n";
+		      'TumorOntargetBAM','NormalOntargetBAM'),"\n";
+    print TONLY join("\t",'SampleID','BAM','OntargetBAM'),"\n";
   }
   my %sthash;
   foreach my $subjid (keys %samps) {
+    my @ctypes = keys %{$samps{$subjid}};
+    foreach $clast (@ctypes) {
+      print TONLY join("\t",$samps{$subjid}{$clast},
+		       $samps{$subjid}{$clast}.".bam",
+		       $samps{$subjid}{$clast}.".final.bam"),"\n";
+      $tonlys ++;
+    }
     if ($samps{$subjid}{tumor} && $samps{$subjid}{normal}) {
       print TNPAIR join("\t",$samps{$subjid}{tumor},$samps{$subjid}{normal},
 			$samps{$subjid}{tumor}.".bam",
@@ -184,7 +195,7 @@ foreach $dtype (keys %samples) {
       my $finaloutput_somatic = '/project/PHG/PHG_Clinical/'.$som_info{ClinRes};
       unless (-e "$finaloutput_somatic\/$subjid") {
 	system("mkdir $finaloutput_somatic\/$subjid");
-	}
+      }
       my $finalrestingplace_somatic = "$finaloutput_somatic\/$subjid\/$somatic_name";
       if (-e $finalrestingplace_somatic) {
 	$finalrestingplace_somatic .= "_".(split(/_|-/,$prjid))[-1];
@@ -207,12 +218,12 @@ foreach $dtype (keys %samples) {
     }else {
       print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf >> $outnf\/$dtype\.nextflow_alignment.log\n";
       print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic.nf --design $outdir\/$dtype\.design_tumor_normal.txt --capture $capture --input $outnf --output $outnf >> $outnf\/$dtype\.nextflow_somatic.log &\n" if ($tnpairs);
-      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outnf --output $outnf >> $outnf\/$dtype\.nextflow_tumoronly.log &\n";
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly.nf --design $outdir\/$dtype\.design_tumor_only.txt --capture $capture --input $outnf --output $outnf >> $outnf\/$dtype\.nextflow_tumoronly.log &\n";
     }
   }elsif ($dtype eq 'panelrnaseq' || $dtype eq 'wholernaseq') {
     my $mdup = 'skip';
     $mdup = 'mark' if ($dtype eq 'wholernaseq');
-    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/rnaseq.nf --design $outdir\/design.txt --input $outdir --output $outnf --markdups $mdup &> $outnf\/$dtype\.nextflow_rnaseq.log &\n";
+    print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/rnaseq.nf --design $outdir\/$dtype\.design.txt --input $outdir --output $outnf --markdups $mdup &> $outnf\/$dtype\.nextflow_rnaseq.log &\n";
   }
   print CAS "wait\n";
   print CAS "cd $outnf\n";
