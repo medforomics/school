@@ -244,9 +244,9 @@ system("bedtools intersect -header -a $tumorid\.pass.vcf -b $refdir\/UTSWV2.bed 
 system("rm $tumorid\.final.vcf");
 
 open TMB, ">$subject\.tmb.txt" or die $!;
-$num_mutations = `zgrep -c -v "#" $subject\.PASS.vcf.gz`;
+$num_mutations = `zgrep -c -v "SS=2" $subject\.PASS.vcf.gz`;
 chomp($num_mutations);
-print TMB join("\n","TMB",sprintf("%.2f",$num_mutations/4.6)),"\n";
+print TMB join("\n","Class,TMB",join(",",'',sprintf("%.2f",$num_mutations/4.6))),"\n";
 
 sub log2 {
     my $n = shift;
