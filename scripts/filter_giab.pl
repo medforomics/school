@@ -3,11 +3,11 @@
 
 my $refdir = '/project/shared/bicf_workflow_ref/GRCh38/';
 
-open OM, "</project/shared/bicf_workflow_ref/GRCh38/panel1385.genelist.txt" or die $!;
-while (my $line = <OM>) {
-  chomp($line);
-  $keep{$line} = 1;
-}
+#open OM, "</project/shared/bicf_workflow_ref/GRCh38/panel1385.genelist.txt" or die $!;
+#while (my $line = <OM>) {
+#  chomp($line);
+#  $keep{$line} = 1;
+#}
 my ($tumorid) = @ARGV;
 
 open OUT, ">$tumorid\.PASS.vcf" or die $!;
@@ -27,6 +27,9 @@ W1:while (my $line = <IN>) {
   my ($chrom, $pos,$id,$ref,$alt,$score,
       $filter,$annot,$format,@gts) = split(/\t/, $line);
   next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
+  if ($pos == 40606445) {
+      warn "Testing\n";
+  }
   my %hash = ();
   foreach $a (split(/;/,$annot)) {
     my ($key,$val) = split(/=/,$a);
@@ -93,17 +96,14 @@ W1:while (my $line = <IN>) {
   }else {
     next if ($altct[0] < 8 || $mutallfreq[0] < 0.05);
   }
-  my $keepforvcf = 0;
   my @aa;
   next unless ($hash{ANN});
   foreach $trx (split(/,/,$hash{ANN})) {
-    my ($allele,$effect,$impact,$gene,$geneid,$feature,
-	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
-	$cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
-    push @aa, $aa if ($aa ne '');
-    $keepforvcf = 1 if ($keep{$gene});
+      my ($allele,$effect,$impact,$gene,$geneid,$feature,
+	  $featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
+	  $cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
+      push @aa, $aa if ($aa ne '');
   }
-  next unless $keepforvcf;
   my @fail = sort {$a cmp $b} keys %fail;
   if (scalar(@fail) < 1) {
     $filter = 'PASS';

@@ -91,7 +91,6 @@ process indexbams {
   """
 }
 
-
 process svcall {
   errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
@@ -198,7 +197,7 @@ process platypus {
   source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda bedtools/2.25.0 snpeff/4.2 platypus/gcc/0.8.1 bcftools/intel/1.3 samtools/intel/1.3 vcftools/0.1.14
   Platypus.py callVariants --minMapQual=10 --mergeClusteredVariants=1 --nCPU=\$SLURM_CPUS_ON_NODE --bamFiles=${gbam} --refFile=${reffa} --output=platypus.vcf
-  vcf-sort platypus.vcf |vcf-annotate -n --fill-type -n |bgzip > platypus.vcf.gz
+  vcf-sort platypus.vcf |perl -p -e 's/.final//' | vcf-annotate -n --fill-type -n |bgzip > platypus.vcf.gz
   tabix platypus.vcf.gz
   bcftools norm -c s -f ${reffa} -w 10 -O z -o ${pair_id}.platypus.vcf.gz platypus.vcf.gz
   """

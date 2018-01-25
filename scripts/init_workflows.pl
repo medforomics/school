@@ -212,13 +212,13 @@ foreach $dtype (keys %samples) {
   $capture = '/project/shared/bicf_workflow_ref/GRCh38/MedExome_Plus.bed' if ($dtype eq 'medexomeplus');
   if ($dtype =~ /panel1385|exome|dnaseq/) {
     if ($umi) {
-      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment_umi.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf >> $outnf\/$dtype\.nextflow_alignment.log\n";
-      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic_umi.nf --design $outdir\/$dtype\.design_tumor_normal.txt --capture $capture --input $outnf --output $outnf >> $outnf\/$dtype\.nextflow_somatic.log &\n" if ($tnpairs);
-      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly_umi.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outnf --output $outnf >> $outnf\/$dtype\.nextflow_tumoronly.log &\n";
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config.super run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment_umi.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf > $outnf\/$dtype\.nextflow_alignment.log\n";
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config.super run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic_umi.nf --design $outdir\/$dtype\.design_tumor_normal.txt --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_somatic.log &\n" if ($tnpairs);
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config.super run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly_umi.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
     }else {
-      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf >> $outnf\/$dtype\.nextflow_alignment.log\n";
-      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic.nf --design $outdir\/$dtype\.design_tumor_normal.txt --capture $capture --input $outnf --output $outnf >> $outnf\/$dtype\.nextflow_somatic.log &\n" if ($tnpairs);
-      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly.nf --design $outdir\/$dtype\.design_tumor_only.txt --capture $capture --input $outnf --output $outnf >> $outnf\/$dtype\.nextflow_tumoronly.log &\n";
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config.phg run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf > $outnf\/$dtype\.nextflow_alignment.log\n";
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config.phg run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic.nf --design $outdir\/$dtype\.design_tumor_normal.txt --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_somatic.log &\n" if ($tnpairs);
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config.phg run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly.nf --design $outdir\/$dtype\.design_tumor_only.txt --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
     }
   }elsif ($dtype eq 'panelrnaseq' || $dtype eq 'wholernaseq') {
     my $mdup = 'skip';
@@ -226,18 +226,20 @@ foreach $dtype (keys %samples) {
     print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/rnaseq.nf --design $outdir\/$dtype\.design.txt --input $outdir --output $outnf --markdups $mdup &> $outnf\/$dtype\.nextflow_rnaseq.log &\n";
   }
   print CAS "wait\n";
-  print CAS "cd $outnf\n";
-  foreach my $somid(keys %completeout_somatic){
-    $finalrestingplace_somatic = $completeout_somatic{$somid};
-    print CAS "mv $outnf\/$somid\* $finalrestingplace_somatic\n";
-  }
-  foreach $sampid (keys %completeout) {
-    $finalrestingplace = $completeout{$sampid};
-    print CAS "mv $outnf\/$sampid\* $finalrestingplace\n";
-  }
-  foreach my $posCtrls(keys %control){
-    my $prefixName = $posCtrls;
-    print CAS "bash /project/PHG/PHG_Clinical/clinseq_workflows/scripts/snsp.sh $prefixName >$prefixName\.snsp\.txt\n";
+  unless ($umi) {
+      print CAS "cd $outnf\n";
+      foreach my $somid(keys %completeout_somatic){
+	  $finalrestingplace_somatic = $completeout_somatic{$somid};
+	  print CAS "mv $outnf\/$somid\* $finalrestingplace_somatic\n";
+      }
+      foreach $sampid (keys %completeout) {
+	  $finalrestingplace = $completeout{$sampid};
+	  print CAS "mv $outnf\/$sampid\* $finalrestingplace\n";
+      }
+      foreach my $posCtrls(keys %control){
+	  my $prefixName = $posCtrls;
+	  print CAS "bash /project/PHG/PHG_Clinical/clinseq_workflows/scripts/snsp.sh $prefixName >$prefixName\.snsp\.txt\n";
+      }
   }
 }
 

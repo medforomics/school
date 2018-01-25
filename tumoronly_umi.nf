@@ -9,6 +9,7 @@ params.design="$params.input/design.txt"
 params.genome="/project/shared/bicf_workflow_ref/GRCh38"
 params.targetpanel="$params.genome/UTSWV2.bed"
 params.cancer="detect"
+params.callsvs="detect"
 
 dbsnp_file="$params.genome/dbSnp.vcf.gz"
 indel="$params.genome/GoldIndels.vcf.gz"
@@ -86,7 +87,7 @@ process indexbams {
 
 idxbam
    .groupTuple(by:0)		
-   .into { ssbam; sambam; hsbam; gatkbam; platbam }
+   .into { ssbam; sambam; hsbam; platbam; strelkabam }
 
 process cnv {
   errorStrategy 'ignore'
@@ -99,7 +100,7 @@ process cnv {
   script:
   """
   source /etc/profile.d/modules.sh	
-  bash $baseDir/process_scripts/variants/cnvkit.sh -b $sbam -p $pair_id
+  bash $baseDir/process_scripts/variants/cnvkit.sh -u -b $sbam -p $pair_id
   """
 }
  
@@ -114,6 +115,8 @@ process svcall {
   file("${pair_id}.sv.annot.vcf.gz") into svintvcf
   file("${pair_id}.sv.annot.txt") into svannot
   file("${pair_id}.sv.annot.genefusion.txt") into gfusion
+  when:
+  params.callsvs == "detect"
   script:
   """
   source /etc/profile.d/modules.sh	
@@ -165,18 +168,33 @@ process speedseq {
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a speedseq
   """
 }
-process gatkgvcf {
+// process gatkgvcf {
+//   errorStrategy 'ignore'
+//   //publishDir "$baseDir/output", mode: 'copy'
+
+//   input:
+//   set subjid,file(gbam),file(gidx) from gatkbam
+//   output:
+//   set subjid, file("${subjid}.gatk.vcf.gz") into gatkvcf
+//   script:
+//   """
+//   source /etc/profile.d/modules.sh
+//   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a gatk
+//   """
+// }
+
+process strelka2 {
   errorStrategy 'ignore'
   //publishDir "$baseDir/output", mode: 'copy'
 
   input:
-  set subjid,file(gbam),file(gidx) from gatkbam
+  set subjid,file(gbam),file(gidx) from strelkabam
   output:
-  set subjid, file("${subjid}.gatk.vcf.gz") into gatkvcf
+  set subjid,file("${subjid}.strelka2.vcf.gz") into strelkavcf
   script:
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a gatk
+  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a strelka2
   """
 }
 
@@ -194,43 +212,27 @@ process platypus {
   """
   source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a platypus
-  
   """
 }
 
 Channel
   .empty()
-  .mix(ssvcf,gatkvcf,samvcf,platvcf,hsvcf)
+  .mix(ssvcf,strelkavcf,samvcf,platvcf,hsvcf)
   .groupTuple(by:0)
   .into { vcflist}
-
-
 
 process integrate {
   errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
   input:
-  set famid,file(vcf) from vcflist
-    
+  set subjid,file(vcf) from vcflist
+
   output:
-  set famid,file("${famid}.union.vcf.gz") into union
+  set subjid,file("${subjid}.union.vcf.gz") into union
+  file("${subjid}.annot.vcf.gz") into annotvcf
   script:
   """
-  bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $famid
-  """
-}
-
-process annot {
-  errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
-
-  input:
-  set famid,unionvcf from union
-  
-  output:
-  file("${famid}.annot.vcf.gz") into annotvcf
-  script:
-  """
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p $famid -r $index_path -v $unionvcf
+  bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v $unionvcf
   """
 }

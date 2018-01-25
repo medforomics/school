@@ -6,8 +6,10 @@ params.output = './'
 
 params.bams="$params.input/*.bam"
 params.design="$params.input/design.txt"
-
+params.callsvs="detect"
 params.genome="/project/shared/bicf_workflow_ref/GRCh38"
+params.targetpanel="$params.genome/UTSWV2.bed"
+
 dbsnp="$params.genome/dbSnp.vcf.gz"
 cosmic="$params.genome/cosmic.vcf.gz"
 
@@ -15,6 +17,7 @@ design_file = file(params.design)
 bams=file(params.bams)
 
 index_path = file(params.genome)
+capture_bed = file(params.targetpanel)
 ncmconf = file("$params.genome/ncm.conf")
 dbsnp=file(dbsnp)
 
@@ -60,7 +63,7 @@ process indexoribams {
   set tid,nid,file(tumor),file(normal) from oribam
   output:
   set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into dellybam
-  set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into mantrabam
+  set val("${tid}_${nid}"),tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into mantrabam
   set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into checkbams
 
   script:
@@ -75,7 +78,7 @@ process indextarbams {
   set tid,nid,file(tumor),file(normal) from tarbam
   output:
   set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into mutectbam
-  set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into strelkabam
+  set val("${tid}_${nid}"),tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into strelkabam
   set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into ssbam
   set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into shimmerbam
   set tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into vscanbam
@@ -116,6 +119,8 @@ process svcall {
   file("${tid}_${nid}.sv.annot.vcf.gz") into svintvcf
   file("${tid}_${nid}.sv.annot.txt") into svannot
   file("${tid}_${nid}.sv.annot.genefusion.txt") into gfannot
+  when:
+  params.callsvs == "detect"
   script:
   """
   source /etc/profile.d/modules.sh
@@ -145,11 +150,32 @@ process mutect {
   set tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from mutectbam
 
   output:
-  set val("${tid}_${nid}"),file("${tid}_${nid}.pmutect.vcf.gz") into mutectvcf
+  set val("${tid}_${nid}"),file("${tid}_${nid}.mutect.vcf.gz") into mutectvcf
   script:
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -x $tid -y $nid -n $normal -t $tumor -a mutect2
+  bash $baseDir/process_scripts/variants/somatic_vc.sh -b $capture_bed -r $index_path -x $tid -y $nid -n $normal -t $tumor -a mutect
+  """
+}
+Channel
+  .empty()
+  .mix(mantrabam,strelkabam)
+  .groupTuple(by:0)
+  .into { illuminabams }
+
+process strelka {
+  errorStrategy 'ignore'
+  publishDir "$params.output", mode: 'copy'
+
+  input:
+  set pair_id,mtid,mnid,file(mtumor),file(mnormal),file(mtidx),file(mnidx),tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from illuminabams
+
+  output:
+  set val("${tid}_${nid}"),file("${tid}_${nid}.strelka2.vcf.gz") into strelkavcf
+  script:
+  """
+  source /etc/profile.d/modules.sh
+  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -x $tid -y $nid -n $normal -t $tumor -a strelka2
   """
 }
 process varscan {
@@ -203,30 +229,16 @@ Channel
 
 process integrate {
   errorStrategy 'ignore'
-  //publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output", mode: 'copy'
   input:
   set subjid,file(vcf) from vcflist
   output:
   set subjid,file("${subjid}.union.vcf.gz") into union
-  script:
-  """
-  source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
-  """
-}
-
-process annot {
-  errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
-
-  input:
-  set subjid,unionvcf from union
-  
-  output:
   file("${subjid}.annot.vcf.gz") into annotvcf
   script:
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v $unionvcf
+  bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v ${subjid}.union.vcf.gz
   """
 }

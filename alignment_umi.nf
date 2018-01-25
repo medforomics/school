@@ -131,7 +131,7 @@ process align {
  }
 
 process markdups_consensus {
-  //publishDir "$params.output/$pair_id", mode: 'copy'
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id, file(sbam) from aligned
@@ -161,6 +161,7 @@ process markdups_picard {
 process seqqc {
   errorStrategy 'ignore'
   publishDir "$params.output/$pair_id", mode: 'copy'
+  memory '64 GB'
 
   input:
   set pair_id, file(sbam) from qcbam
@@ -219,6 +220,7 @@ process parse_stat {
 process gatkbam {
   //errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
+  memory '32 GB'
 
   input:
   set pair_id, file(sbam), file(idx) from deduped

@@ -10,7 +10,7 @@ while (my $line = <OM>) {
 }
 
 my ($subject,$samplename,$tumorid,$somatic,$rnaseqid) = @ARGV;
-my $inputdir = "/project/PHG/PHG_Clinical/toarchive/$subject";
+my $inputdir = "/project/PHG/PHG_Clinical/complete/$subject";
 system("tabix -f $inputdir\/$tumorid/$tumorid\.annot.vcf.gz");
 system("zcat $inputdir\/$tumorid/$tumorid\.annot.vcf.gz > tumor.vcf");
 system("/project/PHG/PHG_Clinical/clinseq_workflows/scripts/vcf2bed.pl tumor.vcf |cut -f 1,2,3 > tumor.bed");

@@ -9,7 +9,7 @@ my $fn = $input;
 $fn =~ s/eval.vcf/utswcoding.multiinter.bed.gz/;
 my $run = $input;
 $run =~ s/\.eval.vcf//;
-my @allcallers = ('gatk','sam','ssvar','platypus');
+my @allcallers = ('strelka2','sam','ssvar','platypus','gatk');
 foreach ((@allcallers,'union','genomeseer')) {
   $fn{'snp'}{$_} = 0;
   $fn{'indel'}{$_} = 0;
@@ -120,7 +120,7 @@ foreach ((@allcallers,'genomeseer','union')) {
   $fp{'snp'}{$_} = 0 unless $fp{'snp'}{$_};
   $fp{'indel'}{$_} = 0 unless $fp{'indel'}{$_};
   $fn{'indel'}{$_} = 0 unless $fn{'indel'}{$_};
-  
+  next unless ($tp{'snp'}{$_});
   $sn_snp = sprintf("%.1f",100*$tp{'snp'}{$_}/($tp{'snp'}{$_}+$fn{'snp'}{$_}));
   $sn_indel = sprintf("%.1f",100*$tp{'indel'}{$_}/($tp{'indel'}{$_}+$fn{'indel'}{$_}));
   $sp = sprintf("%.1f",100*($tp{'snp'}{$_}+$tp{'indel'}{$_})/($tp{'snp'}{$_}+$fp{'snp'}{$_}+$tp{'indel'}{$_}+$fp{'indel'}{$_}));

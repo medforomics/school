@@ -138,7 +138,6 @@ trimpe_r1_tuples
 process alignpe {
   errorStrategy 'ignore'
   //publishDir "$params.output", mode: 'copy'
-
   input:
   set pair_id, file(fq1), file(fq2) from trimpe
   output:
@@ -161,8 +160,8 @@ aligned
    .set {bamgrp}
 
 process mergebam {
-   publishDir "$params.output", mode: 'copy'
-
+  publishDir "$params.output", mode: 'copy'
+  memory '32 GB'
   input:
   set pair_id,file(bams) from bamgrp
   output:
@@ -184,7 +183,7 @@ process mergebam {
   fi
   sambamba sort --tmpdir=./ -t \$SLURM_CPUS_ON_NODE -o ${pair_id}.bam merge.bam
   sambamba sort --tmpdir=./ -N -t \$SLURM_CPUS_ON_NODE -o output.nsort.bam merge.bam
-  java -Djava.io.tmpdir=./ -Xmx4g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${pair_id}.bam HISTOGRAM_FILE=${pair_id}.hist.ps REFERENCE_SEQUENCE=${reffa} OUTPUT=${pair_id}.hist.txt
+  java -Djava.io.tmpdir=./ -Xmx32g -jar \$PICARD/picard.jar CollectInsertSizeMetrics INPUT=${pair_id}.bam HISTOGRAM_FILE=${pair_id}.hist.ps REFERENCE_SEQUENCE=${reffa} OUTPUT=${pair_id}.hist.txt
   samtools view output.nsort.bam | k8 /cm/shared/apps/bwa/intel/0.7.15/bwakit/bwa-postalt.js -p ${pair_id}.hla ${index_path}/hs38DH.fa.alt &> tmp
   run-HLA ${pair_id}.hla > ${pair_id}.hla.top 2> ${pair_id}.hla.log
   touch ${pair_id}.hla.HLA-dummy.gt
@@ -195,7 +194,7 @@ process mergebam {
 process seqqc {
   errorStrategy 'ignore'
   //publishDir "$params.output", mode: 'copy'
-
+  memory '64 GB'
   input:
   set pair_id, file(sbam),file(idx) from qcbam
   output:
@@ -219,8 +218,8 @@ process seqqc {
   sambamba flagstat -t 30 ${pair_id}.ontarget.bam > ${pair_id}.ontarget.flagstat.txt
   samtools view -b -q 1 ${pair_id}.ontarget.bam | bedtools coverage -sorted -hist -g ${index_path}/genomefile.txt -b stdin -a ${capture_bed}  >  ${pair_id}.mapqualcov.txt
   samtools view -b -F 1024 ${pair_id}.ontarget.bam | bedtools coverage -sorted -g  ${index_path}/genomefile.txt -a ${capture_bed} -b stdin -hist | grep ^all > ${pair_id}.dedupcov.txt 
-  java -Djava.io.tmpdir=./ -Xmx32g -jar \$PICARD/picard.jar CollectAlignmentSummaryMetrics R=${reffa} I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.alignmentsummarymetrics.txt
-  java -Djava.io.tmpdir=./ -Xmx32g -jar \$PICARD/picard.jar EstimateLibraryComplexity I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.libsizeest.txt
+  java -Djava.io.tmpdir=./ -Xmx64g -jar \$PICARD/picard.jar CollectAlignmentSummaryMetrics R=${reffa} I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.alignmentsummarymetrics.txt
+  java -Djava.io.tmpdir=./ -Xmx64g -jar \$PICARD/picard.jar EstimateLibraryComplexity I=${pair_id}.ontarget.bam OUTPUT=${pair_id}.libsizeest.txt
   samtools view -F 1024 ${pair_id}.ontarget.bam | awk '{sum+=\$5} END { print "Mean MAPQ =",sum/NR}' > ${pair_id}.meanmap.txt
   """
 }
@@ -276,7 +275,7 @@ process parse_stat {
 process gatkbam {
   errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
-
+  memory '32 GB'
   input:
   set pair_id, file(dbam), file(idx) from targetbam
 
