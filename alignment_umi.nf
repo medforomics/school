@@ -125,7 +125,6 @@ process align {
   set pair_id, file("${pair_id}.bam") into aligned
   set pair_id, file("${pair_id}.bam") into aligned2
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2 -u
   """
  }
@@ -139,7 +138,6 @@ process markdups_consensus {
   set pair_id, file("${pair_id}.consensus.bam") into deduped
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/alignment/markdups.sh -a fgbio_umi -b $sbam -p $pair_id
   mv ${pair_id}.dedup.bam ${pair_id}.consensus.bam
   """
@@ -153,7 +151,6 @@ process markdups_picard {
   set pair_id, file("${pair_id}.dedup.bam") into qcbam
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/alignment/markdups.sh -a picard_umi -b $sbam -p $pair_id
   """
 }
@@ -161,7 +158,6 @@ process markdups_picard {
 process seqqc {
   errorStrategy 'ignore'
   publishDir "$params.output/$pair_id", mode: 'copy'
-  memory '64 GB'
 
   input:
   set pair_id, file(sbam) from qcbam
@@ -182,9 +178,7 @@ process seqqc {
   file("${pair_id}.mapqualcov.txt") into mapqualcov
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b $sbam -p $pair_id
-  perl $baseDir/scripts/calculate_depthcov.pl ${pair_id}.covhist.txt
   """
 }
 
@@ -220,7 +214,6 @@ process parse_stat {
 process gatkbam {
   //errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
-  memory '32 GB'
 
   input:
   set pair_id, file(sbam), file(idx) from deduped
@@ -230,8 +223,6 @@ process gatkbam {
   
   script:
   """
-  source /etc/profile.d/modules.sh
-  module load gatk/3.7 samtools/1.4.1
   bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r ${index_path} -p $pair_id
   """
 }

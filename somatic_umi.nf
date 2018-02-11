@@ -68,7 +68,6 @@ process indexoribams {
 
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/alignment/indexbams.sh 
   """
 }
@@ -86,7 +85,6 @@ process indextarbams {
   set val("${tid}_${nid}"),tid,nid into pairnames
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/alignment/indexbams.sh 
   """
 }
@@ -124,7 +122,6 @@ process svcall {
   script:
   """
   source /etc/profile.d/modules.sh
-  module load novoBreak/v1.1.3 delly2/v0.7.7-multi bcftools/intel/1.3 samtools/intel/1.3 bedtools/2.25.0 speedseq/20160506 snpeff/4.2 vcftools/0.1.14
   perl $baseDir/scripts/make_delly_sample.pl ${tid} ${nid}
   bash $baseDir/process_scripts/variants/svcalling.sh -r ${index_path} -p ${tid}_${nid} -b ${tumor} -n ${normal} -k ${tid}
   """
@@ -138,7 +135,6 @@ process sstumor {
   set val("${tid}_${nid}"), file("${tid}_${nid}.sssom.vcf.gz") into ssvcf
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -x $tid -y $nid -n $normal -t $tumor -a speedseq
   """
 }
@@ -153,8 +149,7 @@ process mutect {
   set val("${tid}_${nid}"),file("${tid}_${nid}.mutect.vcf.gz") into mutectvcf
   script:
   """
-  source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/variants/somatic_vc.sh -b $capture_bed -r $index_path -x $tid -y $nid -n $normal -t $tumor -a mutect
+  bash $baseDir/process_scripts/variants/somatic_vc.sh -b $capture_bed -r $index_path -x $tid -y $nid -n $normal -t $tumor -a mutect2
   """
 }
 Channel
@@ -174,7 +169,6 @@ process strelka {
   set val("${tid}_${nid}"),file("${tid}_${nid}.strelka2.vcf.gz") into strelkavcf
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -x $tid -y $nid -n $normal -t $tumor -a strelka2
   """
 }
@@ -187,7 +181,6 @@ process varscan {
   set val("${tid}_${nid}"),file("${tid}_${nid}.varscan.vcf.gz") into varscanvcf
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -x $tid -y $nid -n $normal -t $tumor -a varscan
   """
 }
@@ -201,7 +194,6 @@ process shimmer {
   set val("${tid}_${nid}"), file("${tid}_${nid}.shimmer.vcf.gz") into shimmervcf
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -x $tid -y $nid -n $normal -t $tumor -a shimmer
   """
 }
@@ -215,7 +207,6 @@ process virmid {
   set val("${tid}_${nid}"), file("${tid}_${nid}.virmid.vcf.gz") into virmidvcf
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -x $tid -y $nid -n $normal -t $tumor -a virmid
   """
 }
@@ -237,7 +228,6 @@ process integrate {
   file("${subjid}.annot.vcf.gz") into annotvcf
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
   bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v ${subjid}.union.vcf.gz
   """

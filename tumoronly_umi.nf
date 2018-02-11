@@ -10,6 +10,7 @@ params.genome="/project/shared/bicf_workflow_ref/GRCh38"
 params.targetpanel="$params.genome/UTSWV2.bed"
 params.cancer="detect"
 params.callsvs="detect"
+params.nuctype='dna'
 
 dbsnp_file="$params.genome/dbSnp.vcf.gz"
 indel="$params.genome/GoldIndels.vcf.gz"
@@ -61,6 +62,7 @@ if( ! tarbam) { error "Didn't match any input files with entries in the design f
 
 process indexoribams {
   errorStrategy 'ignore'
+  publishDir "$params.output", mode: 'copy'
   input:
   set tid,file(tumor) from oribam
   output:
@@ -68,7 +70,6 @@ process indexoribams {
   set tid,file(tumor),file("${tumor}.bai") into cnvbam
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/alignment/indexbams.sh 
   """
 }
@@ -80,7 +81,6 @@ process indexbams {
   set tid,file(tumor),file("${tumor}.bai") into idxbam
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/alignment/indexbams.sh 
   """
 }
@@ -95,11 +95,11 @@ process cnv {
   input:
   set pair_id,file(sbam),file(sidx) from cnvbam
   output:
-  file("${pair_id}.call.cns") into cnvtxt
+  file("${pair_id}.call.cns") into cns
+  file("${pair_id}.*txt") into cnvtxt
   file("${pair_id}.cnv.pdf") into cnvpdf
   script:
   """
-  source /etc/profile.d/modules.sh	
   bash $baseDir/process_scripts/variants/cnvkit.sh -u -b $sbam -p $pair_id
   """
 }
@@ -119,7 +119,6 @@ process svcall {
   params.callsvs == "detect"
   script:
   """
-  source /etc/profile.d/modules.sh	
   bash $baseDir/process_scripts/variants/svcalling.sh -b $ssbam -r $index_path -p $pair_id
   """
 }
@@ -135,7 +134,6 @@ process mpileup {
   set subjid,file("${subjid}.sam.vcf.gz") into samvcf
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a mpileup
   """
 }
@@ -151,7 +149,6 @@ process hotspot {
   params.cancer == "detect"
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a hotspot
   """
 }
@@ -164,7 +161,6 @@ process speedseq {
   set subjid,file("${subjid}.ssvar.vcf.gz") into ssvcf
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a speedseq
   """
 }
@@ -178,7 +174,6 @@ process speedseq {
 //   set subjid, file("${subjid}.gatk.vcf.gz") into gatkvcf
 //   script:
 //   """
-//   source /etc/profile.d/modules.sh
 //   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a gatk
 //   """
 // }
@@ -192,10 +187,14 @@ process strelka2 {
   output:
   set subjid,file("${subjid}.strelka2.vcf.gz") into strelkavcf
   script:
+  if (params.nuctype == "dna")
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a strelka2
   """
+  else
+  """
+  bash $baseDir/process_scripts/variants/germline_vc.sh -t -r $index_path -p $subjid -a strelka2
+  """  
 }
 
 process platypus {
@@ -207,12 +206,19 @@ process platypus {
 
   output:
   set subjid,file("${subjid}.platypus.vcf.gz") into platvcf
-
+  when:
   script:
+  if (params.nuctype == "dna")
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a platypus
   """
+  else
+  """
+  source /etc/profile.d/modules.sh
+  module load samtools/1.6
+  cp ${index_path}/union.header.vcf ${subjid}.platypus.vcf
+  bgzip ${subjid}.platypus.vcf
+  """  
 }
 
 Channel
@@ -230,9 +236,10 @@ process integrate {
   output:
   set subjid,file("${subjid}.union.vcf.gz") into union
   file("${subjid}.annot.vcf.gz") into annotvcf
+
   script:
   """
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v $unionvcf
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v ${subjid}.union.vcf.gz
   """
 }

@@ -233,7 +233,6 @@ Channel
   .groupTuple(by:0)
   .into { vcflist}
 
-
 process integrate {
   errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
@@ -244,6 +243,7 @@ process integrate {
   file("${subjid}.annot.vcf.gz") into annotvcf
   script:
   """
+  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
   bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v ${subjid}.union.vcf.gz
   """

@@ -27,9 +27,6 @@ W1:while (my $line = <IN>) {
   my ($chrom, $pos,$id,$ref,$alt,$score,
       $filter,$annot,$format,@gts) = split(/\t/, $line);
   next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
-  if ($pos == 40606445) {
-      warn "Testing\n";
-  }
   my %hash = ();
   foreach $a (split(/;/,$annot)) {
     my ($key,$val) = split(/=/,$a);

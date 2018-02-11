@@ -79,6 +79,10 @@ while (my $line = <SS>){
       $hash{Sample_Name} = join("_ClarityID-",$hash{Sample_Name},$hash{Sample_ID});
       $hash{Sample_ID} = $hash{Sample_Name};
       $samp = $hash{Sample_Name};
+      if ($samps{$hash{SubjectID}}{lc($hash{Class})} && 
+	  $samps{$hash{SubjectID}}{lc($hash{Class})} ne $hash{MergeName}) {
+	  $hash{Class} = join('.',$hash{Class},$.);
+      }
       $samps{$hash{SubjectID}}{lc($hash{Class})} = $hash{MergeName} if ($hash{Assay} =~ m/panel1385|medexome/i);
       $sampleinfo{$samp} = \%hash;
       push @{$samples{lc($hash{Assay})}{$hash{SubjectID}}}, $samp;
@@ -103,7 +107,7 @@ print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.24.1-SNAPSHO
 
 print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --ignore-missing-positions --no-lane-splitting --ignore-missing-filter --ignore-missing-bcls --runfolder-dir $seqdatadir --sample-sheet /project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.bcl2fastq.csv &> /project/PHG/PHG_Clinical/illumina/logs/run_casava_$prjid\.log\n";
 print CAS "mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid");
-print CAS "mv /project/PHG/PHG_Clinical/illumina/$prjid\/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Reports");
+print CAS "cp -R /project/PHG/PHG_Clinical/illumina/$prjid\/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Reports");
 print CAS "mv /project/PHG/PHG_Clinical/illumina/$prjid\/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Stats");
 
 my %completeout; 
@@ -133,7 +137,9 @@ foreach $dtype (keys %samples) {
     my $datadir =  "/project/PHG/PHG_Clinical/illumina/$prjid/$project/";
     foreach $samp (@{$samples{$dtype}{$project}}) {
       my %info = %{$sampleinfo{$samp}};
-      if($info{SubjectID} eq 'GM12878'){$control{$info{MergeName}}='GM12878';}#Positive Control
+      if($info{SubjectID} eq 'GM12878'){ #Positive Control
+	  $control{$info{MergeName}}='GM12878';
+      }
       print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outdir\/$samp\.R1.fastq.gz\n";
       print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outdir\/$samp\.R2.fastq.gz\n";
       my $finaloutput = '/project/PHG/PHG_Clinical/'.$info{ClinRes};
@@ -216,9 +222,9 @@ foreach $dtype (keys %samples) {
       print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config.super run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic_umi.nf --design $outdir\/$dtype\.design_tumor_normal.txt --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_somatic.log &\n" if ($tnpairs);
       print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config.super run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly_umi.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
     }else {
-      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config.phg run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf > $outnf\/$dtype\.nextflow_alignment.log\n";
-      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config.phg run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic.nf --design $outdir\/$dtype\.design_tumor_normal.txt --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_somatic.log &\n" if ($tnpairs);
-      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config.phg run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly.nf --design $outdir\/$dtype\.design_tumor_only.txt --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/alignment.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf > $outnf\/$dtype\.nextflow_alignment.log\n";
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/somatic.nf --design $outdir\/$dtype\.design_tumor_normal.txt --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_somatic.log &\n" if ($tnpairs);
+      print CAS "nextflow -C /project/PHG/PHG_Clinical/clinseq_workflows/nextflow.config run -w $workdir /project/PHG/PHG_Clinical/clinseq_workflows/tumoronly.nf --design $outdir\/$dtype\.design_tumor_only.txt --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
     }
   }elsif ($dtype eq 'panelrnaseq' || $dtype eq 'wholernaseq') {
     my $mdup = 'skip';
