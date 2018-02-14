@@ -124,10 +124,12 @@ W1:while (my $line = <IN>) {
   $hash{TYPE} = 'ambi' unless ($hash{"TYPE"});
   next if ($tumoraltct[0] eq '.');
   $hash{AF} = join(",",@tumormaf);
-  my @callers = split(/,/,$hash{CallSet});
+  $allcalls = $hash{CallSet};
+  $allcalls = join(",", $allcalls,$hash{SomaticCallSet});
+  my @callers = split(/,/,$allcalls);
   if ($id =~ m/COS/ && $cosmicsubj >= 5) {
-      $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 3);
-      $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.01);
+    $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 3);
+    $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.01);
     $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.03 && $hash{TYPE} ne 'snp');
   }else {
     $fail{'OneCaller'} = 1 if (scalar(@callers) < 2);

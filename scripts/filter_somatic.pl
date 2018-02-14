@@ -15,6 +15,7 @@ W1:while (my $line = <IN>) {
 		   $filter,$info,$format,@gtheader),"\n";
     next;
   } elsif ($line =~ m/^#/) {
+    $line =~ s/CallSet/SomaticCallSet/;
     print OUT $line,"\n";
     next;
   }
@@ -26,6 +27,7 @@ W1:while (my $line = <IN>) {
     my ($key,$val) = split(/=/,$a);
     $hash{$key} = $val unless ($hash{$key});
   }
+  $annot =~ s/CallSet/SomaticCallSet/;
   my %fail;
   my $cosmicsubj = 0;
   if ($hash{CNT}) {

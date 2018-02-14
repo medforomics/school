@@ -40,12 +40,16 @@ baseDir="`dirname \"$0\"`"
 module load bedtools/2.26.0 samtools/1.6 vcftools/0.1.14
 if [[ -a $somatic_vcf ]] 
 then
-    perl $baseDir/filter_somatic.pl $tumor_id, $normal_id, $somatic_vcf 
-    perl $baseDir/vcf2bed.pl somatic.vcf |cut -f 1,2,3 > somatic.bed
-    bedtools intersect -header -v -b somatic.bed -a $tumor_vcf |perl -p -e 's/\.final//g' > tumoronly.vcf
-    vcf-shuffle-cols -t somatic.vcf tumoronly.vcf |bgzip > tumor.vcf.gz
+    perl $baseDir/filter_somatic.pl $tumor_id $normal_id $somatic_vcf
     bgzip somatic.vcf
-    vcf-concat somatic.vcf.gz tumor.vcf.gz |vcf-sort |bgzip > somatic_germline.vcf.gz
+    tabix somatic.vcf.gz
+    tabix $tumor_vcf
+    bcftools annotate -Ov -a $tumor_vcf -o somatic.germline.vcf --columns CHROM,POS,Callset 
+    perl $baseDir/vcf2bed.pl somatic.germline.vcf |cut -f 1,2,3 > somatic.bed
+    bedtools intersect -header -v -b somatic.bed -a $tumor_vcf |perl -p -e 's/\.final//g' > tumoronly.vcf
+    vcf-shuffle-cols -t somatic.germline.vcf tumoronly.vcf |bgzip > tumor.vcf.gz
+    bgzip somatic.germline.vcf
+    vcf-concat somatic.germline.vcf.gz tumor.vcf.gz |vcf-sort |bgzip > somatic_germline.vcf.gz
 else
     ln -s $tumor_vcf somatic_germline.vcf.gz
 fi
