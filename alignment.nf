@@ -129,7 +129,7 @@ process align {
   set pair_id, file("${pair_id}.bam") into aligned
   set pair_id, file("${pair_id}.bam") into aligned2
   """
-  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2 alignopts
+  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2 $alignopts
   """
  }
 
@@ -220,7 +220,7 @@ process gatkbam {
   publishDir "$params.output", mode: 'copy'
 
   input:
-  set pair_id, file(sbam), file(idx) from deduped
+  set pair_id, file(sbam) from deduped
 
   output:
   set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
