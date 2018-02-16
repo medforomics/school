@@ -116,11 +116,10 @@ process align {
   set pair_id, file(f1), file(f2) from trimread
   output:
   set pair_id, file("${pair_id}.bam") into aligned
-  set pair_id, file("${pair_id}.bam") into aligned2
-  file("${pair_id}.alignerout.txt") into hsatout
+  set pair_id, file("${pair_id}.bam"),file("${pair_id}.alignerout.txt") into aligned2
+
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/alignment/rnaseqalign.sh -a $params.align -p $pair_id -r $index_path -x $f1 -y $f2 $alignopts
   """
 }
@@ -130,13 +129,16 @@ process alignqc {
   publishDir "$params.output", mode: 'copy'
 
   input:
-  set pair_id, file(bam) from aligned2
+  set pair_id, file(bam), file(hsout) from aligned2
+  
   output:
   file("${pair_id}.flagstat.txt") into alignstats
   set file("${pair_id}_fastqc.zip"),file("${pair_id}_fastqc.html") into fastqc
   script:
   """
-  bash $baseDir/process_scripts/alignment/bamqc.sh -p ${pair_id} -b ${bam} -y rna
+  source /etc/profile.d/modules.sh
+  bash $baseDir/process_scripts/alignment/bamqc.sh -p ${pair_id} -b ${bam} -n rna
+  perl $baseDir/scripts/sequenceqc_rnaseq.pl -r ${index_path} *.flagstat.txt
   """
 }
 

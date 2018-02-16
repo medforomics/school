@@ -44,12 +44,12 @@ then
     bgzip somatic.vcf
     tabix somatic.vcf.gz
     tabix $tumor_vcf
-    bcftools annotate -Ov -a $tumor_vcf -o somatic.germline.vcf --columns CHROM,POS,Callset 
-    perl $baseDir/vcf2bed.pl somatic.germline.vcf |cut -f 1,2,3 > somatic.bed
+    bcftools annotate -Ov -a $tumor_vcf -o somatic.only.vcf --columns CHROM,POS,CallSet somatic.vcf.gz
+    perl $baseDir/vcf2bed.pl somatic.only.vcf |cut -f 1,2,3 > somatic.bed
     bedtools intersect -header -v -b somatic.bed -a $tumor_vcf |perl -p -e 's/\.final//g' > tumoronly.vcf
-    vcf-shuffle-cols -t somatic.germline.vcf tumoronly.vcf |bgzip > tumor.vcf.gz
-    bgzip somatic.germline.vcf
-    vcf-concat somatic.germline.vcf.gz tumor.vcf.gz |vcf-sort |bgzip > somatic_germline.vcf.gz
+    vcf-shuffle-cols -t somatic.only.vcf tumoronly.vcf |bgzip > tumor.vcf.gz
+    bgzip somatic.only.vcf
+    vcf-concat somatic.only.vcf.gz tumor.vcf.gz |vcf-sort |bgzip > somatic_germline.vcf.gz
 else
     ln -s $tumor_vcf somatic_germline.vcf.gz
 fi
@@ -62,20 +62,21 @@ then
     vcf-merge somatic_germline.vcf.gz rnaseq.vcf.gz |bgzip > allvariants.vcf.gz
     perl $baseDir/vcf2bed.pl alltumor.vcf |cut -f 1,2,3 > tumor.bed
     cat tumor.bed |perl -p -e 's/chr//g' > tumor.nochr.bed
-    samtools view -H $rbam |grep '^\@RG' |grep 'ID:' > rnaseqid.txt
+    zgrep '#CHROM' rnaseq.vcf.gz |rev |cut -f 1 |rev  > rnaseqid.txt
     if [[ -z rnaseq.bamreadct.txt ]]
     then
-	/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.nochr.bed -f ${index_path}/hisat_index/genome.fa $rnaseq_bam > rnaseq.bamreadct.txt
+	/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.nochr.bed -f ${index_path}/hisat_genome.fa $rbam > rnaseq.bamreadct.txt
 	
     fi
     
 else
     ln -s somatic_germline.vcf.gz allvariants.vcf.gz
 fi
-
-perl $baseDir/integrate_vcfs_umi.pl ${subject} $tumor_id $normal_id $index_path
+tabix allvariants.vcf.gz
+perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path
 vcf-sort ${tumor_id}.all.vcf |bedtools intersect -header -a stdin -b ${index_path}/UTSWV2.bed  |uniq |bgzip > ${subject}.utsw.vcf.gz
-
+tabix ${subject}.utsw.vcf.gz
+bcftools view -Oz -o ${subject}.vcf.gz -s ${tumor_id}  ${subject}.utsw.vcf.gz
 #Makes TumorMutationBurenFile
 zgrep -c -v "SS=2" ${subject}.utsw.vcf.gz |awk '{print "Class,TMB\n,"sprintf("%.2f",$1/4.6)}' > ${subject}.tmb.txt
 

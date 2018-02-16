@@ -40,18 +40,22 @@ def tarbam = []
 new File(params.design).withReader { reader ->
     def hline = reader.readLine()
     def header = hline.split("\t")
-    sidx = header.findIndexOf{it == 'FamilyID'};
+    fidx = header.findIndexOf{it == 'FamilyID'};
+    sidx = header.findIndexOf{it == 'SubjectID'};
     tidx = header.findIndexOf{it == 'SampleID'};
     oneidx = header.findIndexOf{it == 'BAM'};
     taridx = header.findIndexOf{it == 'FinalBAM'};
     if (sidx == -1) {
        sidx = tidx
-       }
+    }
+    if (fidx == -1) {
+       fidx = sidx
+    }
     while (line = reader.readLine()) {
     	   def row = line.split("\t")
 	   if (fileMap.get(row[oneidx]) != null) {
 	      oribam << tuple(row[tidx],fileMap.get(row[oneidx]))
-	      tarbam << tuple(row[sidx],fileMap.get(row[taridx]))
+	      tarbam << tuple(row[fidx],fileMap.get(row[taridx]))
 	   }
 	  
 } 
