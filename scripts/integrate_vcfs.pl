@@ -2,7 +2,7 @@
 #integrate_datasets.pl
 
 #module load vcftools/0.1.14 samtools/1.6 bedtools/2.26.0 
-my ($subject,$tumorid,$normalid,$refdir) = @ARGV;
+my ($subject,$tumorid,$normalid,$refdir,$rnaseq_vcf) = @ARGV;
 
 open OM, "<$refdir\/panel1385.genelist.txt" or die $!;
 while (my $line = <OM>) {
@@ -19,8 +19,6 @@ close OM;
 
 my $rnaseqid;
 if (-e 'rnaseq.bamreadct.txt') {
-  $rnaseqid = `cat rnaseqid.txt`;
-  chomp($rnaseqid);
   open NRC, "<rnaseq.bamreadct.txt" or die $!;
   while (my $line = <NRC>) {
     chomp($line);
@@ -38,22 +36,69 @@ if (-e 'rnaseq.bamreadct.txt') {
     }
     $rnaval{'chr'.$chr}{$pos} = [\%hash,$depth];
   }
+  close NRC;
+  open RVCF, "gunzip -c $rnaseq_vcf |" or die $!;
+ W1:while (my $line = <RVCF>) {
+    chomp($line);
+    if ($line =~ m/^#CHROM/) {
+      my @header = split(/\t/,$line);
+      ($chrom, $pos,$id,$ref,$alt,$score,
+       $filter,$info,$format,@gtheader) = split(/\t/, $line);
+      $rnaseqid = $gtheader[0];
+    }
+    if ($line =~ m/^#/) {
+      next;
+    }
+    my ($chrom, $pos,$id,$ref,$alt,$score,
+	$filter,$annot,$format,@gts) = split(/\t/, $line);
+    next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
+    my %hash = ();
+    foreach $a (split(/;/,$annot)) {
+      my ($key,$val) = split(/=/,$a);
+      $hash{$key} = $val unless ($hash{$key});
+    }
+    my @deschead = split(/:/,$format);
+    my $allele_info = shift @gts;
+    @ainfo = split(/:/, $allele_info);
+    my %gtinfo = ();
+    my @mutallfreq = ();
+    foreach my $k (0..$#ainfo) {
+      $gtinfo{$deschead[$k]} = $ainfo[$k];
+    }
+    next W1 if ($gtinfo{DP} < 10);
+    my ($ro,@altct) = split(/,/,$gtinfo{AD});
+    my @alts = split(/,/,$alt);
+    my %allct;
+    foreach my $j (0..$#altct) {
+      $act = $altct[$j];
+      $base = $alts[$j];
+      $allct{$base} = $act;
+    }
+    $rnaval{$chrom}{$pos} = [\%allct,$gtinfo{DP}];
+  }
 }
 
 open OUT, ">$subject\.all.vcf" or die $!;
 open PASS, ">$subject\.pass.vcf" or die $!;
 
-open IN, "gunzip -c allvariants.vcf.gz |" or die $!;
+my @sampids;
+open IN, "gunzip -c somatic_germline.vcf.gz |" or die $!;
 W1:while (my $line = <IN>) {
   chomp($line);
   if ($line =~ m/^#CHROM/) {
+    print OUT qq{##INFO=<ID=RnaSeqAF,Number=A,Type=Float,Description="RNASeq Allele Frequency">\n};
+    print OUT qq{##INFO=<ID=RnaSeqDP,Number=1,Type=Integer,Description="RNASeq read depth">\n};
+    print PASS qq{##INFO=<ID=RnaSeqAF,Number=A,Type=Float,Description="RNASeq Allele Frequency">\n};
+    print PASS qq{##INFO=<ID=RnaSeqDP,Number=1,Type=Integer,Description="RNASeq read depth">\n};
     my @header = split(/\t/,$line);
     ($chrom, $pos,$id,$ref,$alt,$score,
      $filter,$info,$format,@gtheader) = split(/\t/, $line);
+    @sampids = ($tumorid,$normalid);
+    push @sampids, $rnaseqid if ($rnaseqid);
     print OUT join("\t",$chrom,$pos,$id,$ref,$alt,$score,
-		   $filter,$info,$format,@gtheader),"\n";
+		   $filter,$info,$format,@sampids),"\n";
     print PASS join("\t",$chrom,$pos,$id,$ref,$alt,$score,
-		    $filter,$info,$format,@gtheader),"\n";
+		    $filter,$info,$format,@sampids),"\n";
     next;
   } elsif ($line =~ m/^#/) {
     print OUT $line,"\n";
@@ -86,7 +131,7 @@ W1:while (my $line = <IN>) {
     $exacaf = sprintf("%.4f",$ac/$an) if ($ac > 0 && $an > 10);
   }
   $fail{'COMMON'} = 1 unless ($exacaf eq '' || $exacaf <= 0.01);
-  $fail{'StrandBias'} = 1 if ($hash{FS} && $hash{FS} > 60);
+  $fail{'StrandBias'} = 1 if (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i);
   my $cosmicsubj = 0;
   if ($hash{CNT}) {
     my @cosmicct = split(/,/,$hash{CNT}); 
@@ -106,19 +151,24 @@ W1:while (my $line = <IN>) {
       $hash{$deschead[$k]} = $ainfo[$k] if ($subjid eq $tumorid);
     }
     $gtinfo{$subjid}{DP} = (split(/,/,$gtinfo{$subjid}{DP}))[0] if ($gtinfo{$subjid}{DP});
-    next F1 unless ($gtinfo{$subjid}{DP} && $gtinfo{$subjid}{DP} ne '.' && $gtinfo{$subjid}{DP} >= 10);
+    next F1 unless ($gtinfo{$subjid}{DP} && $gtinfo{$subjid}{DP} ne '.' && $gtinfo{$subjid}{DP} >= 1);
     my($refct,@altct) = split(/,/,$gtinfo{$subjid}{AD});
     if (scalar(@altct) ne scalar(split(/,/,$gtinfo{$subjid}{AO}))) {
 	warn "Inconsistent Allele counts @ $chrom,$pos,$alt,$gtinfo{$subjid}{AD},$gtinfo{$subjid}{AO}\n";
     }
     #my @altct = split(/,/,$gtinfo{$subjid}{AO});
+    my $total = $refct;
     foreach  my $act (@altct) {
-      next if ($act eq '.');
-      push @mutallfreq, sprintf("%.4f",$act/$gtinfo{$subjid}{DP});
+	next if ($act eq '.');
+	$total += $act;
+	push @mutallfreq, sprintf("%.4f",$act/$gtinfo{$subjid}{DP});
+    }
+    unless ($gtinfo{$subjid}{DP} eq $total) {
+	warn "Inconsistent Depth counts @ $chrom,$pos,$alt,$gtinfo{$subjid}{AD},$gtinfo{$subjid}{DP}\n";
     }
     $gtinfo{$subjid}{MAF} = \@mutallfreq;
   }
-  next unless ($gtinfo{$tumorid}{DP} && $gtinfo{$tumorid}{DP} >= 20);
+  next unless ($gtinfo{$tumorid}{DP} && $gtinfo{$tumorid}{DP} ne '.' && $gtinfo{$tumorid}{DP} >= 20);
   unless ($gtinfo{$tumorid}{AO} =~ m/\d+/ && $gtinfo{$tumorid}{AD} =~ m/,/) {
       warn "Missing Alt:$line\n";
   }
@@ -162,19 +212,23 @@ W1:while (my $line = <IN>) {
       $hash{SS} = 2;
     }
   }
-  my $rna_gtinfo = join(",",'.','.','.','.','.');
+  $gtinfo{$rnaseqid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'};
+  $gtinfo{$normalid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'} unless ($gtinfo{$normalid});
   if ($rnaval{$chrom}{$pos}) {
-    unless ($gtinfo{$rnaseqid}{DP}) {
-      my ($rnahashref,$rnadp) = @{$rnaval{$chrom}{$pos}};
+    my ($rnahashref,$rnadp) = @{$rnaval{$chrom}{$pos}};
+    unless ($rnadp > 10) {
       my %rnantct = %{$rnahashref};
-      $rnantct{$ref} = 0 unless ($rnantct{$ref});
-      $gtinfo{$rnaseqid}{RO} = $rnantct{$ref};
       my @altcts;
+      my $totalaltct =0;
       foreach $altnt (split(/,/,$alt)) {
 	my $ct = $rnantct{$altnt};
 	$ct = 0 unless ($ct);
+	$totalaltct += $ct;
 	push @altcts, $ct;
       }
+      $hash{RnaSeqDP} = $rnadp;
+      $hash{RnaSeqAF} = sprintf("%.4f",$altcts[0]/$rnadp);
+      $gtinfo{$rnaseqid}{RO} = $rnadp - $totalaltct;
       $gtinfo{$rnaseqid}{AO} = join(",",@altcts);
       $gtinfo{$rnaseqid}{GT} = '.';
       $gtinfo{$rnaseqid}{DP} = $rnadp;
@@ -188,7 +242,7 @@ W1:while (my $line = <IN>) {
   }
   my $newformat = 'GT:DP:AD:AO:RO';
   my @newgt;
-  foreach $sample (@gtheader) {
+  foreach $sample (@sampids) {
     my @gtdata;
     foreach $gt (split(/:/,$newformat)) {
       $gtinfo{$sample}{$gt} = '.' unless (exists $gtinfo{$sample}{$gt});
@@ -228,6 +282,5 @@ W1:while (my $line = <IN>) {
 		 $newformat,@newgt),"\n" if ($filter eq 'PASS');
   print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$newannot,
 		 $newformat,@newgt),"\n" if ($filter eq 'PASS' || $id =~ m/COS/ || $cancergene);
-  next W1;
 }
 close IN;

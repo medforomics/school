@@ -6,7 +6,7 @@ params.output = './'
 
 params.bams="$params.input/*.bam"
 params.design="$params.input/design.txt"
-params.callsvs="detect"
+params.callsvs="skip"
 params.genome="/project/shared/bicf_workflow_ref/GRCh38"
 params.targetpanel="$params.genome/UTSWV2.bed"
 

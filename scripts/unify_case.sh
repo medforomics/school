@@ -36,6 +36,7 @@ fi
 
 shift $(($OPTIND -1))
 baseDir="`dirname \"$0\"`"
+vepdir='/project/shared/bicf_workflow_ref/vcf2maf'
 
 module load bedtools/2.26.0 samtools/1.6 vcftools/0.1.14
 if [[ -a $somatic_vcf ]] 
@@ -46,7 +47,7 @@ then
     tabix $tumor_vcf
     bcftools annotate -Ov -a $tumor_vcf -o somatic.only.vcf --columns CHROM,POS,CallSet somatic.vcf.gz
     perl $baseDir/vcf2bed.pl somatic.only.vcf |cut -f 1,2,3 > somatic.bed
-    bedtools intersect -header -v -b somatic.bed -a $tumor_vcf |perl -p -e 's/\.final//g' > tumoronly.vcf
+    bedtools intersect -header -v -b somatic.bed -a $tumor_vcf > tumoronly.vcf
     vcf-shuffle-cols -t somatic.only.vcf tumoronly.vcf |bgzip > tumor.vcf.gz
     bgzip somatic.only.vcf
     vcf-concat somatic.only.vcf.gz tumor.vcf.gz |vcf-sort |bgzip > somatic_germline.vcf.gz
@@ -56,35 +57,31 @@ fi
 tabix somatic_germline.vcf.gz
 if [[ -a $rnaseq_vcf ]]
 then
-    zcat  $rnaseq_vcf |perl -p -e 's/^/chr/g' | perl -p -e 's/^chr#/#/g' |bgzip > rnaseq.vcf.gz
-    zcat somatic_germline.vcf.gz > alltumor.vcf
-    tabix rnaseq.vcf.gz
-    vcf-merge somatic_germline.vcf.gz rnaseq.vcf.gz |bgzip > allvariants.vcf.gz
-    perl $baseDir/vcf2bed.pl alltumor.vcf |cut -f 1,2,3 > tumor.bed
-    cat tumor.bed |perl -p -e 's/chr//g' > tumor.nochr.bed
-    zgrep '#CHROM' rnaseq.vcf.gz |rev |cut -f 1 |rev  > rnaseqid.txt
     if [[ -z rnaseq.bamreadct.txt ]]
     then
-	/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.nochr.bed -f ${index_path}/hisat_genome.fa $rbam > rnaseq.bamreadct.txt
-	
+	samtools -@ 4 index $rbam
+	/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.bed -f ${index_path}/hisat_genome.fa $rbam > rnaseq.bamreadct.txt
     fi
-    
-else
-    ln -s somatic_germline.vcf.gz allvariants.vcf.gz
-fi
-tabix allvariants.vcf.gz
-perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path
-vcf-sort ${tumor_id}.all.vcf |bedtools intersect -header -a stdin -b ${index_path}/UTSWV2.bed  |uniq |bgzip > ${subject}.utsw.vcf.gz
+
+perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path $rnaseq_vcf
+vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b ${index_path}/UTSWV2.bed  |uniq |bgzip > ${subject}.utsw.vcf.gz
+bgzip ${subject}.pass.vcf
 tabix ${subject}.utsw.vcf.gz
+tabix ${subject}.pass.vcf.gz
 bcftools view -Oz -o ${subject}.vcf.gz -s ${tumor_id}  ${subject}.utsw.vcf.gz
 #Makes TumorMutationBurenFile
-zgrep -c -v "SS=2" ${subject}.utsw.vcf.gz |awk '{print "Class,TMB\n,"sprintf("%.2f",$1/4.6)}' > ${subject}.tmb.txt
+zgrep -c "SS=2" ${subject}.pass.vcf.gz |awk '{print "Class,TMB\n,"sprintf("%.2f",$1/4.6)}' > ${subject}.tmb.txt
 
 #Convert to HG37
 module load crossmap/0.2.5
-CrossMap.py vcf ${index_path}/../hg38ToHg19.over.chain.gz ${subject}.utsw.vcf.gz /project/apps_database/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa ${subject}.PASS.hg19.vcf
+CrossMap.py vcf ${index_path}/../hg38ToHg19.over.chain.gz ${subject}.pass.vcf.gz /project/apps_database/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa ${subject}.PASS.hg19.vcf
 
 perl $baseDir/philips_excel.pl ${subject}.PASS.hg19.vcf $rnaseq_fpkm
 
 python $baseDir/../IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p $password -o ${subject}.xml
-perl /project/PHG/PHG_Clinical/validation/analysis/compareTumorNormal.pl $prefix\.utsw.vcf.gz
+perl $baseDir/compareTumorNormal.pl ${subject}.pass.vcf.gz
+
+cat 346489686-93234042.pass.vcf |perl -p -e 's/^chr//g' > 346489686-93234042.formaf.vcf
+perl ${vepdir}/vcf2maf.pl --input ${subject}.formaf.vcf --output ${subject}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/87_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa --cache-version 87 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $nromal_id 
+
+/project/PHG/PHG_Clinical/validation/analysis/temp_erika_initworkflow/cBioPortal/isoform_overrides_uniprot.txt
