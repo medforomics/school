@@ -99,7 +99,7 @@ process starfusion {
   input:
   set pair_id, file(fq1), file(fq2) from fusionfq
   output:
-  file("${pair_id}.starfusion.txt") into fusionout
+  file("${pair_id}*txt") into fusionout
   when:
   params.fusion == 'detect' && params.pairs == 'pe'
   script:

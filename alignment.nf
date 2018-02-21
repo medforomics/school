@@ -50,74 +50,24 @@ new File(params.design).withReader { reader ->
     while (line = reader.readLine()) {
     	   def row = line.split("\t")
     if (fileMap.get(row[oneidx]) != null) {
-	prefix << row[prefixidx]
-	read1_files << fileMap.get(row[oneidx])
-        read2_files << fileMap.get(row[twoidx])
+	read << tuple(row[prefixidx],fileMap.get(row[oneidx]),fileMap.get(row[twoidx]))
 	   }
 
 }
 }
-if( ! prefix) { error "Didn't match any input files with entries in the design file" }
+if( ! read) { error "Didn't match any input files with entries in the design file" }
 
-Channel
-  .from(read1_files)
-  .set { read1 }
-  
-Channel
-  .from(read2_files)
-  .set { read2 }
-
-Channel
-  .from(prefix)
-  .set { read_pe }
-
-Channel
-  .from(1..10)
-  .set {counter}
-
-process trimpe {
+process trim {
   errorStrategy 'ignore'
-  //publishDir "$params.output/$pair_id", mode: 'copy'
   input:
-  val pair_ids from read_pe.buffer(size: 20, remainder: true)
-  file(read1s) from read1.buffer(size: 20, remainder: true)
-  file(read2s) from read2.buffer(size: 20, remainder: true)
-  val ct from counter
+  set pair_id, file(read1), file(read2) from read
   output:
-  file("*_val_1.fq.gz") into trimpe_r1s mode flatten
-  file("*_val_2.fq.gz") into trimpe_r2s mode flatten
-  file("*.trimreport.txt") into trimstat mode flatten
-
+  set pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into trimread
   script:
-  assert pair_ids.size() == read1s.size()
-  assert pair_ids.size() == read2s.size()
-  def cmd = ''
-  for( int i=0; i<pair_ids.size(); i++){
-    cmd +="mv ${read1s[i]} ${pair_ids[i]}.R1.fq.gz\n"
-    cmd +="mv ${read2s[i]} ${pair_ids[i]}.R2.fq.gz\n"
-    cmd +="trim_galore --paired --stringency 3 -q 25 --illumina --gzip --length 35 ${pair_ids[i]}.R1.fq.gz ${pair_ids[i]}.R2.fq.gz &\n"
-  }
-
   """
-  source /etc/profile.d/modules.sh
-  module load trimgalore/0.4.1 cutadapt/1.9.1
-  ${cmd}
-  wait
-  perl $baseDir/scripts/parse_trimreport.pl trimreport_${ct}.txt *trimming_report.txt
+  bash $baseDir/process_scripts/preproc_fastq/trimgalore.sh -p ${pair_id} -a ${read1} -b ${read2}
   """
 }
-trimpe_r1s
-  .map { it -> [it.getFileName().toString() - '.R1_val_1.fq.gz', it]  }
-  .set { trimpe_r1_tuples}
-trimpe_r2s
-  .map { it -> [it.getFileName().toString() - '.R2_val_2.fq.gz', it]  }
-  .set { trimpe_r2_tuples }
-
-trimpe_r1_tuples
-  .mix(trimpe_r2_tuples)
-  .groupTuple(by: 0, sort:true )
-  .map { it -> it.flatten() }
-  .set { trimread }
 
 process align {
   errorStrategy 'ignore'

@@ -181,11 +181,12 @@ W1:while (my $line = <IN>) {
   $hash{TYPE} = 'ambi' unless ($hash{"TYPE"});
   next if ($tumoraltct[0] eq '.');
   $hash{AF} = join(",",@tumormaf);
-  $hash{SomaticCallSet} = '' unless ($hash{SomaticCallSet});
-  $hash{CallSet} = '' unless ($hash{CallSet});
-
-  my $allcalls = join(",", $hash{CallSet},$hash{SomaticCallSet});
-  my @callers = split(/,/,$allcalls);
+  my @callers ;
+  @callers = split(/,/, $hash{CallSet}) if ($hash{CallSet});
+  if ($hash{SomaticCallSet}) {
+    @callers = (@callers,split(/,/,$hash{SomaticCallSet}));
+  }
+  $hash{CallSet} = join(",",@callers);
   if ($id =~ m/COS/ && $cosmicsubj >= 5) {
     $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 3);
     $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.01);
@@ -208,7 +209,7 @@ W1:while (my $line = <IN>) {
       next;
     }elsif ($normalmaf[0] >= 0.05 || $normalmaf[0]*5 > $tumormaf[0]) {
       $hash{'HighFreqNormalAF'} = 1;
-    }else {
+    }elsif ($hash{SomaticCallSet}) {
       $hash{SS} = 2;
     }
   }

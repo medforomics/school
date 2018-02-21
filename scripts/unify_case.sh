@@ -69,19 +69,22 @@ bgzip ${subject}.pass.vcf
 tabix ${subject}.utsw.vcf.gz
 tabix ${subject}.pass.vcf.gz
 bcftools view -Oz -o ${subject}.vcf.gz -s ${tumor_id}  ${subject}.utsw.vcf.gz
+
 #Makes TumorMutationBurenFile
 zgrep -c "SS=2" ${subject}.pass.vcf.gz |awk '{print "Class,TMB\n,"sprintf("%.2f",$1/4.6)}' > ${subject}.tmb.txt
 
 #Convert to HG37
 module load crossmap/0.2.5
 CrossMap.py vcf ${index_path}/../hg38ToHg19.over.chain.gz ${subject}.pass.vcf.gz /project/apps_database/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa ${subject}.PASS.hg19.vcf
+cat ${subject}.PASS.hg19.vcf |perl -p -e 's/^chr//g' > ${subject}.formaf.vcf
 
 perl $baseDir/philips_excel.pl ${subject}.PASS.hg19.vcf $rnaseq_fpkm
 
 python $baseDir/../IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p $password -o ${subject}.xml
 perl $baseDir/compareTumorNormal.pl ${subject}.pass.vcf.gz
 
-cat 346489686-93234042.pass.vcf |perl -p -e 's/^chr//g' > 346489686-93234042.formaf.vcf
-perl ${vepdir}/vcf2maf.pl --input ${subject}.formaf.vcf --output ${subject}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/87_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa --cache-version 87 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $nromal_id 
+cat ${subject}.pass.vcf |perl -p -e 's/^chr//g' > ${subject}.formaf.vcf
+perl ${vepdir}/vcf2maf.pl --input ${subject}.formaf.vcf --output ${subject}.maf --species homo_sapiens --ncbi-build GRCh37 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh37.dna.primary_assembly.fa --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $nromal_id --custom-enst ${index_path}/isoform_overrides_uniprot.txt --maf-center UTSW
 
-/project/PHG/PHG_Clinical/validation/analysis/temp_erika_initworkflow/cBioPortal/isoform_overrides_uniprot.txt
+#sequencestats
+#exoncoverage

@@ -22,12 +22,12 @@ W1:while (my $line = <IN>) {
   my ($chrom, $pos,$id,$ref,$alt,$score,
       $filter,$annot,$format,@gts) = split(/\t/, $line);
   next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
+  $annot =~ s/CallSet/SomaticCallSet/;
   my %hash = ();
   foreach $a (split(/;/,$annot)) {
     my ($key,$val) = split(/=/,$a);
     $hash{$key} = $val unless ($hash{$key});
   }
-  $annot =~ s/CallSet/SomaticCallSet/;
   my %fail;
   my $cosmicsubj = 0;
   if ($hash{CNT}) {
@@ -65,7 +65,7 @@ W1:while (my $line = <IN>) {
   $hash{TYPE} = 'ambi' unless ($hash{"TYPE"});
   next if ($tumoraltct[0] eq '.');
   $hash{AF} = join(",",@tumormaf);
-  my @callers = split(/,/,$hash{CallSet});
+  my @callers = split(/,/,$hash{SomaticCallSet});
   $hash{SS} = 5;
   delete $hash{SOMATIC};
   next unless ($gtinfo{$normalid} && exists $gtinfo{$normalid}{MAF});
