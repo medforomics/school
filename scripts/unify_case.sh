@@ -14,7 +14,7 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:p:t:v:s:x:n:b:h opt
+while getopts :r:p:t:n:v:s:x:b:f:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -44,10 +44,10 @@ then
     perl $baseDir/filter_somatic.pl $tumor_id $normal_id $somatic_vcf
     bgzip somatic.vcf
     tabix somatic.vcf.gz
-    tabix $tumor_vcf
+    tabix -f $tumor_vcf
     bcftools annotate -Ov -a $tumor_vcf -o somatic.only.vcf --columns CHROM,POS,CallSet somatic.vcf.gz
     perl $baseDir/vcf2bed.pl somatic.only.vcf |cut -f 1,2,3 > somatic.bed
-    bedtools intersect -header -v -b somatic.bed -a $tumor_vcf > tumoronly.vcf
+    bedtools intersect -header -v -b somatic.bed -a $tumor_vcf |perl -pe 's/\.final//g' > tumoronly.vcf
     vcf-shuffle-cols -t somatic.only.vcf tumoronly.vcf |bgzip > tumor.vcf.gz
     bgzip somatic.only.vcf
     vcf-concat somatic.only.vcf.gz tumor.vcf.gz |vcf-sort |bgzip > somatic_germline.vcf.gz
@@ -55,13 +55,13 @@ else
     ln -s $tumor_vcf somatic_germline.vcf.gz
 fi
 tabix somatic_germline.vcf.gz
-if [[ -a $rnaseq_vcf ]]
+if [[ -a $rnaseq_vcf ]] && [[ ! -a "rnaseq.bamreadct.txt" ]]
 then
-    if [[ -z rnaseq.bamreadct.txt ]]
-    then
-	samtools -@ 4 index $rbam
-	/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.bed -f ${index_path}/hisat_genome.fa $rbam > rnaseq.bamreadct.txt
-    fi
+    zcat somatic_germline.vcf.gz > dnavars.vcf
+    perl $baseDir/vcf2bed.pl dnavars.vcf | perl -p -e 's/^chr//' |cut -f 1,2,3 > tumor.bed
+    samtools index $rbam
+    /project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.bed -f ${index_path}/hisat_genome.fa $rbam > rnaseq.bamreadct.txt
+fi
 
 perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path $rnaseq_vcf
 vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b ${index_path}/UTSWV2.bed  |uniq |bgzip > ${subject}.utsw.vcf.gz

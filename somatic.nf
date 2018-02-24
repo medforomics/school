@@ -149,7 +149,7 @@ process mutect {
   set val("${tid}_${nid}"),file("${tid}_${nid}.mutect.vcf.gz") into mutectvcf
   script:
   """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh -b $capture_bed -r $index_path -x $tid -y $nid -n $normal -t $tumor -a mutect2
+  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -x $tid -y $nid -n $normal -t $tumor -a mutect2
   """
 }
 Channel
