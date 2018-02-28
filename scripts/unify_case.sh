@@ -30,7 +30,6 @@ do
     esac
 done
 if [[ -z $tumor_vcf ]] || [[ -z $subject ]] || [[ -z $index_path ]]; then
-    echo $normal $tumor $algo
     usage
 fi 
 
@@ -44,6 +43,7 @@ then
     perl $baseDir/filter_somatic.pl $tumor_id $normal_id $somatic_vcf
     bgzip somatic.vcf
     tabix somatic.vcf.gz
+    cp somatic.vcf.gz ${subject}.SS2.vcf.gz
     tabix -f $tumor_vcf
     bcftools annotate -Ov -a $tumor_vcf -o somatic.only.vcf --columns CHROM,POS,CallSet somatic.vcf.gz
     perl $baseDir/vcf2bed.pl somatic.only.vcf |cut -f 1,2,3 > somatic.bed
@@ -54,8 +54,10 @@ then
 else
     ln -s $tumor_vcf somatic_germline.vcf.gz
 fi
+
 tabix somatic_germline.vcf.gz
-if [[ -a $rnaseq_vcf ]] && [[ ! -a "rnaseq.bamreadct.txt" ]]
+
+if [[ -a $rbam ]]
 then
     zcat somatic_germline.vcf.gz > dnavars.vcf
     perl $baseDir/vcf2bed.pl dnavars.vcf | perl -p -e 's/^chr//' |cut -f 1,2,3 > tumor.bed
@@ -71,20 +73,21 @@ tabix ${subject}.pass.vcf.gz
 bcftools view -Oz -o ${subject}.vcf.gz -s ${tumor_id}  ${subject}.utsw.vcf.gz
 
 #Makes TumorMutationBurenFile
-zgrep -c "SS=2" ${subject}.pass.vcf.gz |awk '{print "Class,TMB\n,"sprintf("%.2f",$1/4.6)}' > ${subject}.tmb.txt
+bedtools intersect -header -a ${subject}.pass.vcf.gz -b ${index_path}/UTSWV2.bed  |uniq |bgzip > ${subject}.utswpass.vcf.gz
+zgrep -c "SS=2" ${subject}.utswpass.vcf.gz |awk '{print "Class,TMB\n,"sprintf("%.2f",$1/4.6)}' > ${subject}.tmb.txt
 
 #Convert to HG37
 module load crossmap/0.2.5
-CrossMap.py vcf ${index_path}/../hg38ToHg19.over.chain.gz ${subject}.pass.vcf.gz /project/apps_database/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa ${subject}.PASS.hg19.vcf
+CrossMap.py vcf ${index_path}/../hg38ToHg19.over.chain.gz ${subject}.utswpass.vcf.gz /project/apps_database/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa ${subject}.PASS.hg19.vcf
 cat ${subject}.PASS.hg19.vcf |perl -p -e 's/^chr//g' > ${subject}.formaf.vcf
 
 perl $baseDir/philips_excel.pl ${subject}.PASS.hg19.vcf $rnaseq_fpkm
 
-python $baseDir/../IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p $password -o ${subject}.xml
-perl $baseDir/compareTumorNormal.pl ${subject}.pass.vcf.gz
+#python $baseDir/../IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p $password -o ${subject}.xml
+perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz
 
-cat ${subject}.pass.vcf |perl -p -e 's/^chr//g' > ${subject}.formaf.vcf
-perl ${vepdir}/vcf2maf.pl --input ${subject}.formaf.vcf --output ${subject}.maf --species homo_sapiens --ncbi-build GRCh37 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh37.dna.primary_assembly.fa --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $nromal_id --custom-enst ${index_path}/isoform_overrides_uniprot.txt --maf-center UTSW
+zcat ${subject}.pass.vcf.gz |perl -p -e 's/^chr//g' > ${subject}.formaf.vcf
+perl ${vepdir}/vcf2maf.pl --input ${subject}.formaf.vcf --output ${subject}.maf --species homo_sapiens --ncbi-build GRCh37 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh37.75.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $nromal_id --custom-enst ${index_path}/isoform_overrides_uniprot.txt --maf-center UTSW --vep-data ${vepdir}/.vep
 
 #sequencestats
 #exoncoverage

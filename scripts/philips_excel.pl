@@ -73,7 +73,7 @@ W1:while (my $line = <IN>) {
   $hash{RnaSeqDP} = 0 unless $hash{RnaSeqDP};
   $hash{RnaSeqAF} = 0 unless $hash{RnaSeqAF};
   $hash{RnaSeqValidation} = 0 unless ($hash{RnaSeqValidation});
-  $strandbias = $hash{SAP} if (defined($hash{SAP}));
+  #$strandbias = $hash{SAP} if (defined($hash{SAP}));
   $strandbias = $hash{FS} if (defined($hash{FS}));
   my $somstatus = 'unk';
   $somstatus = 'Somatic' if ($hash{SS} == 2);

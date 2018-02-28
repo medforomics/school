@@ -8,7 +8,7 @@ params.fastqs="$params.input/*.fastq.gz"
 params.design="$params.input/design.txt"
 
 params.genome="/project/shared/bicf_workflow_ref/GRCh38/"
-params.markdups="picard"
+params.markdups="skip"
 params.stranded="0"
 params.pairs="pe"
 params.geneset = 'h.all.v5.1.symbols.gmt'
@@ -151,6 +151,7 @@ process markdups {
   set pair_id, file(sbam) from aligned
   output:
   set pair_id, file("${pair_id}.final.bam") into deduped1
+  set pair_id, file("${pair_id}.final.bam") into deduped2
   script:
   """
   source /etc/profile.d/modules.sh
@@ -173,5 +174,20 @@ process geneabund {
   source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/diff_exp/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam}
   perl $baseDir/process_scripts/genect_rnaseq/cBioPortal_documents.pl -p $pair_id -l ${pair_id}.cts -f ${pair_id}.fpkm.txt
+  """
+}
+process gatkbam {
+  //errorStrategy 'ignore'
+  publishDir "$params.output", mode: 'copy'
+
+  input:
+  set pair_id, file(rbam) from deduped2
+
+  output:
+  set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
+  
+  script:
+  """
+  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam_rna -b $sbam -r ${index_path} -p $pair_id
   """
 }

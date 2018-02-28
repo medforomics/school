@@ -22,19 +22,20 @@ if (-e 'rnaseq.bamreadct.txt') {
   open NRC, "<rnaseq.bamreadct.txt" or die $!;
   while (my $line = <NRC>) {
     chomp($line);
-    my ($chr,$pos,$ref,$depth,@reads) = split(/\t/,$line);
+    my ($chrom,$pos,$ref,$depth,@reads) = split(/\t/,$line);
     next unless ($depth > 10);
+    $chrom = 'chr'.$chrom if ($chrom !~ m/^chr/);
     my $ro;
     my %hash;
     foreach my $rct (@reads) {
-      my ($base,$basect,@otherstats) = split(/:/,$rct);
-      if ($ref eq $base) {
-	$hash{$base} = $basect;
-      }else {
-	$hash{$base} = $basect if ($basect);
-      }
+	my ($base,$basect,@otherstats) = split(/:/,$rct);
+	if ($ref eq $base) {
+	    $hash{$base} = $basect;
+	}else {
+	    $hash{$base} = $basect if ($basect);
+	}
     }
-    $rnaval{'chr'.$chr}{$pos} = [\%hash,$depth];
+    $rnaval{$chrom}{$pos} = [\%hash,$depth];
   }
   close NRC;
   open RVCF, "gunzip -c $rnaseq_vcf |" or die $!;
@@ -52,10 +53,11 @@ if (-e 'rnaseq.bamreadct.txt') {
     my ($chrom, $pos,$id,$ref,$alt,$score,
 	$filter,$annot,$format,@gts) = split(/\t/, $line);
     next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
+    $chrom = 'chr'.$chrom if ($chrom !~ m/^chr/);
     my %hash = ();
     foreach $a (split(/;/,$annot)) {
-      my ($key,$val) = split(/=/,$a);
-      $hash{$key} = $val unless ($hash{$key});
+	my ($key,$val) = split(/=/,$a);
+	$hash{$key} = $val unless ($hash{$key});
     }
     my @deschead = split(/:/,$format);
     my $allele_info = shift @gts;
@@ -63,15 +65,16 @@ if (-e 'rnaseq.bamreadct.txt') {
     my %gtinfo = ();
     my @mutallfreq = ();
     foreach my $k (0..$#ainfo) {
-      $gtinfo{$deschead[$k]} = $ainfo[$k];
+	$gtinfo{$deschead[$k]} = $ainfo[$k];
     }
+    $gtinfo{DP} = (split(/,/,$gtinfo{DP}))[0];
     next W1 if ($gtinfo{DP} < 10);
     my ($ro,@altct) = split(/,/,$gtinfo{AD});
     my @alts = split(/,/,$alt);
     my %allct;
     foreach my $j (0..$#altct) {
-      $act = $altct[$j];
-      $base = $alts[$j];
+	$act = $altct[$j];
+	$base = $alts[$j];
       $allct{$base} = $act;
     }
     $rnaval{$chrom}{$pos} = [\%allct,$gtinfo{DP}];

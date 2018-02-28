@@ -170,19 +170,6 @@ process speedseq {
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a speedseq
   """
 }
-// process gatkgvcf {
-//   errorStrategy 'ignore'
-//   //publishDir "$baseDir/output", mode: 'copy'
-
-//   input:
-//   set subjid,file(gbam),file(gidx) from gatkbam
-//   output:
-//   set subjid, file("${subjid}.gatk.vcf.gz") into gatkvcf
-//   script:
-//   """
-//   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a gatk
-//   """
-// }
 
 process strelka2 {
   errorStrategy 'ignore'
@@ -199,7 +186,9 @@ process strelka2 {
   """
   else
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -t -r $index_path -p $subjid -a strelka2
+  source /etc/profile.d/modules.sh
+  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a gatk
+  mv ${subjid}.gatk.vcf.gz ${subjid}.strelka2.vcf.gz
   """  
 }
 
