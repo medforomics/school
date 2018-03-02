@@ -31,7 +31,7 @@ foreach my $file (@files) {
   my $sample = (split(/\./,$prefix))[0];
   open OUT, ">".$sample.".sequence.stats.txt" or die;#separateFilesPerSample
   $hisatfile = $file;
-  $hisatfile =~ s/flagstat/hisatout/;
+  $hisatfile =~ s/flagstat/alignerout/;
   open HISAT, "<$hisatfile";
   my ($total, $pairs,$read2ct,$maprate,$concorrate);
   while (my $line = <HISAT>) {
@@ -66,18 +66,19 @@ foreach my $file (@files) {
     }
   }
   close IN;
-  #### Begin File Information ########
-  my $status = 'PASS';
-  $status = 'FAIL' if ($maprate < 0.90);
+  
   my @stats=stat($file);
   my ($day,$month,$year) = (localtime($stats[9]))[3,4,5];
   $year += 1900;
   $month++;
   $date = join("-",$year,sprintf("%02s",$month),sprintf("%02s",$day));
   $fileowner = 's'.$stats[4];
- ##### End File Information ########
 
   $total = $pairs*2 if ($total == $pairs);
+  my $status = 'PASS';
+  $status = 'FAIL' if ($maprate < 0.90);
+  $status = 'FAIL' if ($total < 6000000);  
+  
   print OUT join("\n","Sample\t".$sample,"Total_Raw_Count\t".$total, "Read1_Map\t".$pairs,"Read2_Map\t".$read2ct,
     "Map_Rate\t".$maprate,"Concordant_Rate\t".$concorrate,"Alignment_Status\t".$status,"Alignment_Date\t".$date,
     "File_Owner\t".$fileowner,"Workflow_Version\t".$gittag,"Cosmic_Reference\t".$cosmic_ref,

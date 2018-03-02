@@ -1,9 +1,10 @@
 #!/usr/bin/perl -w
 #integrate_datasets.pl
 
-my ($tumorid,$normalid,$somaticvcf) = @ARGV;
+my $somaticvcf = shift @ARGV;
+my ($tumorid,$normalid,@other) = split(/\./,$somaticvcf);
 
-open OUT, ">somatic.vcf" or die $!;
+open OUT, ">$tumorid\.$normalid.somatic.vcf" or die $!;
 open IN, "gunzip -c $somaticvcf |" or die $!;
 W1:while (my $line = <IN>) {
   chomp($line);
