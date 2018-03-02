@@ -2,7 +2,7 @@
 #integrate_datasets.pl
 
 #module load vcftools/0.1.14 samtools/1.6 bedtools/2.26.0 
-my ($subject,$tumorid,$normalid,$refdir,$rnaseq_vcf) = @ARGV;
+my ($subject,$tumorid,$normalid,$refdir,$rnaseq_vcf,$rnaseq_ntct) = @ARGV;
 
 open OM, "<$refdir\/panel1385.genelist.txt" or die $!;
 while (my $line = <OM>) {
@@ -18,8 +18,8 @@ while (my $line = <OM>) {
 close OM;
 
 my $rnaseqid;
-if (-e 'rnaseq.bamreadct.txt') {
-  open NRC, "<rnaseq.bamreadct.txt" or die $!;
+if (-e $rnaseq_ntct) {
+  open NRC, "<$rnaseq_ntct" or die $!;
   while (my $line = <NRC>) {
     chomp($line);
     my ($chrom,$pos,$ref,$depth,@reads) = split(/\t/,$line);

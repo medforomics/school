@@ -9,8 +9,8 @@ usage() {
   echo "-v  --tumor vcf"
   echo "-s  --somatic vcf"
   echo "-x  --rnaseq vcf"
-  echo "-b  --rnaseq bam"
-  echo "Example: bash union.sh -p prefix -r /path/GRCh38"
+  echo "-c  --rnaseq read ct"
+  echo "Example: bash unify_case.sh -p prefix -r /path/GRCh38"
   exit 1
 }
 OPTIND=1 # Reset OPTIND
@@ -24,7 +24,7 @@ do
         v) tumor_vcf=$OPTARG;;
         s) somatic_vcf=$OPTARG;;
         x) rnaseq_vcf=$OPTARG;;
-        b) rbam=$OPTARG;;
+        c) rnaseq_ntct=$OPTARG;;
 	f) fpkm=$OPTARG;;
         h) usage;;
     esac
@@ -40,12 +40,9 @@ vepdir='/project/shared/bicf_workflow_ref/vcf2maf'
 module load bedtools/2.26.0 samtools/1.6 vcftools/0.1.14
 if [[ -a $somatic_vcf ]] 
 then
-    perl $baseDir/filter_somatic.pl $tumor_id $normal_id $somatic_vcf
-    bgzip somatic.vcf
-    tabix somatic.vcf.gz
-    cp somatic.vcf.gz ${subject}.SS2.vcf.gz
+    tabix -f $somatic_vcf
     tabix -f $tumor_vcf
-    bcftools annotate -Ov -a $tumor_vcf -o somatic.only.vcf --columns CHROM,POS,CallSet somatic.vcf.gz
+    bcftools annotate -Ov -a $tumor_vcf -o somatic.only.vcf --columns CHROM,POS,CallSet $somatic_vcf
     perl $baseDir/vcf2bed.pl somatic.only.vcf |cut -f 1,2,3 > somatic.bed
     bedtools intersect -header -v -b somatic.bed -a $tumor_vcf |perl -pe 's/\.final//g' > tumoronly.vcf
     vcf-shuffle-cols -t somatic.only.vcf tumoronly.vcf |bgzip > tumor.vcf.gz
@@ -57,15 +54,7 @@ fi
 
 tabix somatic_germline.vcf.gz
 
-if [[ -a $rbam ]]
-then
-    zcat somatic_germline.vcf.gz > dnavars.vcf
-    perl $baseDir/vcf2bed.pl dnavars.vcf | perl -p -e 's/^chr//' |cut -f 1,2,3 > tumor.bed
-    samtools index $rbam
-    /project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -l tumor.bed -f ${index_path}/hisat_genome.fa $rbam > rnaseq.bamreadct.txt
-fi
-
-perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path $rnaseq_vcf
+perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path $rnaseq_vcf $rnaseq_ntct
 vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b ${index_path}/UTSWV2.bed  |uniq |bgzip > ${subject}.utsw.vcf.gz
 bgzip ${subject}.pass.vcf
 tabix ${subject}.utsw.vcf.gz

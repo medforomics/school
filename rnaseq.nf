@@ -61,16 +61,24 @@ def read = []
 new File(params.design).withReader { reader ->
     def hline = reader.readLine()
     def header = hline.split("\t")
-    prefixidx = header.findIndexOf{it == 'SampleMergeName'};
-    oneidx = header.findIndexOf{it == 'FullPathToFqR1'};
-    twoidx = header.findIndexOf{it == 'FullPathToFqR2'};
-    if (twoidx == -1) {
+    tidx = header.findIndexOf{it == 'SampleID'};
+    oneidx = header.findIndexOf{it == 'FqR1'};
+    twoidx = header.findIndexOf{it == 'FqR2'};
+    fidx = header.findIndexOf{it == 'FamilyID'};
+    sidx = header.findIndexOf{it == 'SubjectID'};
+    if (sidx == -1) {
+       sidx = tidx
+    }
+    if (fidx == -1) {
+       fidx = sidx
+    }
+     if (twoidx == -1) {
        twoidx = oneidx
-       }      
+    }      
     while (line = reader.readLine()) {
     	   def row = line.split("\t")
 	   if (fileMap.get(row[oneidx]) != null) {
-	      read << tuple(row[prefixidx],fileMap.get(row[oneidx]),fileMap.get(row[twoidx]))
+	      read << tuple(row[fidx],row[tidx],fileMap.get(row[oneidx]),fileMap.get(row[twoidx]))
 	   }
 	  
 } 
@@ -83,21 +91,20 @@ if( ! read) { error "Didn't match any input files with entries in the design fil
 process trim {
   errorStrategy 'ignore'
   input:
-  set pair_id, file(read1), file(read2) from read
+  set subjid, pair_id, file(read1), file(read2) from read
   output:
-  set pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into trimread
-  set pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into fusionfq
+  set subjid, pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into trimread
+  set subjid, pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into fusionfq
   script:
   """
   bash $baseDir/process_scripts/preproc_fastq/trimgalore.sh -p ${pair_id} -a ${read1} -b ${read2}
   """
 }
-
 process starfusion {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
-  set pair_id, file(fq1), file(fq2) from fusionfq
+  set subjid,pair_id, file(fq1), file(fq2) from fusionfq
   output:
   file("${pair_id}*txt") into fusionout
   when:
@@ -107,33 +114,47 @@ process starfusion {
   bash $baseDir/process_scripts/alignment/starfusion.sh -p ${pair_id} -r ${index_path} -a ${fq1} -b ${fq2}
   """
 }
-
 process align {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set pair_id, file(f1), file(f2) from trimread
+  set subjid,pair_id, file(f1), file(f2) from trimread
   output:
-  set pair_id, file("${pair_id}.bam") into aligned
-  set pair_id, file("${pair_id}.bam"),file("${pair_id}.alignerout.txt") into aligned2
+  set subjid,pair_id, file("${pair_id}.bam") into aligned
+  set subjid,pair_id, file("${pair_id}.bam") into ctbams
+  set subjid,pair_id, file("${pair_id}.bam"),file("${pair_id}.alignerout.txt") into aligned2
 
   script:
   """
   bash $baseDir/process_scripts/alignment/rnaseqalign.sh -a $params.align -p $pair_id -r $index_path -x $f1 -y $f2 $alignopts
   """
 }
-
+process bamct {
+  errorStrategy 'ignore'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  input:
+  set subjid,pair_id, file(rbam) from ctbams
+  output:
+  file("${pair_id}.bamreadct.txt") into ctreads
+  script:
+  """
+  source /etc/profile.d/modules.sh
+  module load samtools/1.6
+  samtools index $rbam
+  ${index_path}/../seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -f ${index_path}/hisat_genome.fa $rbam > ${pair_id}.bamreadct.txt
+  """
+}
 process alignqc {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set pair_id, file(bam), file(hsout) from aligned2
+  set subjid,pair_id, file(bam), file(hsout) from aligned2
   
   output:
-  file("${pair_id}.flagstat.txt") into alignstats
   set file("${pair_id}_fastqc.zip"),file("${pair_id}_fastqc.html") into fastqc
+  file("${pair_id}.sequence.stats.txt") into alignstats
   script:
   """
   source /etc/profile.d/modules.sh
@@ -145,26 +166,23 @@ process alignqc {
 // Identify duplicate reads with Picard
 
 process markdups {
-  publishDir "$params.output", mode: 'copy'
+  //publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set pair_id, file(sbam) from aligned
+  set subjid,pair_id, file(sbam) from aligned
   output:
-  set pair_id, file("${pair_id}.final.bam") into deduped1
-  set pair_id, file("${pair_id}.final.bam") into deduped2
+  set subjid,pair_id, file("${pair_id}.dedup.bam") into deduped1
+  set subjid,pair_id, file("${pair_id}.dedup.bam") into deduped2
   script:
   """
-  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id
-  mv ${pair_id}.dedup.bam ${pair_id}.final.bam
   """
 }
-
 process geneabund {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
-  set pair_id, file(sbam) from deduped1
+  set subjid,pair_id, file(sbam) from deduped1
   file gtf_file
   output:
   file("${pair_id}.cts")  into counts
@@ -177,17 +195,17 @@ process geneabund {
   """
 }
 process gatkbam {
-  //errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  errorStrategy 'ignore'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set pair_id, file(rbam) from deduped2
+  set subjid,pair_id, file(rbam) from deduped2
 
   output:
-  set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
+  set file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
   
   script:
   """
-  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam_rna -b $sbam -r ${index_path} -p $pair_id
+  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam_rna -b $rbam -r ${index_path}/hisat_index -p $pair_id
   """
 }

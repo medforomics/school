@@ -54,7 +54,7 @@ new File(params.design).withReader { reader ->
     while (line = reader.readLine()) {
     	   def row = line.split("\t")
 	   if (fileMap.get(row[oneidx]) != null) {
-	      oribam << tuple(row[tidx],fileMap.get(row[oneidx]))
+	      oribam << tuple(row[fidx],row[tidx],fileMap.get(row[oneidx]))
 	      tarbam << tuple(row[fidx],fileMap.get(row[taridx]))
 	   }
 	  
@@ -66,12 +66,11 @@ if( ! tarbam) { error "Didn't match any input files with entries in the design f
 
 process indexoribams {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
   input:
-  set tid,file(tumor) from oribam
+  set sid,tid,file(tumor) from oribam
   output:
-  set tid,file(tumor),file("${tumor}.bai") into svbam
-  set tid,file(tumor),file("${tumor}.bai") into cnvbam
+  set sid,tid,file(tumor),file("${tumor}.bai") into svbam
+  set sid,tid,file(tumor),file("${tumor}.bai") into cnvbam
   script:
   """
   bash $baseDir/process_scripts/alignment/indexbams.sh 
@@ -80,9 +79,9 @@ process indexoribams {
 
 process indexbams {
   input:
-  set tid,file(tumor) from tarbam
+  set sid,file(tumor) from tarbam
   output:
-  set tid,file(tumor),file("${tumor}.bai") into idxbam
+  set sid,file(tumor),file("${tumor}.bai") into idxbam
   script:
   """
   bash $baseDir/process_scripts/alignment/indexbams.sh 
@@ -95,9 +94,9 @@ idxbam
 
 process cnv {
   errorStrategy 'ignore'
-  publishDir "$params.output/$pair_id", mode: 'copy'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
-  set pair_id,file(sbam),file(sidx) from cnvbam
+  set subjid,pair_id,file(sbam),file(sidx) from cnvbam
   when:
   params.nuctype == "dna"
   output:
@@ -109,12 +108,11 @@ process cnv {
   bash $baseDir/process_scripts/variants/cnvkit.sh -u -b $sbam -p $pair_id
   """
 }
- 
 process svcall {
   errorStrategy 'ignore'
-  publishDir "$params.output/$pair_id", mode: 'copy'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
-  set pair_id,file(ssbam),file(ssidx) from svbam
+  set subjid,pair_id,file(ssbam),file(ssidx) from svbam
   output:
   file("${pair_id}.delly.vcf.gz") into dellyvcf
   file("${pair_id}.sssv.sv.vcf.gz") into svvcf
@@ -131,7 +129,6 @@ process svcall {
 
 process mpileup {
   errorStrategy 'ignore'
-  //publishDir "$baseDir/output", mode: 'copy'
 
   input:
   set subjid,file(gbam),file(gidx) from sambam
@@ -145,7 +142,6 @@ process mpileup {
 }
 process hotspot {
   errorStrategy 'ignore'
-  //publishDir "$baseDir/output", mode: 'copy'
 
   input:
   set subjid,file(gbam),file(gidx) from hsbam
@@ -160,7 +156,7 @@ process hotspot {
 }
 process speedseq {
   errorStrategy 'ignore'
-  //publishDir "$baseDir/output", mode: 'copy'
+
   input:
   set subjid,file(gbam),file(gidx) from ssbam
   output:
@@ -173,7 +169,6 @@ process speedseq {
 
 process strelka2 {
   errorStrategy 'ignore'
-  //publishDir "$baseDir/output", mode: 'copy'
 
   input:
   set subjid,file(gbam),file(gidx) from strelkabam
@@ -194,11 +189,9 @@ process strelka2 {
 
 process platypus {
   errorStrategy 'ignore'
-  //publishDir "$params.output", mode: 'copy'
 
   input:
   set subjid,file(gbam),file(gidx) from platbam
-
   output:
   set subjid,file("${subjid}.platypus.vcf.gz") into platvcf
   when:
@@ -224,17 +217,19 @@ Channel
 
 process integrate {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$subjid", mode: 'copy'
   input:
   set subjid,file(vcf) from vcflist
 
   output:
   set subjid,file("${subjid}.union.vcf.gz") into union
-  file("${subjid}.annot.vcf.gz") into annotvcf
+  file("${subjid}.germline.vcf.gz") into annotvcf
 
   script:
   """
+  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
   bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v ${subjid}.union.vcf.gz
+  mv ${subjid}.annot.vcf.gz ${subjid}.germline.vcf.gz
   """
 }

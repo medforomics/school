@@ -34,10 +34,7 @@ fastqs.each {
     prefix = fileName.lastIndexOf('/')
     fileMap[fileName] = it
 }
-def prefix = []
-def read1_files = []
-def read2_files = []
-def mername = []
+def read = []
 new File(params.design).withReader { reader ->
     def hline = reader.readLine()
     def header = hline.split("\t")
@@ -63,9 +60,11 @@ process trim {
   set pair_id, file(read1), file(read2) from read
   output:
   set pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into trimread
+  file("${pair_id}.trimreport.txt") into trimstat 
   script:
   """
   bash $baseDir/process_scripts/preproc_fastq/trimgalore.sh -p ${pair_id} -a ${read1} -b ${read2}
+  perl $baseDir/process_scripts/preproc_fastq/parse_trimreport.pl ${pair_id}.trimreport.txt *trimming_report.txt
   """
 }
 
