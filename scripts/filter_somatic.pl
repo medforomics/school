@@ -1,9 +1,15 @@
 #!/usr/bin/perl -w
 #integrate_datasets.pl
 
-my ($tumorid,$normalid,$somaticvcf) = @ARGV;
+my ($somaticvcf) = @ARGV;
+my ($tumorid,$normalid);
 
-open OUT, ">somatic.vcf" or die $!;
+my $outfile = $somaticvcf;
+$outfile =~ s/annot.vcf.gz/somatic.vcf/;
+
+die if ($somaticvcf eq $outfile);
+
+open OUT, ">$outfile" or die $!;
 open IN, "gunzip -c $somaticvcf |" or die $!;
 W1:while (my $line = <IN>) {
   chomp($line);
@@ -13,6 +19,14 @@ W1:while (my $line = <IN>) {
      $filter,$info,$format,@gtheader) = split(/\t/, $line);
     print OUT join("\t",$chrom,$pos,$id,$ref,$alt,$score,
 		   $filter,$info,$format,@gtheader),"\n";
+
+    foreach $id (@gtheader) {
+      if ($id =~ m/_T_/) {
+	$tumorid = $id;
+      }else {
+	$normalid = $id;
+      }
+    }
     next;
   } elsif ($line =~ m/^#/) {
     $line =~ s/CallSet/SomaticCallSet/;
