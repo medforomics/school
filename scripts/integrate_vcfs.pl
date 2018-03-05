@@ -32,9 +32,13 @@ if (-e $rnaseq_ntct) {
 	if ($ref eq $base) {
 	    $hash{$base} = $basect;
 	}else {
-	    $hash{$base} = $basect if ($basect);
+	  if ($base =~ m/\+|\-/) {
+	    $base =~ s/\+/$ref/;
+	    #$base =~ s/\-/$ref/;
+	  }
+	  $hash{$base} = $basect if ($basect);
 	}
-    }
+      }
     $rnaval{$chrom}{$pos} = [\%hash,$depth];
   }
   close NRC;
@@ -220,7 +224,7 @@ W1:while (my $line = <IN>) {
   $gtinfo{$normalid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'} unless ($gtinfo{$normalid});
   if ($rnaval{$chrom}{$pos}) {
     my ($rnahashref,$rnadp) = @{$rnaval{$chrom}{$pos}};
-    unless ($rnadp > 10) {
+    if ($rnadp > 10) {
       my %rnantct = %{$rnahashref};
       my @altcts;
       my $totalaltct =0;
@@ -240,9 +244,10 @@ W1:while (my $line = <IN>) {
     }
   }
   if ($rnaseqid) {
-    $hash{RnaSeqValidation} = 1 if ($gtinfo{$rnaseqid}{AO} && 
-				    $gtinfo{$rnaseqid}{AO} =~ m/^\d+/ &&
-				    (split(/,/,$gtinfo{$rnaseqid}{AO}))[0] > 2);
+    if ($gtinfo{$rnaseqid}{AO} && $gtinfo{$rnaseqid}{AO} =~ m/^\d+/ &&
+	(split(/,/,$gtinfo{$rnaseqid}{AO}))[0] > 2) {
+      $hash{RnaSeqValidation} = 1
+    }
   }
   my $newformat = 'GT:DP:AD:AO:RO';
   my @newgt;

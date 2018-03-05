@@ -46,19 +46,19 @@ then
     perl $baseDir/vcf2bed.pl somatic.only.vcf |cut -f 1,2,3 > somatic.bed
     bedtools intersect -header -v -b somatic.bed -a $tumor_vcf |perl -pe 's/\.final//g' > tumoronly.vcf
     vcf-shuffle-cols -t somatic.only.vcf tumoronly.vcf |bgzip > tumor.vcf.gz
-    bgzip somatic.only.vcf
+    bgzip -f somatic.only.vcf
     vcf-concat somatic.only.vcf.gz tumor.vcf.gz |vcf-sort |bgzip > somatic_germline.vcf.gz
 else
     ln -s $tumor_vcf somatic_germline.vcf.gz
 fi
 
-tabix somatic_germline.vcf.gz
+tabix -f somatic_germline.vcf.gz
 
 perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path $rnaseq_vcf $rnaseq_ntct
 vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b ${index_path}/UTSWV2.bed  |uniq |bgzip > ${subject}.utsw.vcf.gz
-bgzip ${subject}.pass.vcf
-tabix ${subject}.utsw.vcf.gz
-tabix ${subject}.pass.vcf.gz
+bgzip -f ${subject}.pass.vcf
+tabix -f ${subject}.utsw.vcf.gz
+tabix -f ${subject}.pass.vcf.gz
 bcftools view -Oz -o ${subject}.vcf.gz -s ${tumor_id}  ${subject}.utsw.vcf.gz
 
 #Makes TumorMutationBurenFile

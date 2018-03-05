@@ -180,9 +180,12 @@ process varscan {
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from vscanbam
   output:
   set pid,file("${pid}.varscan.vcf.gz") into varscanvcf
+  set pid,file("${pid}.vscancnv.copynumber.txt") into varscancnv
   script:
   """
+  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a varscan
+  mv vscancnv.copynumber ${pid}.vscancnv.copynumber.txt
   """
 }
 
@@ -233,7 +236,7 @@ process integrate {
   module load samtools/1.6
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
   bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v ${subjid}.union.vcf.gz
-  perl $baseDir/scripts/somatic_filter.pl $somatic_vcf
+  perl $baseDir/scripts/somatic_filter.pl ${subjid}.annot.vcf.gz
   bgzip ${subjid}.somatic.vcf
   """
 }
