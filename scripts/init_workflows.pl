@@ -24,6 +24,7 @@ $baseDir = join("/",@execdir);
 my $prjid = $opt{prjid};
 my $oriss = "/project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.csv";
 my $newss = "/project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.bcl2fastq.csv";
+my $capturedir = "/project/shared/bicf_workflow_ref/GRCh38/clinseq_prj";
 
 my $seqdatadir = "/project/PHG/PHG_Illumina/BioCenter/$prjid";
 if (-e "/project/PHG/PHG_Illumina/Research/$prjid") {
@@ -185,8 +186,8 @@ foreach $dtype (keys %samples) {
     }
   }
   close SSOUT;
-  my $capture = '/project/shared/bicf_workflow_ref/GRCh38/UTSWV2.bed';
-  $capture = '/project/shared/bicf_workflow_ref/GRCh38/MedExome_Plus.bed' if ($dtype eq 'medexomeplus');
+  my $capture = "$capturedir\/UTSWV2.bed";
+  $capture = "$capturedir\/MedExome_Plus.bed" if ($dtype eq 'medexomeplus');
   my $mdup = 'picard';
   $mdup = 'fgbio_umi' if ($umi);
   my $germopts = '';

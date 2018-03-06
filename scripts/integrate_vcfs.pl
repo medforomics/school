@@ -4,13 +4,13 @@
 #module load vcftools/0.1.14 samtools/1.6 bedtools/2.26.0 
 my ($subject,$tumorid,$normalid,$refdir,$rnaseq_vcf,$rnaseq_ntct) = @ARGV;
 
-open OM, "<$refdir\/panel1385.genelist.txt" or die $!;
+open OM, "<$refdir\/clinseq_prj/panel1385.genelist.txt" or die $!;
 while (my $line = <OM>) {
   chomp($line);
   $keep{$line} = 1;
 }
 close OM;
-open OM, "<$refdir\/cancer.genelist.txt" or die $!;
+open OM, "<$refdir\/clinseq_prj/cancer.genelist.txt" or die $!;
 while (my $line = <OM>) {
   chomp($line);
   $cgenelist{$line} = 1;
