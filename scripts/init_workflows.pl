@@ -37,6 +37,7 @@ open SSOUT, ">$newss" or die $!;
 
 my %sampleinfo;
 my %stype;
+my %spairs;
 while (my $line = <SS>){
   chomp($line);
   $line =~ s/\r//g;
@@ -63,9 +64,6 @@ while (my $line = <SS>){
       foreach my $j (0..$#row) {
 	$hash{$colnames[$j]} = $row[$j];
       }
-      my $clinres = 'complete';
-      $clinres = 'toresearch' if ($hash{Description} && $hash{Description} =~ m/research/i);
-      $hash{ClinRes} = $clinres;
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
       $hash{Assay} = 'panel1385' if ($hash{Assay} eq 'dnaseqdevelopment');
@@ -82,17 +80,18 @@ while (my $line = <SS>){
 	  $hash{MergeName} = join("_",@samplename);
 	}
       }
-      $hash{Sample_Name} = join("_ClarityID-",$hash{Sample_Name},$hash{Sample_ID});
-      $hash{Sample_ID} = $hash{Sample_Name};
-      $samp = $hash{Sample_Name};
-      if ($samps{$hash{SubjectID}}{lc($hash{Class})} && 
-	  $samps{$hash{SubjectID}}{lc($hash{Class})} ne $hash{MergeName}) {
-	$hash{Class} = join('.',$hash{Class},$.);
+      my $clinres = 'complete';
+      if (($hash{Description} && $hash{Description} =~ m/research/i) ||
+	  ($hash{Sample_Name} !~ m/ORD/ && $hash{SubjectID} !~ m/GM12878|ROS/)) {
+	$clinres = 'toresearch';
       }
-      $samps{$hash{SubjectID}}{lc($hash{Class})} = $hash{MergeName};
-      $sampleinfo{$samp} = \%hash;
-      push @{$samples{lc($hash{Assay})}{$hash{SubjectID}}}, $samp;
+      $hash{ClinRes} = $clinres;
+      $hash{Sample_ID} = $hash{Sample_Name};
       $stype{$hash{SubjectID}} = $clinres;
+      $spairs{$hash{SubjectID}}{lc($hash{Class})}{$hash{MergeName}} = 1;
+      $sampleinfo{$hash{Sample_Name}} = \%hash;
+      push @{$samples{lc($hash{Assay})}{$hash{SubjectID}}}, $hash{Sample_Name};
+
       my @newline;
       foreach my $j (0..$#row) {
 	push @newline, $hash{$colnames[$j]};
@@ -131,6 +130,32 @@ system("mkdir $outnf") unless (-e $outnf);
 system("mkdir $workdir") unless (-e $workdir);
 print CAS "cd /project/PHG/PHG_Clinical/processing/$prjid\n";
 
+open TNPAIR, ">$outdir\/design_tumor_normal.txt" or die $!;
+my $tnpairs = 0;
+print TNPAIR join("\t",'PairID','TumorID','NormalID','TumorBAM','NormalBAM',
+		  'TumorFinalBAM','NormalFinalBAM'),"\n";
+foreach my $subjid (keys %spairs) {
+  my @ctypes = keys %{$spairs{$subjid}};
+  if ($spairs{$subjid}{tumor} && $spairs{$subjid}{normal}) {
+    my @tumors = keys %{$spairs{$subjid}{tumor}};
+    my @norms = keys %{$spairs{$subjid}{normal}};
+    my $pct = 0;
+    foreach $tid (@tumors) {
+      foreach $nid (@norms) {
+	my $pair_id = $subjid;
+	if ($pct > 1) {
+	  $pair_id .= ".$pct";
+	}
+	print TNPAIR join("\t",$pair_id,$tid,$nid,$tid.".bam",$nid.".bam",
+			  $tid.".final.bam",$nid.".final.bam"),"\n";
+	$pct ++;
+	$tnpairs ++;
+      }
+    }
+  }
+}
+close TNPAIR;
+
 foreach $dtype (keys %samples) {
   open SSOUT, ">$outdir\/$dtype\.design.txt" or die $!;
   print SSOUT join("\t","SampleID",'SampleID2','SampleName','FamilyID','FqR1','FqR2','BAM','FinalBAM'),"\n";
@@ -160,63 +185,42 @@ foreach $dtype (keys %samples) {
     }
   }
   close SSOUT;
-  open TNPAIR, ">$outdir\/$dtype\.design_tumor_normal.txt" or die $!;
-  my $tnpairs = 0;
-  my $tonlys = 0;
-  print TNPAIR join("\t",'PairID','TumorID','NormalID','TumorBAM','NormalBAM',
-		    'TumorFinalBAM','NormalFinalBAM'),"\n";
-  foreach my $subjid (keys %samps) {
-    my @ctypes = keys %{$samps{$subjid}};
-    if ($samps{$subjid}{tumor} && $samps{$subjid}{normal}) {
-      print TNPAIR join("\t",$subjid,$samps{$subjid}{tumor},$samps{$subjid}{normal},
-			$samps{$subjid}{tumor}.".bam",
-			$samps{$subjid}{normal}.".bam",
-			$samps{$subjid}{tumor}.".final.bam",
-			$samps{$subjid}{normal}.".final.bam"),"\n";
-      $tnpairs ++;
-      my $somatic_name=$samps{$subjid}{tumor}."_".$samps{$subjid}{normal};
-      my %som_info;
-      foreach my $saminfo(keys %sampleinfo){
-	if ($saminfo =~ m/$samps{$subjid}{tumor}/){
-	  %som_info =%{$sampleinfo{$saminfo}};
-	}
-      }
-    }
-  }
-  close TNPAIR;
   my $capture = '/project/shared/bicf_workflow_ref/GRCh38/UTSWV2.bed';
   $capture = '/project/shared/bicf_workflow_ref/GRCh38/MedExome_Plus.bed' if ($dtype eq 'medexomeplus');
   my $mdup = 'picard';
   $mdup = 'fgbio_umi' if ($umi);
+  my $germopts = '';
   if ($dtype =~ /panel1385|exome|dnaseq/) {
-    if ($umi) {
-      print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/alignment.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf --markdups $mdup > $outnf\/$dtype\.nextflow_alignment.log\n";
-    } else {
-      print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/alignmentV1.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf --markdups $mdup > $outnf\/$dtype\.nextflow_alignment.log\n";
+    my $alignwf = "$baseDir\/alignment.nf";
+    unless ($umi) {
+      $alignwf = "$baseDir\/alignmentV1.nf";
     }
-    print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/somatic.nf --design $outdir\/$dtype\.design_tumor_normal.txt  --callsvs skip --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_somatic.log &\n" if ($tnpairs);
-    print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
-    print CAS "wait\n";
-    
-  }elsif ($dtype =~ m/rnaseq/) {
+    print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $alignwf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf --markdups $mdup > $outnf\/$dtype\.nextflow_alignment.log\n";
+  } elsif ($dtype =~ m/rnaseq/) {
     print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/rnaseq.nf --design $outdir\/$dtype\.design.txt --input $outdir --output $outnf --markdups $mdup > $outnf\/$dtype\.nextflow_rnaseq.log\n";
-    print CAS "ln -s $outnf\/*/*/*.bam .\n";  ####check me out
-    
-    print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt --genome /project/shared/bicf_workflow_ref/GRCh38/hisat_index --nuctype rna --callsvs skip --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log\n";
+    $germopts = " --genome /project/shared/bicf_workflow_ref/GRCh38/hisat_index --nuctype rna --callsvs skip"
   }
-  print CAS "cd $outnf\n";
-  foreach $case (keys %stype) {
-    print CAS "rsync -avz $case /project/PHG/PHG_Clinical/".$stype{$case},"\n";
-    print CAS "rsync -avz --exclude=\"*bam*\" $case /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/".$stype{$case},"\n" if ($stype{$case} eq 'complete');
-  }
-    foreach $project (keys %{$samples{$dtype}}) {
-      foreach $samp (@{$samples{$dtype}{$project}}) {
-	print CAS "curl 'http://nuclia-test.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResults?token=\$nucliatoken&subjectName=$project&sampleName=$samp&runName=$opt{prjid}'\n";
-      }
+  print CAS "ln -s $outnf\/*/*/*.bam .\n";  ####check me out
+  print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log\n";
+}
+print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt  --callsvs skip --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
+print CAS "wait\n";
+print CAS "cd $outnf\n";
+
+foreach $case (keys %stype) {
+  print CAS "rsync -avz $case /project/PHG/PHG_Clinical/".$stype{$case},"\n";
+  print CAS "rsync -avz --exclude=\"*bam*\" $case /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/".$stype{$case},"\n" if ($stype{$case} eq 'complete');
+}
+
+foreach $project (keys %spairs) {
+  foreach $class (keys  %{$spairs{$project}}) {
+    foreach $samp (keys %{$spairs{$project}{$class}}) {
+      print CAS "curl \"http://nuclia-test.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResults?token=\$nucliatoken&subjectName=$project&sampleName=$samp&runName=$opt{prjid}\"\n";
     }
-  foreach my $posCtrls(keys %control){
-    my $prefixName = $posCtrls;
-    print CAS "bash $baseDir\/scripts/snsp.sh $prefixName >$prefixName\.snsp\.txt\n";
   }
+}
+foreach my $posCtrls(keys %control){
+  my $prefixName = $posCtrls;
+  print CAS "bash $baseDir\/scripts/snsp.sh $prefixName >$prefixName\.snsp\.txt\n";
 }
 close CAS;
