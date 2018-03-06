@@ -8,7 +8,6 @@ params.bams="$params.input/*.bam"
 params.design="$params.input/design.txt"
 params.callsvs="skip"
 params.genome="/project/shared/bicf_workflow_ref/GRCh38"
-params.targetpanel="$params.genome/UTSWV2.bed"
 
 dbsnp="$params.genome/dbSnp.vcf.gz"
 cosmic="$params.genome/cosmic.vcf.gz"
@@ -17,7 +16,6 @@ design_file = file(params.design)
 bams=file(params.bams)
 
 index_path = file(params.genome)
-capture_bed = file(params.targetpanel)
 ncmconf = file("$params.genome/ncm.conf")
 dbsnp=file(dbsnp)
 
@@ -144,7 +142,7 @@ process mutect {
   //publishDir "$params.output/$pid/somatic", mode: 'copy'
 
   input:
-  set tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from mutectbam
+  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from mutectbam
 
   output:
   set pid,file("${pid}.mutect.vcf.gz") into mutectvcf

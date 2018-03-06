@@ -70,7 +70,7 @@ process trim {
 
 process align {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id, file(fq1), file(fq2) from trimread

@@ -114,6 +114,9 @@ W1:while (my $line = <IN>) {
   }
   my ($chrom, $pos,$id,$ref,$alt,$score,
       $filter,$annot,$format,@gts) = split(/\t/, $line);
+  if ($pos == 26558819) {
+      warn "Debugging\n";
+  }
   next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
   my %hash = ();
   foreach $a (split(/;/,$annot)) {
@@ -159,11 +162,12 @@ W1:while (my $line = <IN>) {
     }
     $gtinfo{$subjid}{DP} = (split(/,/,$gtinfo{$subjid}{DP}))[0] if ($gtinfo{$subjid}{DP});
     next F1 unless ($gtinfo{$subjid}{DP} && $gtinfo{$subjid}{DP} ne '.' && $gtinfo{$subjid}{DP} >= 1);
-    my($refct,@altct) = split(/,/,$gtinfo{$subjid}{AD});
-    if (scalar(@altct) ne scalar(split(/,/,$gtinfo{$subjid}{AO}))) {
+    my @altct = split(/,/,$gtinfo{$subjid}{AD});
+    my $refct = shift @altct;
+    @altct2 = split(/,/,$gtinfo{$subjid}{AO});
+    if (scalar(@altct) ne scalar(@altct2)) {
 	warn "Inconsistent Allele counts @ $chrom,$pos,$alt,$gtinfo{$subjid}{AD},$gtinfo{$subjid}{AO}\n";
     }
-    #my @altct = split(/,/,$gtinfo{$subjid}{AO});
     my $total = $refct;
     foreach  my $act (@altct) {
 	next if ($act eq '.');
@@ -197,12 +201,12 @@ W1:while (my $line = <IN>) {
   if ($id =~ m/COS/ && $cosmicsubj >= 5) {
     $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 3);
     $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.01);
-    $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.03 && $hash{TYPE} ne 'snp');
+    #$fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.03 && $hash{TYPE} ne 'snp');
   }else {
     $fail{'OneCaller'} = 1 if (scalar(@callers) < 2);
     $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 8);
     $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.05);
-    $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.10 && $hash{TYPE} ne 'snp');
+    #$fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.10 && $hash{TYPE} ne 'snp');
   }
   $hash{SS} = 5;
   delete $hash{SOMATIC};

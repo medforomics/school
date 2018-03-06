@@ -196,7 +196,7 @@ process geneabund {
 }
 process gatkbam {
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  publishDir "$params.output/", mode: 'copy'
 
   input:
   set subjid,pair_id, file(rbam) from deduped2
