@@ -41,13 +41,21 @@ new File(params.design).withReader { reader ->
     prefixidx = header.findIndexOf{it == 'SampleID'};
     oneidx = header.findIndexOf{it == 'FqR1'};
     twoidx = header.findIndexOf{it == 'FqR2'};
+    fidx = header.findIndexOf{it == 'FamilyID'};
+    sidx = header.findIndexOf{it == 'SubjectID'};
+    if (sidx == -1) {
+       sidx = prefixidx
+    }
+    if (fidx == -1) {
+       fidx = sidx
+    }
     if (twoidx == -1) {
        twoidx = oneidx
        }
     while (line = reader.readLine()) {
     	   def row = line.split("\t")
     if (fileMap.get(row[oneidx]) != null) {
-	read << tuple(row[prefixidx],fileMap.get(row[oneidx]),fileMap.get(row[twoidx]))
+	read << tuple(row[fidx],row[prefixidx],fileMap.get(row[oneidx]),fileMap.get(row[twoidx]))
 	   }
 
 }
@@ -57,9 +65,9 @@ if( ! read) { error "Didn't match any input files with entries in the design fil
 process trim {
   errorStrategy 'ignore'
   input:
-  set pair_id, file(read1), file(read2) from read
+  set subjid,pair_id, file(read1), file(read2) from read
   output:
-  set pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into trimread
+  set subjid,pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into trimread
   file("${pair_id}.trimreport.txt") into trimstat 
   script:
   """
@@ -70,25 +78,25 @@ process trim {
 
 process align {
   errorStrategy 'ignore'
-  publishDir "$params.output/$pair_id", mode: 'copy'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set pair_id, file(fq1), file(fq2) from trimread
+  set subjid,pair_id, file(fq1), file(fq2) from trimread
   output:
-  set pair_id, file("${pair_id}.bam") into aligned
-  set pair_id, file("${pair_id}.bam") into aligned2
+  set subjid,pair_id, file("${pair_id}.bam") into aligned
+  set subjid,pair_id, file("${pair_id}.bam") into aligned2
   """
   bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2 $alignopts
   """
  }
 
 process markdups_consensus {
-  publishDir "$params.output/$pair_id", mode: 'copy'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set pair_id, file(sbam) from aligned
+  set subjid, pair_id, file(sbam) from aligned
   output:
-  set pair_id, file("${pair_id}.consensus.bam") into deduped
+  set subjid, pair_id, file("${pair_id}.consensus.bam") into deduped
   script:
   """
   bash $baseDir/process_scripts/alignment/markdups.sh -a fgbio_umi -b $sbam -p $pair_id
@@ -96,12 +104,12 @@ process markdups_consensus {
   """
 }
 process markdups_picard {
-  //publishDir "$params.output/$pair_id", mode: 'copy'
+  //publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set pair_id, file(sbam) from aligned2
+  set subjid, pair_id, file(sbam) from aligned2
   output:
-  set pair_id, file("${pair_id}.dedup.bam") into qcbam
+  set subjid, pair_id, file("${pair_id}.dedup.bam") into qcbam
   script:
   """
   bash $baseDir/process_scripts/alignment/markdups.sh -a picard_umi -b $sbam -p $pair_id
@@ -110,10 +118,10 @@ process markdups_picard {
 
 process seqqc {
   errorStrategy 'ignore'
-  publishDir "$params.output/$pair_id", mode: 'copy'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set pair_id, file(sbam) from qcbam
+  set subjid, pair_id, file(sbam) from qcbam
   output:
   file("${pair_id}.flagstat.txt") into alignstats
   file("${pair_id}.ontarget.flagstat.txt") into ontarget
@@ -166,13 +174,13 @@ process parse_stat {
 
 process gatkbam {
   //errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set pair_id, file(sbam) from deduped
+  set subjid, pair_id, file(sbam) from deduped
 
   output:
-  set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
+  set subjid, pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
   
   script:
   """

@@ -110,7 +110,7 @@ print CAS "#!/bin/bash\n#SBATCH --job-name $prjid\n#SBATCH -N 1\n";
 print CAS "#SBATCH -t 14-0:0:00\n#SBATCH -o $prjid.out\n#SBATCH -e $prjid.err\n";
 print CAS "#SBATCH --mail-type ALL\n#SBATCH --mail-user erika.villa\@utsouthwestern.edu\n";
 print CAS "source /etc/profile.d/modules.sh\n";
-print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.24.1-SNAPSHOT\n";
+print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.27.6\n";
 
 print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --ignore-missing-positions --no-lane-splitting --ignore-missing-filter --ignore-missing-bcls --runfolder-dir $seqdatadir --sample-sheet /project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.bcl2fastq.csv &> /project/PHG/PHG_Clinical/illumina/logs/run_casava_$prjid\.log\n";
 print CAS "mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid");
@@ -201,7 +201,14 @@ foreach $dtype (keys %samples) {
     print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/rnaseq.nf --design $outdir\/$dtype\.design.txt --input $outdir --output $outnf --markdups $mdup > $outnf\/$dtype\.nextflow_rnaseq.log\n";
     $germopts = " --genome /project/shared/bicf_workflow_ref/GRCh38/hisat_index --nuctype rna --callsvs skip"
   }
-  print CAS "ln -s $outnf\/*/*/*.bam .\n";  ####check me out
+  foreach $project (keys %spairs) {
+      foreach $class (keys  %{$spairs{$project}}) {
+	  foreach $samp (keys %{$spairs{$project}{$class}}) {
+	      print CAS "mv $outnf\/$samp\.* $outnf\/$samp\_* $outnf\/$project\/$samp\n";
+	  }
+      }
+  }
+  print CAS "ln -s $outnf\/*/*/*.bam $outnf\n";  ####check me out
   print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log\n";
 }
 print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt  --callsvs skip --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
@@ -209,7 +216,7 @@ print CAS "wait\n";
 print CAS "cd $outnf\n";
 
 foreach $case (keys %stype) {
-  print CAS "rsync -avz $case /project/PHG/PHG_Clinical/".$stype{$case},"\n";
+    print CAS "rsync -avz $case /project/PHG/PHG_Clinical/".$stype{$case},"\n";
   print CAS "rsync -avz --exclude=\"*bam*\" $case /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/".$stype{$case},"\n" if ($stype{$case} eq 'complete');
 }
 
