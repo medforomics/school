@@ -68,6 +68,9 @@ while (my $line = <SS>){
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
       $hash{Assay} = 'panel1385' if ($hash{Assay} eq 'dnaseqdevelopment');
+      $hash{Assay} = 'panel1385' if ($hash{Assay} eq 'panel1385');
+      $hash{Assay} = 'panel1385v2' if ($hash{MergeName} =~ m/panel1385v2/);
+      $hash{Assay} = 'panelrnaseq' if ($hash{MergeName} =~ m/panelrnaseq/);
       my @samplename = split(/_/,$hash{Sample_Name});
       unless ($hash{Class}) {
 	$hash{Class} = 'tumor';
@@ -188,6 +191,7 @@ foreach $dtype (keys %samples) {
   close SSOUT;
   my $capture = "$capturedir\/UTSWV2.bed";
   $capture = "$capturedir\/MedExome_Plus.bed" if ($dtype eq 'medexomeplus');
+  $capture = "$capturedir\/UTSWV2_2.bed" if ($dtype eq 'panel1385v2');
   my $mdup = 'picard';
   $mdup = 'fgbio_umi' if ($umi);
   my $germopts = '';

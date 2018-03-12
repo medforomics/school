@@ -118,7 +118,6 @@ process seqqc {
   file("${pair_id}.ontarget.flagstat.txt") into ontarget
   file("${pair_id}.dedupcov.txt") into dedupcov
   file("${pair_id}.meanmap.txt") into meanmap
-  file("${pair_id}.libcomplex.txt") into libcomplex
   file("${pair_id}.hist.txt") into insertsize
   file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
   file("*fastqc*") into fastqc

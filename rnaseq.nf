@@ -158,6 +158,7 @@ process alignqc {
   script:
   """
   source /etc/profile.d/modules.sh
+  module load git/gcc/v2.12.2
   bash $baseDir/process_scripts/alignment/bamqc.sh -p ${pair_id} -b ${bam} -n rna
   perl $baseDir/scripts/sequenceqc_rnaseq.pl -r ${index_path} *.flagstat.txt
   """
