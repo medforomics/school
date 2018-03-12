@@ -151,26 +151,26 @@ process mutect {
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a mutect2
   """
 }
-Channel
-  .empty()
-  .mix(mantrabam,strelkabam)
-  .groupTuple(by:0)
-  .into { illuminabams }
+// Channel
+//   .empty()
+//   .mix(mantrabam,strelkabam)
+//   .groupTuple(by:0)
+//   .into { illuminabams }
 
-process strelka {
-  errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic", mode: 'copy'
+// process strelka {
+//   errorStrategy 'ignore'
+//   publishDir "$params.output/$pid/somatic", mode: 'copy'
 
-  input:
-  set pid,mtid,mnid,file(mtumor),file(mnormal),file(mtidx),file(mnidx),tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from illuminabams
+//   input:
+//   set pid,mtid,mnid,file(mtumor),file(mnormal),file(mtidx),file(mnidx),tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from illuminabams
 
-  output:
-  set pid,file("${pid}.strelka2.vcf.gz") into strelkavcf
-  script:
-  """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a strelka2
-  """
-}
+//   output:
+//   set pid,file("${pid}.strelka2.vcf.gz") into strelkavcf
+//   script:
+//   """
+//   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a strelka2
+//   """
+// }
 process varscan {
   errorStrategy 'ignore'
   //publishDir "$params.output", mode: 'copy'

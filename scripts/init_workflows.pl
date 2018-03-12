@@ -194,6 +194,7 @@ foreach $dtype (keys %samples) {
   $capture = "$capturedir\/UTSWV2_2.bed" if ($dtype eq 'panel1385v2');
   my $mdup = 'picard';
   $mdup = 'fgbio_umi' if ($umi);
+  $mdup = 'skip' if ($dtype =~ m/panelrnaseq/);
   my $germopts = '';
   if ($dtype =~ /panel1385|exome|dnaseq/) {
     my $alignwf = "$baseDir\/alignment.nf";

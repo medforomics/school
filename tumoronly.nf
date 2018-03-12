@@ -213,7 +213,7 @@ Channel
   .empty()
   .mix(ssvcf,strelkavcf,samvcf,platvcf,hsvcf)
   .groupTuple(by:0)
-  .into { vcflist}
+  .set { vcflist}
 
 process integrate {
   errorStrategy 'ignore'
