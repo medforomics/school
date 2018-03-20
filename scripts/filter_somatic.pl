@@ -9,6 +9,23 @@ $outfile =~ s/annot.vcf.gz/somatic.vcf/;
 
 die if ($somaticvcf eq $outfile);
 
+open DESIGN, "<design.txt" or die $!;
+my $hline = <DESIGN>;
+chomp($hline);
+my @cols = split(/\t/,$hline);
+my %info;
+while (my $line = <DESIGN>) {
+    chomp($line);
+    my @row = split(/\t/,$line);
+    foreach my $i (0..$#row) {
+	$hash{$cols[$i]} = $row[$i];
+    }
+    if ($somaticvcf =~ m/$hash{PairID}/) {
+	$tumorid = $hash{TumorID};
+	$normalid = $hash{NormalID};
+    }
+}
+
 open OUT, ">$outfile" or die $!;
 open IN, "gunzip -c $somaticvcf |" or die $!;
 W1:while (my $line = <IN>) {

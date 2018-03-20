@@ -66,7 +66,7 @@ W1:while (my $line = <IN>) {
   my @newalts;
   my @altct;
   foreach  my $i (0..$#acts) {
-    if ($acts[$i] > 2) {
+    if ($acts[$i] ne '.' && $acts[$i] > 2) {
       push @newalts, $altnts[$i];
       push @altct, $acts[$i];
       $totalaltct += $acts[$i];

@@ -7,7 +7,7 @@ params.fastqs="$params.input/*.fastq.gz"
 params.design="$params.input/design.txt"
 
 params.genome="/project/shared/bicf_workflow_ref/GRCh38"
-params.capture="$params.genome/UTSWV2.bed"
+params.capture="$params.genome/clinseq_prj/UTSWV2.bed"
 params.pairs="pe"
 params.cancer="detect"
 
@@ -86,7 +86,7 @@ aligned
 
 process mergebam {
   publishDir "$params.output", mode: 'copy'
-  memory '32 GB'
+
   input:
   set pair_id,file(bams) from bamgrp
   output:
@@ -99,11 +99,11 @@ process mergebam {
   count=\$(ls *.bam |wc -l)
   if [ \$count -gt 1 ]
   then
-  sambamba merge -t \$SLURM_CPUS_ON_NODE merge.bam *.bam
+  samtools merge -@ \$SLURM_CPUS_ON_NODE merge.bam *.bam
   else
   mv *.bam merge.bam
   fi
-  samtools sort --threads $SLURM_CPUS_ON_NODE -o ${pair_id}.bam merge.bam
+  samtools sort --threads \$SLURM_CPUS_ON_NODE -o ${pair_id}.bam merge.bam
   samtools index ${pair_id}.bam
   """
 }
@@ -112,7 +112,7 @@ process seqqc {
   publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
-  set pair_id, file(sbam) from qcbam
+  set pair_id, file(sbam),file(sbai) from qcbam
   output:
   file("${pair_id}.flagstat.txt") into alignstats
   file("${pair_id}.ontarget.flagstat.txt") into ontarget
@@ -161,18 +161,18 @@ process parse_stat {
   """
 }
 
-process gatkbam {
-  //errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+// process gatkbam {
+//   //errorStrategy 'ignore'
+//   publishDir "$params.output", mode: 'copy'
 
-  input:
-  set pair_id, file(sbam) from deduped
+//   input:
+//   set pair_id, file(sbam),file(sbai) from deduped
 
-  output:
-  set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
+//   output:
+//   set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
   
-  script:
-  """
-  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r ${index_path} -p $pair_id
-  """
-}
+//   script:
+//   """
+//   bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r ${index_path} -p $pair_id
+//   """
+// }
