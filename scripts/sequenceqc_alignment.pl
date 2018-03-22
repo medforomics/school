@@ -26,12 +26,16 @@ foreach $sfile (@statfiles) {
   $sfile =~ m/(\S+)\.genomecov.txt/;
   my $prefix = $1;
   my %hash;
-  open FLAG, "<$prefix\.trimreport.txt";
-  while (my $line = <FLAG>) {
-    chomp($line);
-    my ($file,$raw,$trim) = split(/\t/,$line);
-    $hash{rawct} += $raw;
-    $hash{trimct} += $trim;
+  my @trimfiles = `ls $prefix\*.trimreport.txt`;
+  foreach $trimfile (@trimfiles) {
+      open FLAG, "<$trimfile";
+      while (my $line = <FLAG>) {
+	  chomp($line);
+	  my ($file,$raw,$trim) = split(/\t/,$line);
+	  $hash{rawct} += $raw;
+	  $hash{trimct} += $trim;
+      }
+      close FLAG;
   }
   open FLAG, "<$prefix\.flagstat.txt" or die $!;
   while (my $line = <FLAG>) {
@@ -106,25 +110,6 @@ foreach $sfile (@statfiles) {
     close DUP;
   }
   $hash{percdups} = sprintf("%.4f",$lc{TOTDUPLC}/$lc{TOTREADSLC});
-  open DUP, "<$prefix\.libsizeest.txt" or die $!;
-  while (my $line = <DUP>) {
-    chomp($line);
-    if ($line =~ m/## METRICS/) {
-      $header = <DUP>;
-      $nums = <DUP>;
-      chomp($header);
-      chomp($nums);
-      my @stats = split(/\t/,$header);
-      my @row = split(/\t/,$nums);
-      my %info;
-      foreach my $i (0..$#stats) {
-	      $info{$stats[$i]} = $row[$i];
-	    }
-      #$hash{percdups} = sprintf("%.4f",$info{PERCENT_DUPLICATION});
-      $hash{libsize} = $info{ESTIMATED_LIBRARY_SIZE};
-    }
-  }
-  close DUP;
   $hash{medinsert} = 0;
   $hash{avginsert} = 0;
   $hash{stdinsert} = 0;

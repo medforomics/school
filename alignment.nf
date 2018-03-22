@@ -167,7 +167,6 @@ process parse_stat {
   source /etc/profile.d/modules.sh
   module load R/3.2.1-intel git/gcc/v2.12.2
   perl $baseDir/scripts/sequenceqc_alignment_withumi.pl -r ${index_path} *.genomecov.txt
-  perl $baseDir/scripts/covstats.pl *.mapqualcov.txt
   Rscript $baseDir/scripts/plot_hist_genocov.R
   """
 }
