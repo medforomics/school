@@ -17,6 +17,8 @@ params.fusion = 'detect'
 params.dea = 'skip'
 params.cancer="detect"
 params.variant = "detect"
+params.bamct = "detect"
+
 
 design_file = file(params.design)
 fastqs=file(params.fastqs)
@@ -137,6 +139,8 @@ process bamct {
   set subjid,pair_id, file(rbam) from ctbams
   output:
   file("${pair_id}.bamreadct.txt") into ctreads
+  when:
+  params.bamct == "detect"
   script:
   """
   source /etc/profile.d/modules.sh
@@ -145,6 +149,7 @@ process bamct {
   ${index_path}/../seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -f ${index_path}/hisat_genome.fa $rbam > ${pair_id}.bamreadct.txt
   """
 }
+
 process alignqc {
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
@@ -179,6 +184,7 @@ process markdups {
   bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id
   """
 }
+
 process geneabund {
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
@@ -204,7 +210,7 @@ process gatkbam {
 
   output:
   set file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
-  
+
   script:
   """
   bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam_rna -b $rbam -r ${index_path}/hisat_index -p $pair_id

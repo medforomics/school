@@ -161,18 +161,18 @@ process parse_stat {
   """
 }
 
-// process gatkbam {
-//   //errorStrategy 'ignore'
-//   publishDir "$params.output", mode: 'copy'
+process gatkbam {
+  errorStrategy 'ignore'
+  publishDir "$params.output", mode: 'copy'
 
-//   input:
-//   set pair_id, file(sbam),file(sbai) from deduped
+  input:
+  set pair_id, file(sbam),file(sbai) from deduped
 
-//   output:
-//   set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
+  output:
+  set pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
   
-//   script:
-//   """
-//   bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r ${index_path} -p $pair_id
-//   """
-// }
+  script:
+  """
+  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r ${index_path} -p $pair_id
+  """
+}

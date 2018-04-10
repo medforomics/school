@@ -8,6 +8,7 @@ params.bams="$params.input/*.bam"
 params.design="$params.input/design.txt"
 params.callsvs="skip"
 params.genome="/project/shared/bicf_workflow_ref/GRCh38"
+params.projectid=''
 
 dbsnp="$params.genome/dbSnp.vcf.gz"
 cosmic="$params.genome/cosmic.vcf.gz"
@@ -30,10 +31,13 @@ bams.each {
 }
 def oribam = []
 def tarbam = []
+def nameMap = [:]
+
 new File(params.design).withReader { reader ->
     def hline = reader.readLine()
     def header = hline.split("\t")
     pidx = header.findIndexOf{it == 'PairID'};
+    vidx = header.findIndexOf{it == 'VcfID'};
     tidx = header.findIndexOf{it == 'TumorID'};
     nidx = header.findIndexOf{it == 'NormalID'};
     oneidx = header.findIndexOf{it == 'TumorBAM'};
@@ -47,6 +51,7 @@ new File(params.design).withReader { reader ->
     while (line = reader.readLine()) {
     	   def row = line.split("\t")
 	   if (fileMap.get(row[oneidx]) != null) {
+	      nameMap[row[pidx]] = row[vidx]
 	      oribam << tuple(row[pidx],row[tidx],row[nidx],fileMap.get(row[oneidx]),fileMap.get(row[twoidx]))
 	      tarbam << tuple(row[pidx],row[tidx],row[nidx],fileMap.get(row[totidx]),fileMap.get(row[notidx]))
 	   }
@@ -217,7 +222,7 @@ Channel
   .empty()
   .mix(ssvcf,mutectvcf,varscanvcf,virmidvcf,shimmervcf)
   .groupTuple(by:0)
-  .into { vcflist}
+  .set { vcflist}
 
 
 process integrate {
@@ -225,10 +230,9 @@ process integrate {
   publishDir "$params.output/$subjid/somatic", mode: 'copy'
   input:
   set subjid,file(vcf) from vcflist
-  file 'design.txt' from design_file
   output:
-  file("${subjid}.union.vcf.gz") into union
-  file("${subjid}.somatic.vcf.gz") into annotvcf
+  file("${subjid}${params.projectid}.somaticunion.vcf.gz") into union
+  file("${subjid}${params.projectid}.somatic.vcf.gz") into annotvcf
   script:
   """
   source /etc/profile.d/modules.sh
@@ -237,5 +241,7 @@ process integrate {
   bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v ${subjid}.union.vcf.gz
   perl $baseDir/scripts/somatic_filter.pl ${subjid}.annot.vcf.gz
   bgzip ${subjid}.somatic.vcf
+  mv ${subjid}.somatic.vcf.gz ${subjid}${params.projectid}.somatic.vcf.gz
+  mv ${subjid}.union.vcf.gz ${subjid}${params.projectid}.somaticunion.vcf.gz
   """
 }

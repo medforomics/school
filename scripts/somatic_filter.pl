@@ -1,10 +1,32 @@
 #!/usr/bin/perl -w
 #integrate_datasets.pl
 
-my $somaticvcf = shift @ARGV;
-my ($tumorid,$normalid,@other) = split(/\./,$somaticvcf);
+my ($somaticvcf) = @ARGV;
+my ($tumorid,$normalid);
 
-open OUT, ">$tumorid\.$normalid.somatic.vcf" or die $!;
+my $outfile = $somaticvcf;
+$outfile =~ s/annot.vcf.gz/somatic.vcf/;
+
+die if ($somaticvcf eq $outfile);
+
+open DESIGN, "<design.txt" or die $!;
+my $hline = <DESIGN>;
+chomp($hline);
+my @cols = split(/\t/,$hline);
+my %info;
+while (my $line = <DESIGN>) {
+    chomp($line);
+    my @row = split(/\t/,$line);
+    foreach my $i (0..$#row) {
+	$hash{$cols[$i]} = $row[$i];
+    }
+    if ($somaticvcf =~ m/$hash{PairID}/) {
+	$tumorid = $hash{TumorID};
+	$normalid = $hash{NormalID};
+    }
+}
+
+open OUT, ">$outfile" or die $!;
 open IN, "gunzip -c $somaticvcf |" or die $!;
 W1:while (my $line = <IN>) {
   chomp($line);
@@ -14,6 +36,14 @@ W1:while (my $line = <IN>) {
      $filter,$info,$format,@gtheader) = split(/\t/, $line);
     print OUT join("\t",$chrom,$pos,$id,$ref,$alt,$score,
 		   $filter,$info,$format,@gtheader),"\n";
+
+    foreach $id (@gtheader) {
+      if ($id =~ m/_T_/) {
+	$tumorid = $id;
+      }else {
+	$normalid = $id;
+      }
+    }
     next;
   } elsif ($line =~ m/^#/) {
     $line =~ s/CallSet/SomaticCallSet/;

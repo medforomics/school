@@ -11,6 +11,7 @@ params.targetpanel="$params.genome/clinseq_prj/UTSWV2.bed"
 params.cancer="detect"
 params.callsvs="detect"
 params.nuctype='dna'
+params.projectid=''
 
 dbsnp_file="$params.genome/dbSnp.vcf.gz"
 indel="$params.genome/GoldIndels.vcf.gz"
@@ -37,6 +38,7 @@ bams.each {
 
 def oribam = []
 def tarbam = []
+
 new File(params.design).withReader { reader ->
     def hline = reader.readLine()
     def header = hline.split("\t")
@@ -220,16 +222,26 @@ process integrate {
   publishDir "$params.output/$subjid", mode: 'copy'
   input:
   set subjid,file(vcf) from vcflist
-
+  
   output:
-  set subjid,file("${subjid}.union.vcf.gz") into union
-  file("${subjid}.germline.vcf.gz") into annotvcf
+  set subjid,file("${subjid}*union.vcf.gz") into union
+  file("${subjid}${params.projectid}.germline*vcf.gz") into annotvcf
 
   script:
+  if (params.nuctype == "dna")
   """
   source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
   bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v ${subjid}.union.vcf.gz
-  mv ${subjid}.annot.vcf.gz ${subjid}.germline.vcf.gz
+  mv ${subjid}.union.vcf.gz ${subjid}${params.projectid}.dnaunion.vcf.gz
+  mv ${subjid}.annot.vcf.gz ${subjid}${params.projectid}.germline.vcf.gz
+  """
+  else
+  """
+  source /etc/profile.d/modules.sh
+  bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v ${subjid}.union.vcf.gz
+  mv ${subjid}.union.vcf.gz ${subjid}${params.projectid}.rnaunion.vcf.gz
+  mv ${subjid}.annot.vcf.gz ${subjid}${params.projectid}.germline.rna.vcf.gz
   """
 }

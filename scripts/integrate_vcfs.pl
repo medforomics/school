@@ -224,21 +224,21 @@ W1:while (my $line = <IN>) {
       $hash{SS} = 2;
     }
   }
-  $gtinfo{$rnaseqid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'};
   $gtinfo{$normalid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'} unless ($gtinfo{$normalid});
   if ($rnaval{$chrom}{$pos}) {
-    my ($rnahashref,$rnadp) = @{$rnaval{$chrom}{$pos}};
-    if ($rnadp > 10) {
-      my %rnantct = %{$rnahashref};
-      my @altcts;
-      my $totalaltct =0;
-      foreach $altnt (split(/,/,$alt)) {
-	my $ct = $rnantct{$altnt};
-	$ct = 0 unless ($ct);
-	$totalaltct += $ct;
-	push @altcts, $ct;
-      }
-      $hash{RnaSeqDP} = $rnadp;
+      $gtinfo{$rnaseqid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'};
+      my ($rnahashref,$rnadp) = @{$rnaval{$chrom}{$pos}};
+      if ($rnadp > 10) {
+	  my %rnantct = %{$rnahashref};
+	  my @altcts;
+	  my $totalaltct =0;
+	  foreach $altnt (split(/,/,$alt)) {
+	      my $ct = $rnantct{$altnt};
+	      $ct = 0 unless ($ct);
+	      $totalaltct += $ct;
+	      push @altcts, $ct;
+	  }
+	  $hash{RnaSeqDP} = $rnadp;
       $hash{RnaSeqAF} = sprintf("%.4f",$altcts[0]/$rnadp);
       $gtinfo{$rnaseqid}{RO} = $rnadp - $totalaltct;
       $gtinfo{$rnaseqid}{AO} = join(",",@altcts);
