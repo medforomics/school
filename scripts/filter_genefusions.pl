@@ -15,13 +15,13 @@ while (my $line = <ENT>) {
     $entrez{$row[2]} = $row[1];
   }
 }
-open OM, "</project/shared/bicf_workflow_ref/GRCh38/utswv2_known_genefusions.txt" or die $!;
+open OM, "</project/shared/bicf_workflow_ref/GRCh38/clinseq_prj/utswv2_known_genefusions.txt" or die $!;
 while (my $line = <OM>) {
   chomp($line);
   $known{$line} = 1;
 }
 close OM;
-open OM, "</project/shared/bicf_workflow_ref/GRCh38/panel1385.genelist.txt" or die $!;
+open OM, "</project/shared/bicf_workflow_ref/GRCh38/clinseq_prj/panel1385.genelist.txt" or die $!;
 while (my $line = <OM>) {
     chomp($line);
     $keep{$line} = 1;

@@ -230,6 +230,7 @@ process integrate {
   publishDir "$params.output/$subjid/somatic", mode: 'copy'
   input:
   set subjid,file(vcf) from vcflist
+  file 'design.txt' from design_file
   output:
   file("${subjid}${params.projectid}.somaticunion.vcf.gz") into union
   file("${subjid}${params.projectid}.somatic.vcf.gz") into annotvcf

@@ -217,7 +217,7 @@ foreach $dtype (keys %samples) {
       }
   }
   print CAS "ln -s $outnf\/*/*/*.bam $outnf\n";  ####check me out
-  print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --projectid _${prjid} --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log\n";
+  print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --projectid _${prjid} --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
 }
 print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt --projectid _${prjid} --callsvs skip --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
 print CAS "wait\n";
@@ -231,7 +231,7 @@ foreach my $posCtrls (keys %control){
 
 foreach $case (keys %stype) {
   print CAS "rsync -avz $case /project/PHG/PHG_Clinical/".$stype{$case},"\n";
-  print CAS "rsync -avz --exclude=\"*bam*\" $case /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
+  print CAS "rsync -rlptgoD --exclude=\"*bam*\" $case /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
 }
 
 foreach $project (keys %spairs) {
