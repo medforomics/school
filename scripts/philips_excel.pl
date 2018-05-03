@@ -7,7 +7,7 @@ my $prefix = $vcffile;
 $prefix =~ s/\.vcf//;
 my $input = "$vcffile" or die $!;
 open OUT, ">$prefix\.tumornormal.csv" or die $!;
-print OUT join(",",'LociGRCh38','LociGRCh37','ID','Gene','AminoAcid','Effect','Ref','Alt',
+print OUT join(",",'LociGRCh38','LociGRCh37','ID','Gene','Nucleotide','AminoAcid','Effect','Ref','Alt',
 	       'SomaticStatus','RNASeqValidation; 1=YES; 0=NO','Gene Abundance (FPKM)','NofOne','Cosmic Disease',
 	       'Cosmic Role','Tumor DNA AF','Tumor DNA Depth','Normal DNA AF','Normal DNA Depth','Tumor RNA AF',
 	       'Tumor RNA Depth','StrandBias','CIVIC Gene Annotation'),"\n";
@@ -105,6 +105,7 @@ W1:while (my $line = <IN>) {
   my $innofone = '';
   my $inrole = '';
   my $incivic = '';
+  my $codon ='';
   my $aa = '';
   $hash{NormalAF} = 0 unless ($hash{NormalAF});
   $hash{NormalDP} = 0 unless ($hash{NormalDP});
