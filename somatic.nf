@@ -103,9 +103,9 @@ process checkmates {
   script:
   """
   source /etc/profile.d/modules.sh
-  module load python/2.7.x-anaconda
+  module load python/2.7.x-anaconda git/v2.5.3
   python /project/shared/bicf_workflow_ref/seqprg/NGSCheckMate/ncm.py -B -d ./ -bed ${index_path}/NGSCheckMate.bed -O ./ -N ${pid}
-  perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${pid}_all.txt -o ${pid}.sequence.stats.txt
+  perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${pid}_all.txt -o ${pid}${params.projectid}.sequence.stats.txt
   """
 }
 

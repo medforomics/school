@@ -32,7 +32,7 @@ while (my $line = <OM>) {
 }
 close OM;
 my %nofone;
-open OM, "<$refdir\/nofone.genelist.txt" or die $!;
+open OM, "<$refdir\/clinseq_prj/nofone.genelist.txt" or die $!;
 while (my $line = <OM>) {
   chomp($line);
   $nofone{$line} = 1;
@@ -118,7 +118,9 @@ W1:while (my $line = <IN>) {
       $gene = $genechange;
       $effect = $effectchange;
   }
-  
+  if($effect eq 'structural_interaction_variant'){
+    next;
+  } 
   $rnaexpress = $fpkm{$gene} if ($fpkm{$gene});
   $incosmic = $cosmic{$gene} if ($cosmic{$gene});
   $innofone = $nofone{$gene} if ($nofone{$gene});
@@ -130,7 +132,7 @@ W1:while (my $line = <IN>) {
   #    $hash{SRR} = $hash{TCR}-$hash{SAR};
   #    $hash{SRF} = $hash{TCF}-$hash{SAF};
   #}
-  print OUT join(",",$hash{'HG38Loci'},join(":",$chrom,$pos),$id,$gene,$aa,$effect,$ref,$alt,
+  print OUT join(",",$hash{'HG38Loci'},join(":",$chrom,$pos),$id,$gene,$codon,$aa,$effect,$ref,$alt,
 		 $somstatus,$hash{RnaSeqValidation},$rnaexpress,$innofone,$incosmic,$inrole,
 		 $hash{AF},$hash{DP},$hash{NormalAF},$hash{NormalDP},$hash{RnaSeqAF},
 		 $hash{RnaSeqDP},$strandbias,$incivic),"\n";

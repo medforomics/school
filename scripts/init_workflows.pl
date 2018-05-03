@@ -227,6 +227,7 @@ my $controlfile = $outnf."/GM12878/GM12878_".$prjid.".germline.vcf.gz";
 foreach my $posCtrls (keys %control){
   print CAS "vcf-subset -c ",$posCtrls," ",$controlfile," |bgzip > ",$posCtrls.".annot.vcf.gz\n";
   print CAS "bash $baseDir\/scripts/snsp.sh $posCtrls >$posCtrls\.snsp\.txt\n";
+  print CAS "rsync -avz $posCtrls\.snsp\.txt /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/GM12878"
 }
 
 foreach $case (keys %stype) {
@@ -237,7 +238,7 @@ foreach $case (keys %stype) {
 foreach $project (keys %spairs) {
   foreach $class (keys  %{$spairs{$project}}) {
     foreach $samp (keys %{$spairs{$project}{$class}}) {
-      print CAS "curl \"http://nuclia-test.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResults?token=\$nucliatoken&subjectName=$project&sampleName=$samp&runName=$opt{prjid}\"\n";
+      print CAS "curl \"http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResults?token=\$nucliatoken&subjectName=$project&sampleName=$samp&runName=$opt{prjid}\"\n";
     }
   }
 }
