@@ -7,12 +7,16 @@ my $prefix = $vcffile;
 $prefix =~ s/\.vcf//;
 my $input = "$vcffile" or die $!;
 open OUT, ">$prefix\.tumornormal.csv" or die $!;
+<<<<<<< HEAD
 print OUT join(",",'LociGRCh38','LociGRCh37','ID','Gene','Nucleotide','AminoAcid','Effect','Ref','Alt',
+=======
+print OUT join(",",'LociGRCh38','LociGRCh37','ID','Gene','AminoAcid','Effect','Ref','Alt','RepeatType'
+>>>>>>> master
 	       'SomaticStatus','RNASeqValidation; 1=YES; 0=NO','Gene Abundance (FPKM)','NofOne','Cosmic Disease',
 	       'Cosmic Role','Tumor DNA AF','Tumor DNA Depth','Normal DNA AF','Normal DNA Depth','Tumor RNA AF',
-	       'Tumor RNA Depth','StrandBias','CIVIC Gene Annotation'),"\n";
+	       'Tumor RNA Depth','CIVIC Gene Annotation'),"\n";
 
-my $refdir = '/project/shared/bicf_workflow_ref/GRCh38/';
+my $refdir = '/project/shared/bicf_workflow_ref/GRCh38';
 my %cosmic;
 open OM, "<$refdir\/cosmic_census.txt" or die $!;
 while (my $line = <OM>) {
@@ -73,7 +77,7 @@ W1:while (my $line = <IN>) {
   $hash{RnaSeqDP} = 0 unless $hash{RnaSeqDP};
   $hash{RnaSeqAF} = 0 unless $hash{RnaSeqAF};
   $hash{RnaSeqValidation} = 0 unless ($hash{RnaSeqValidation});
-  #$strandbias = $hash{SAP} if (defined($hash{SAP}));
+  $strandbias = '';
   $strandbias = $hash{FS} if (defined($hash{FS}));
   my $somstatus = 'unk';
   $somstatus = 'Somatic' if ($hash{SS} == 2);
@@ -127,15 +131,9 @@ W1:while (my $line = <IN>) {
   $innofone = $nofone{$gene} if ($nofone{$gene});
   $inrole = $roleincancer{$gene} if ($roleincancer{$gene});
   $incivic = $civic{$gene} if ($civic{$gene});
-  #if ($hash{NF}) {
-  #    $hash{SAR} = $hash{TR} - $hash{NF};
-  #    $hash{SAF} = $hash{NF};
-  #    $hash{SRR} = $hash{TCR}-$hash{SAR};
-  #    $hash{SRF} = $hash{TCF}-$hash{SAF};
-  #}
-  print OUT join(",",$hash{'HG38Loci'},join(":",$chrom,$pos),$id,$gene,$codon,$aa,$effect,$ref,$alt,
+  print OUT join(",",$hash{'HG38Loci'},join(":",$chrom,$pos),$id,$gene,$codon,$aa,$effect,$ref,$alt,$hash{RepeatType},
 		 $somstatus,$hash{RnaSeqValidation},$rnaexpress,$innofone,$incosmic,$inrole,
 		 $hash{AF},$hash{DP},$hash{NormalAF},$hash{NormalDP},$hash{RnaSeqAF},
-		 $hash{RnaSeqDP},$strandbias,$incivic),"\n";
+		 $hash{RnaSeqDP},$incivic),"\n";
 }
 

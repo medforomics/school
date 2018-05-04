@@ -18,7 +18,7 @@ while (my $line = <OM>) {
 close OM;
 
 my $rnaseqid;
-if (-e $rnaseq_ntct) {
+if ($rnaseq_ntct && -e $rnaseq_ntct) {
   open NRC, "<$rnaseq_ntct" or die $!;
   while (my $line = <NRC>) {
     chomp($line);
@@ -114,9 +114,6 @@ W1:while (my $line = <IN>) {
   }
   my ($chrom, $pos,$id,$ref,$alt,$score,
       $filter,$annot,$format,@gts) = split(/\t/, $line);
-  if ($pos == 26558819) {
-      warn "Debugging\n";
-  }
   next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
   my %hash = ();
   foreach $a (split(/;/,$annot)) {
@@ -126,21 +123,28 @@ W1:while (my $line = <IN>) {
   $hash{'HG38Loci'} = join(":",$chrom,$pos);
   my %fail;
   $fail{'UTSWBlacklist'} = 1 if ($hash{UTSWBlacklist});
-  my $exacaf = '';
-  if ($hash{AC_POPMAX} && $hash{AN_POPMAX}) {
-    @exacs = split(/,/,$hash{AC_POPMAX});
+  my @exacaf;
+  my $exacaf;
+  if ($hash{AF_POPMAX}) {
+    foreach (split(/,/,$hash{AF_POPMAX})) {
+      push @exacaf, $_ if ($_ ne '.');
+    }
+    @exacaf = sort {$b <=> $a} @exacaf;
+    $exacaf = $exacaf[0] if ($exacaf[0]);
+  }elsif ($hash{AC_POPMAX} && $hash{AN_POPMAX}) {
+    my @exacs = split(/,/,$hash{AC_POPMAX});
     my $ac = 0;
     foreach $val (@exacs) {
       $ac += $val if ($val =~ m/^\d+$/);
     }
-    @exans = split(/,/,$hash{AN_POPMAX});
+    my @exans = split(/,/,$hash{AN_POPMAX});
     my $an = 0;
     foreach $val (@exans) {
       $an += $val if ($val =~ m/^\d+$/);
     }
     $exacaf = sprintf("%.4f",$ac/$an) if ($ac > 0 && $an > 10);
   }
-  $fail{'COMMON'} = 1 unless ($exacaf eq '' || $exacaf <= 0.01);
+  $fail{'COMMON'} = 1 if ($exacaf && $exacaf > 0.01);
   $fail{'StrandBias'} = 1 if (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i);
   my $cosmicsubj = 0;
   if ($hash{CNT}) {
@@ -208,37 +212,37 @@ W1:while (my $line = <IN>) {
     $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.05);
     #$fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.10 && $hash{TYPE} ne 'snp');
   }
-  $hash{SS} = 5;
   delete $hash{SOMATIC};
-  if ($gtinfo{$normalid} && $gtinfo{$normalid}{MAF}) {
-    @normalmaf = @{$gtinfo{$normalid}{MAF}};
-    $hash{NormalAF} = $normalmaf[0];
-    $hash{NormalDP} = $gtinfo{$normalid}{DP};
-    if ($normalmaf[0] >= 0.30) {
+  $hash{SS} = 5  unless ($hash{SS});
+  if ($gtinfo{$normalid} && exists $gtinfo{$normalid}{MAF}) {
+      @normalmaf = @{$gtinfo{$normalid}{MAF}};
+      $hash{NormalAF} = $normalmaf[0];
+      $hash{NormalDP} = $gtinfo{$normalid}{DP};
+    if ($normalmaf[0] >= 0.25) {
       $hash{SS} = 1;
     }elsif ($tumormaf[0] < 0.05 && ($normalmaf[0] > 0.01 || $normalmaf[0]*5 > $tumormaf[0])) {
       next;
     }elsif ($normalmaf[0] >= 0.05 || $normalmaf[0]*5 > $tumormaf[0]) {
       $hash{'HighFreqNormalAF'} = 1;
-    }elsif ($hash{SomaticCallSet}) {
+    }else {
       $hash{SS} = 2;
     }
   }
   $gtinfo{$normalid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'} unless ($gtinfo{$normalid});
   if ($rnaval{$chrom}{$pos}) {
-      $gtinfo{$rnaseqid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'};
-      my ($rnahashref,$rnadp) = @{$rnaval{$chrom}{$pos}};
-      if ($rnadp > 10) {
-	  my %rnantct = %{$rnahashref};
-	  my @altcts;
-	  my $totalaltct =0;
-	  foreach $altnt (split(/,/,$alt)) {
-	      my $ct = $rnantct{$altnt};
-	      $ct = 0 unless ($ct);
-	      $totalaltct += $ct;
+    $gtinfo{$rnaseqid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'};
+    my ($rnahashref,$rnadp) = @{$rnaval{$chrom}{$pos}};
+    if ($rnadp > 10) {
+      my %rnantct = %{$rnahashref};
+      my @altcts;
+      my $totalaltct =0;
+      foreach $altnt (split(/,/,$alt)) {
+	my $ct = $rnantct{$altnt};
+	$ct = 0 unless ($ct);
+	$totalaltct += $ct;
 	      push @altcts, $ct;
-	  }
-	  $hash{RnaSeqDP} = $rnadp;
+      }
+      $hash{RnaSeqDP} = $rnadp;
       $hash{RnaSeqAF} = sprintf("%.4f",$altcts[0]/$rnadp);
       $gtinfo{$rnaseqid}{RO} = $rnadp - $totalaltct;
       $gtinfo{$rnaseqid}{AO} = join(",",@altcts);
@@ -248,7 +252,7 @@ W1:while (my $line = <IN>) {
     }
   }
   if ($rnaseqid) {
-    if ($gtinfo{$rnaseqid}{AO} && $gtinfo{$rnaseqid}{AO} =~ m/^\d+/ &&
+      if ($gtinfo{$rnaseqid}{AO} && $gtinfo{$rnaseqid}{AO} =~ m/^\d+/ &&
 	(split(/,/,$gtinfo{$rnaseqid}{AO}))[0] > 2) {
       $hash{RnaSeqValidation} = 1
     }
@@ -290,10 +294,13 @@ W1:while (my $line = <IN>) {
       push @nannot, $info;
     }
   }
+  if ($pos == 97883329) {
+      warn "Debugging\n";
+  }
   $newannot = join(";",@nannot);
   print PASS join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$newannot,
 		 $newformat,@newgt),"\n" if ($filter eq 'PASS');
   print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$newannot,
-		 $newformat,@newgt),"\n" if ($filter eq 'PASS' || $id =~ m/COS/ || $cancergene);
+		 $newformat,@newgt),"\n" if ($filter eq 'PASS' || $id =~ m/COS/ || $cancergene || $filter eq 'FailedQC;COMMON');
 }
 close IN;
