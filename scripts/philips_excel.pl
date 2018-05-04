@@ -7,11 +7,7 @@ my $prefix = $vcffile;
 $prefix =~ s/\.vcf//;
 my $input = "$vcffile" or die $!;
 open OUT, ">$prefix\.tumornormal.csv" or die $!;
-<<<<<<< HEAD
-print OUT join(",",'LociGRCh38','LociGRCh37','ID','Gene','Nucleotide','AminoAcid','Effect','Ref','Alt',
-=======
-print OUT join(",",'LociGRCh38','LociGRCh37','ID','Gene','AminoAcid','Effect','Ref','Alt','RepeatType'
->>>>>>> master
+print OUT join(",",'LociGRCh38','LociGRCh37','ID','Gene','Nucleotide','AminoAcid','Effect','Ref','Alt','RepeatType'
 	       'SomaticStatus','RNASeqValidation; 1=YES; 0=NO','Gene Abundance (FPKM)','NofOne','Cosmic Disease',
 	       'Cosmic Role','Tumor DNA AF','Tumor DNA Depth','Normal DNA AF','Normal DNA Depth','Tumor RNA AF',
 	       'Tumor RNA Depth','CIVIC Gene Annotation'),"\n";
