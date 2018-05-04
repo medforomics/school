@@ -64,7 +64,7 @@ tabix -f ${subject}.pass.vcf.gz
 
 bedtools intersect -header -a ${subject}.pass.vcf.gz -b ${index_path}/clinseq_prj/UTSWV2.bed  |uniq |bgzip > ${subject}.utswpass.vcf.gz
 zgrep -c "SS=2" ${subject}.utswpass.vcf.gz |awk '{print "Class,TMB\n,"sprintf("%.2f",$1/4.6)}' > ${subject}.TMB.csv
-perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz
+perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz >${subject}.concordance.vcf.gz
 
 #Convert to HG37
 module load crossmap/0.2.5

@@ -7,7 +7,7 @@ my $prefix = $vcffile;
 $prefix =~ s/\.vcf//;
 my $input = "$vcffile" or die $!;
 open OUT, ">$prefix\.tumornormal.csv" or die $!;
-print OUT join(",",'LociGRCh38','LociGRCh37','ID','Gene','AminoAcid','Effect','Ref','Alt','RepeatType'
+print OUT join(",",'LociGRCh38','LociGRCh37','ID','Gene','Nucleotide','AminoAcid','Effect','Ref','Alt','RepeatType'
 	       'SomaticStatus','RNASeqValidation; 1=YES; 0=NO','Gene Abundance (FPKM)','NofOne','Cosmic Disease',
 	       'Cosmic Role','Tumor DNA AF','Tumor DNA Depth','Normal DNA AF','Normal DNA Depth','Tumor RNA AF',
 	       'Tumor RNA Depth','CIVIC Gene Annotation'),"\n";
@@ -105,6 +105,7 @@ W1:while (my $line = <IN>) {
   my $innofone = '';
   my $inrole = '';
   my $incivic = '';
+  my $codon ='';
   my $aa = '';
   $hash{NormalAF} = 0 unless ($hash{NormalAF});
   $hash{NormalDP} = 0 unless ($hash{NormalDP});
@@ -118,13 +119,15 @@ W1:while (my $line = <IN>) {
       $gene = $genechange;
       $effect = $effectchange;
   }
-  
+  if($effect eq 'structural_interaction_variant'){
+    next;
+  } 
   $rnaexpress = $fpkm{$gene} if ($fpkm{$gene});
   $incosmic = $cosmic{$gene} if ($cosmic{$gene});
   $innofone = $nofone{$gene} if ($nofone{$gene});
   $inrole = $roleincancer{$gene} if ($roleincancer{$gene});
   $incivic = $civic{$gene} if ($civic{$gene});
-  print OUT join(",",$hash{'HG38Loci'},join(":",$chrom,$pos),$id,$gene,$aa,$effect,$ref,$alt,$hash{RepeatType},
+  print OUT join(",",$hash{'HG38Loci'},join(":",$chrom,$pos),$id,$gene,$codon,$aa,$effect,$ref,$alt,$hash{RepeatType},
 		 $somstatus,$hash{RnaSeqValidation},$rnaexpress,$innofone,$incosmic,$inrole,
 		 $hash{AF},$hash{DP},$hash{NormalAF},$hash{NormalDP},$hash{RnaSeqAF},
 		 $hash{RnaSeqDP},$incivic),"\n";
