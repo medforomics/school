@@ -221,14 +221,14 @@ foreach $dtype (keys %samples) {
 }
 print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt --projectid _${prjid} --callsvs skip --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
 print CAS "wait\n";
-print CAS "cd $outnf\n";
 
 my $controlfile = $outnf."/GM12878/GM12878_".$prjid.".germline.vcf.gz";
+print CAS "cd $outnf\/GM12878n";
 foreach my $posCtrls (keys %control){
   print CAS "vcf-subset -c ",$posCtrls," ",$controlfile," |bgzip > ",$posCtrls.".annot.vcf.gz\n";
   print CAS "bash $baseDir\/scripts/snsp.sh $posCtrls >$posCtrls\.snsp\.txt\n";
-  print CAS "rsync -avz $posCtrls\.snsp\.txt /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/GM12878"
 }
+print CAS "cd $outnf\n";
 
 foreach $case (keys %stype) {
   print CAS "rsync -avz $case /project/PHG/PHG_Clinical/".$stype{$case},"\n";
