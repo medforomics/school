@@ -32,7 +32,7 @@ my $subjectid = $splitPath[-3];
 my $projectDirectory = join("/", @splitPath[0..$#splitPath-2]);
 
 my $trans_loc_out = $projectDirectory."/".$subjectid.".translocations.txt";
-$tloc_out = $projectDirectory."/".$subjectid.".translocations_ir.txt";
+$tloc_out = $projectDirectory."/".$subjectid.".cbioportal.fusion.txt";
 
 open OUT, ">$trans_loc_out" or die $!;
 open OUTIR, ">$tloc_out" or die $!;
@@ -77,8 +77,9 @@ while (my $line = <FUSION>) {
     print OUT join("\t",$fname,$hash{LeftGene},$hash{RightGene},
 		   $hash{LeftBreakpoint},$hash{RightBreakpoint},$hash{LeftStrand},
 		   $hash{RightStrand},$hash{SumRNAReads},0),"\n";
-    print OUTIR join("\t",$fname,$ename,"UTSW NGS Clinical Sequencing Lab",$sname,$fname." fusion",
-		     0,$rna_support,"STAR 2.5.2b","N/A"),"\n";
+    print OUTIR join("\t",$hash{LeftGene},$entrez{$hash{LeftGene}},
+                    "http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/",
+                    $sname,$fname." fusion",$dna_support,$rna_support,"STAR 2.5.2b","N/A"),"\n";
   }
 }
 
