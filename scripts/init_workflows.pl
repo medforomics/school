@@ -223,13 +223,13 @@ print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/somat
 print CAS "wait\n";
 
 my $controlfile = $outnf."/GM12878/GM12878_".$prjid.".germline.vcf.gz";
+print CAS "cd $outnf\/GM12878n";
 foreach my $posCtrls (keys %control){
-  print CAS "cd $outnf\/$control{$posCtrls}\n";
   print CAS "vcf-subset -c ",$posCtrls," ",$controlfile," |bgzip > ",$posCtrls.".annot.vcf.gz\n";
   print CAS "bash $baseDir\/scripts/snsp.sh $posCtrls >$posCtrls\.snsp\.txt\n";
 }
-
 print CAS "cd $outnf\n";
+
 foreach $case (keys %stype) {
   print CAS "rsync -avz $case /project/PHG/PHG_Clinical/".$stype{$case},"\n";
   print CAS "rsync -rlptgoD --exclude=\"*bam*\" $case /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
