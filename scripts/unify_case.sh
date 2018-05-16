@@ -25,7 +25,7 @@ do
         s) somatic_vcf=$OPTARG;;
         x) rnaseq_vcf=$OPTARG;;
         c) rnaseq_ntct=$OPTARG;;
-	f) fpkm=$OPTARG;;
+	f) rnaseq_fpkm=$OPTARG;;
         h) usage;;
     esac
 done
@@ -73,7 +73,7 @@ cat ${subject}.PASS.hg19.vcf |perl -p -e 's/^chr//g' > ${subject}.formaf.vcf
 perl $baseDir/philips_excel.pl ${subject}.PASS.hg19.vcf $rnaseq_fpkm
 
 zcat ${subject}.pass.vcf.gz |perl -p -e 's/^chr//g' > ${subject}.formaf.vcf
-perl ${vepdir}/vcf2maf.pl --input ${subject}.formaf.vcf --output ${subject}.maf --species homo_sapiens --ncbi-build GRCh37 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh37.75.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $nromal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot.txt --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc.txt --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
+perl ${vepdir}/vcf2maf.pl --input ${subject}.formaf.vcf --output ${subject}.maf --species homo_sapiens --ncbi-build GRCh37 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh37.75.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot.txt --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc.txt --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
 
 rsync -rlptgoD ${subject}.vcf.gz ${subject}.TMB.csv /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/${subject}
 

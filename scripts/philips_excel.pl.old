@@ -119,9 +119,6 @@ W1:while (my $line = <IN>) {
       $gene = $genechange;
       $effect = $effectchange;
   }
-  if($effect eq 'structural_interaction_variant'){
-    next;
-  } 
   $rnaexpress = $fpkm{$gene} if ($fpkm{$gene});
   $incosmic = $cosmic{$gene} if ($cosmic{$gene});
   $innofone = $nofone{$gene} if ($nofone{$gene});
