@@ -15,15 +15,15 @@ chomp($hline);
 my @cols = split(/\t/,$hline);
 my %info;
 while (my $line = <DESIGN>) {
-    chomp($line);
-    my @row = split(/\t/,$line);
-    foreach my $i (0..$#row) {
-	$hash{$cols[$i]} = $row[$i];
-    }
-    if ($somaticvcf =~ m/$hash{PairID}/) {
-	$tumorid = $hash{TumorID};
-	$normalid = $hash{NormalID};
-    }
+  chomp($line);
+  my @row = split(/\t/,$line);
+  foreach my $i (0..$#row) {
+    $hash{$cols[$i]} = $row[$i];
+  }
+  if ($somaticvcf =~ m/$hash{PairID}/) {
+    $tumorid = $hash{TumorID};
+    $normalid = $hash{NormalID};
+  }
 }
 
 open OUT, ">$outfile" or die $!;
@@ -36,28 +36,39 @@ W1:while (my $line = <IN>) {
      $filter,$info,$format,@gtheader) = split(/\t/, $line);
     print OUT join("\t",$chrom,$pos,$id,$ref,$alt,$score,
 		   $filter,$info,$format,@gtheader),"\n";
-
+    
     foreach $id (@gtheader) {
       if ($id =~ m/_T_/) {
-	$tumorid = $id;
+	$tumorid = $id unless $tumorid;
       }else {
-	$normalid = $id;
+	$normalid = $id unless $normalid;
       }
     }
     next;
   } elsif ($line =~ m/^#/) {
-    $line =~ s/CallSet/SomaticCallSet/;
+    if ($line =~ m/CallSet/) {
+      print OUT $line,"\n";
+      $line =~ s/CallSet/SomaticCallSet/;
+    }
     print OUT $line,"\n";
     next;
   }
   my ($chrom, $pos,$id,$ref,$alt,$score,
       $filter,$annot,$format,@gts) = split(/\t/, $line);
   next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
-  $annot =~ s/CallSet/SomaticCallSet/;
+  
   my %hash = ();
+  $annot =~ s/CallSet/SomaticCallSet/;
   foreach $a (split(/;/,$annot)) {
     my ($key,$val) = split(/=/,$a);
     $hash{$key} = $val unless ($hash{$key});
+  }
+  my @callinfo ;
+  @callinfo = split(/\|/, $hash{SomaticCallSet});
+  my @callers;
+  foreach $cinfo (@callinfo) {
+    my ($caller, $alt, @samafinfo) = split(/\//,$cinfo);
+    push @callers, $caller;
   }
   my %fail;
   my $cosmicsubj = 0;
@@ -91,12 +102,11 @@ W1:while (my $line = <IN>) {
   @tumormaf = @{$gtinfo{$tumorid}{MAF}};
   @tumoraltct = split(/,/,$gtinfo{$tumorid}{AO});
   if (exists $hash{INDEL}) {
-      $hash{TYPE} = 'indel';
+    $hash{TYPE} = 'indel';
   }
   $hash{TYPE} = 'ambi' unless ($hash{"TYPE"});
   next if ($tumoraltct[0] eq '.');
   $hash{AF} = join(",",@tumormaf);
-  my @callers = split(/,/,$hash{SomaticCallSet});
   $hash{SS} = 5;
   delete $hash{SOMATIC};
   next unless ($gtinfo{$normalid} && exists $gtinfo{$normalid}{MAF});
@@ -105,9 +115,7 @@ W1:while (my $line = <IN>) {
   $hash{NormalDP} = $gtinfo{$normalid}{DP};
   if ($normalmaf[0] >= 0.30) {
     next;
-  }elsif ($tumormaf[0] < 0.05 && ($normalmaf[0] > 0.01 || $normalmaf[0]*5 > $tumormaf[0])) {
-    next;
-  }elsif ($normalmaf[0] >= 0.05 || $normalmaf[0]*5 > $tumormaf[0]) {
+  }elsif ($normalmaf[0] >= 0.01 || $normalmaf[0]*5 > $tumormaf[0]) {
     next;
   }else {
     $hash{SS} = 2;
@@ -116,11 +124,11 @@ W1:while (my $line = <IN>) {
   my @newgt;
   foreach $sample (@gtheader) {
     my @gtdata;
-      foreach $gt (split(/:/,$newformat)) {
-	  $gtinfo{$sample}{$gt} = '.' unless (exists $gtinfo{$sample}{$gt});
-	  push @gtdata, $gtinfo{$sample}{$gt};
-      }
-      push @newgt, join(":",@gtdata);
+    foreach $gt (split(/:/,$newformat)) {
+      $gtinfo{$sample}{$gt} = '.' unless (exists $gtinfo{$sample}{$gt});
+      push @gtdata, $gtinfo{$sample}{$gt};
+    }
+    push @newgt, join(":",@gtdata);
   }
   print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$annot,
 		 $newformat,@newgt),"\n";

@@ -52,7 +52,7 @@ fi
 
 tabix -f somatic_germline.vcf.gz
 
-perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path $rnaseq_vcf $rnaseq_ntct
+perl $baseDir/integrate_vcfs_callerformat1.pl ${subject} $tumor_id $normal_id $index_path $rnaseq_vcf $rnaseq_ntct
 vcf-sort ${subject}.all.vcf | uniq | bgzip > ${subject}.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz

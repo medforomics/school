@@ -7,10 +7,11 @@ my $prefix = $vcffile;
 $prefix =~ s/\.vcf//;
 my $input = "$vcffile" or die $!;
 open OUT, ">$prefix\.tumornormal.csv" or die $!;
-print OUT join(",",'LociGRCh38','LociGRCh37','ID','Gene','Nucleotide','AminoAcid','Effect','Ref','Alt','RepeatType',
+print OUT join(",",'LociGRCh38','LociGRCh37','gnomAD POPMAX AF','ID','InconsistentCallSet',
+	       'Gene','Nucleotide','AminoAcid','Effect','Ref','Alt','RepeatType',
 	       'SomaticStatus','RNASeqValidation; 1=YES; 0=NO','Gene Abundance (FPKM)','NofOne','Cosmic Disease',
 	       'Cosmic Role','Tumor DNA AF','Tumor DNA Depth','Normal DNA AF','Normal DNA Depth','Tumor RNA AF',
-	       'Tumor RNA Depth','CIVIC Gene Annotation'),"\n";
+	       'Tumor RNA Depth','CallSet','CIVIC Gene Annotation'),"\n";
 
 my $refdir = '/project/shared/bicf_workflow_ref/GRCh38';
 my %cosmic;
@@ -124,9 +125,10 @@ W1:while (my $line = <IN>) {
   $innofone = $nofone{$gene} if ($nofone{$gene});
   $inrole = $roleincancer{$gene} if ($roleincancer{$gene});
   $incivic = $civic{$gene} if ($civic{$gene});
-  print OUT join(",",$hash{'HG38Loci'},join(":",$chrom,$pos),$id,$gene,$codon,$aa,$effect,$ref,$alt,$hash{RepeatType},
+  print OUT join(",",$hash{'HG38Loci'},join(":",$chrom,$pos),$hash{AF_POPMAX},$id,$hash{CallSetInconsistent},
+		 $gene,$codon,$aa,$effect,$ref,$alt,$hash{RepeatType},
 		 $somstatus,$hash{RnaSeqValidation},$rnaexpress,$innofone,$incosmic,$inrole,
 		 $hash{AF},$hash{DP},$hash{NormalAF},$hash{NormalDP},$hash{RnaSeqAF},
-		 $hash{RnaSeqDP},$incivic),"\n";
+		 $hash{RnaSeqDP},$hash{CallSet},$incivic),"\n";
 }
 
