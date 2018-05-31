@@ -178,7 +178,7 @@ process mutect {
 // }
 process varscan {
   errorStrategy 'ignore'
-  //publishDir "$params.output", mode: 'copy'
+  //publishDir "$params.output/$pid/somatic", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from vscanbam
   output:
@@ -194,7 +194,7 @@ process varscan {
 
 process shimmer {
   errorStrategy 'ignore'
-  //publishDir "$params.output", mode: 'copy'
+  //publishDir "$params.output/$pid/somatic", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from shimmerbam
   output:
@@ -207,7 +207,7 @@ process shimmer {
 
 process virmid {
   errorStrategy 'ignore'
-  //publishDir "$params.output", mode: 'copy'
+  //publishDir "$params.output/$pid/somatic", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from virmidbam
   output:
