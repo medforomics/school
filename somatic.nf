@@ -132,7 +132,7 @@ process svcall {
 }
 process sstumor {
   errorStrategy 'ignore'
-  //publishDir "$params.output", mode: 'copy'
+  //publishDir "$params.output/$pid/somatic", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from ssbam
   output:
