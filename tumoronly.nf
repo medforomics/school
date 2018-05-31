@@ -57,7 +57,7 @@ new File(params.design).withReader { reader ->
     	   def row = line.split("\t")
 	   if (fileMap.get(row[oneidx]) != null) {
 	      oribam << tuple(row[fidx],row[tidx],fileMap.get(row[oneidx]))
-	      tarbam << tuple(row[fidx],row[tidx],fileMap.get(row[taridx]))
+	      tarbam << tuple(row[fidx],fileMap.get(row[taridx]))
 	   }
 	  
 } 
@@ -81,9 +81,9 @@ process indexoribams {
 
 process indexbams {
   input:
-  set sid,tid,file(tumor) from tarbam
+  set sid,file(tumor) from tarbam
   output:
-  set sid,tid,file(tumor),file("${tumor}.bai") into idxbam
+  set sid,file(tumor),file("${tumor}.bai") into idxbam
   script:
   """
   bash $baseDir/process_scripts/alignment/indexbams.sh 
@@ -146,7 +146,7 @@ process hotspot {
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
-  set subjid,pair_id,file(gbam),file(gidx) from hsbam
+  set subjid,file(gbam),file(gidx) from hsbam
   output:
   set subjid,file("${subjid}.hotspot.vcf.gz") into hsvcf
   when:
@@ -161,7 +161,7 @@ process speedseq {
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set subjid,pair_id,file(gbam),file(gidx) from ssbam
+  set subjid,file(gbam),file(gidx) from ssbam
   output:
   set subjid,file("${subjid}.ssvar.vcf.gz") into ssvcf
   script:
@@ -175,7 +175,7 @@ process strelka2 {
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set subjid,pair_id,file(gbam),file(gidx) from strelkabam
+  set subjid,file(gbam),file(gidx) from strelkabam
   output:
   set subjid,file("${subjid}.strelka2.vcf.gz") into strelkavcf
   script:
@@ -196,7 +196,7 @@ process platypus {
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set subjid,pair_id,file(gbam),file(gidx) from platbam
+  set subjid,file(gbam),file(gidx) from platbam
   output:
   set subjid,file("${subjid}.platypus.vcf.gz") into platvcf
   when:

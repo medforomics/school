@@ -78,7 +78,7 @@ while (my $line = <IN>) {
   }
   #next if (exists $hash{FS} && $hash{FS} > 60);
   $is_gs = 1;
-  $is_gs = 0 if ($hash{CallSet} !~ m/\|/ && $hash{CallSet} =~ m/hotspot/ && $maf > 0.1);
+  $is_gs = 0 if ($hash{CallSet} =~ m/hotspot/ && $maf > 0.1);
   if (($id =~ m/COS/) && $cosmicsubj >= 5) {
     $is_gs = 0 if ($dp < 20 || $altct < 3);
     $is_gs = 0 if ($maf < 0.01 && $vartype eq 'snp');
