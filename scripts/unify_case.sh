@@ -53,7 +53,7 @@ fi
 tabix -f somatic_germline.vcf.gz
 
 perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path $rnaseq_vcf $rnaseq_ntct
-vcf-sort ${subject}.all.vcf | uniq | bgzip > ${subject}.vcf.gz
+vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b ${index_path}/clinseq_prj/UTSWV2.bed | uniq | bgzip > ${subject}.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
 tabix -f ${subject}.pass.vcf.gz
@@ -66,7 +66,7 @@ perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.conc
 
 #Convert to HG37
 module load crossmap/0.2.5
-CrossMap.py vcf ${index_path}/../hg38ToHg19.over.chain.gz ${subject}.pass.vcf.gz /project/apps_database/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa ${subject}.PASS.hg19.vcf
+CrossMap.py vcf ${index_path}/../hg38ToHg19.over.chain.gz ${subject}.utswpass.vcf.gz /project/apps_database/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa ${subject}.PASS.hg19.vcf
 cat ${subject}.PASS.hg19.vcf |perl -p -e 's/^chr//g' > ${subject}.formaf.vcf
 perl $baseDir/philips_excel.pl ${subject}.PASS.hg19.vcf $rnaseq_fpkm
 

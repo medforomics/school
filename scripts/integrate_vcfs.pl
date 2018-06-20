@@ -196,21 +196,30 @@ W1:while (my $line = <IN>) {
   $hash{TYPE} = 'ambi' unless ($hash{"TYPE"});
   next if ($tumoraltct[0] eq '.');
   $hash{AF} = join(",",@tumormaf);
-    my @callinfo ;
-  @callinfo = split(/\|/, $hash{CallSet}) if ($hash{CallSet});
-  if ($hash{SomaticCallSet}) {
-      @callinfo = split(/\|/, $hash{SomaticCallSet}) if ($hash{SomaticCallSet});
-  }
   my @callers;
-  foreach $cinfo (@callinfo) {
-      my ($caller, $alt, @samafinfo) = split(/\//,$cinfo);
-      push @callers, $caller;
+  if ($hash{CallSet} && $hash{CallSet} =~ m/\// || $hash{SomaticCallSet} && $hash{SomaticCallSet} =~ m/\//) {
+      my @callinfo ;
+      @callinfo = split(/\|/, $hash{CallSet}) if ($hash{CallSet});
+      if ($hash{SomaticCallSet}) {
+	  @callinfo = split(/\|/, $hash{SomaticCallSet}) if ($hash{SomaticCallSet});
+      }
+      foreach $cinfo (@callinfo) {
+	  my ($caller, $alt, @samafinfo) = split(/\//,$cinfo);
+	  push @callers, $caller;
+      }
+      $hash{CallSet} = join("|",@callinfo);
+  }else {
+      if ($hash{CallSet}) {
+	  @callers = (@callers, split(/\,/, $hash{CallSet}));
+      }
+      if ($hash{SomaticCallSet}) {
+	  @callers = (@callers, split(/\,/, $hash{SomaticCallSet}));
+      }
   }
-  $hash{CallSet} = join("|",@callinfo);
   if ($id =~ m/COS/ && $cosmicsubj >= 5) {
-    $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 3);
-    $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.01);
-    #$fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.03 && $hash{TYPE} ne 'snp');
+      $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 3);
+      $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.01);
+      #$fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.03 && $hash{TYPE} ne 'snp');
   }else {
     $fail{'OneCaller'} = 1 if (scalar(@callers) < 2);
     $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 8);

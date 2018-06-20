@@ -131,7 +131,7 @@ process svcall {
 
 process mpileup {
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$subjid/$params.nuctype", mode: 'copy'
   input:
   set subjid,file(gbam),file(gidx) from sambam
   
@@ -144,7 +144,7 @@ process mpileup {
 }
 process hotspot {
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$subjid/$params.nuctype", mode: 'copy'
   input:
   set subjid,file(gbam),file(gidx) from hsbam
   output:
@@ -158,7 +158,7 @@ process hotspot {
 }
 process speedseq {
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$subjid/$params.nuctype", mode: 'copy'
 
   input:
   set subjid,file(gbam),file(gidx) from ssbam
@@ -172,7 +172,7 @@ process speedseq {
 
 process strelka2 {
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$subjid/$params.nuctype", mode: 'copy'
 
   input:
   set subjid,file(gbam),file(gidx) from strelkabam
@@ -193,7 +193,7 @@ process strelka2 {
 
 process platypus {
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$subjid/$params.nuctype", mode: 'copy'
 
   input:
   set subjid,file(gbam),file(gidx) from platbam

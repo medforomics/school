@@ -10,6 +10,7 @@ params.genome="/project/shared/bicf_workflow_ref/GRCh38"
 params.capture="$params.genome/clinseq_prj/UTSWV2.bed"
 params.pairs="pe"
 params.cancer="detect"
+params.markdups='picard'
 
 reffa=file("$params.genome/genome.fa")
 dbsnp="$params.genome/dbSnp.vcf.gz"
@@ -74,8 +75,9 @@ process align {
   file("${pair_id}.libcomplex.txt") into libcomplex
   """
   source /etc/profile.d/modules.sh
+  touch ${pair_id}.dedup.stat.txt
   bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2
-  bash $baseDir/process_scripts/alignment/markdups.sh -a picard -b ${pair_id}.bam -p $pair_id
+  bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b ${pair_id}.bam -p $pair_id
   mv ${pair_id}.dedup.stat.txt ${pair_id}.libcomplex.txt
   """
 }
