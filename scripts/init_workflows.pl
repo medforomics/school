@@ -223,8 +223,8 @@ print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/somat
 print CAS "wait\n";
 
 my $controlfile = $outnf."/GM12878/GM12878_".$prjid.".germline.vcf.gz";
-print CAS "cd $outnf\/GM12878n";
 foreach my $posCtrls (keys %control){
+  print CAS "cd $outnf\/GM12878\n";
   print CAS "vcf-subset -c ",$posCtrls," ",$controlfile," |bgzip > ",$posCtrls.".annot.vcf.gz\n";
   print CAS "bash $baseDir\/scripts/snsp.sh $posCtrls >$posCtrls\.snsp\.txt\n";
 }
