@@ -10,6 +10,8 @@ usage() {
   echo "-s  --somatic vcf"
   echo "-x  --rnaseq vcf"
   echo "-c  --rnaseq read ct"
+  echo "-f  --rnaseq fpkm"
+  echo "-b  --targetbed"
   echo "Example: bash unify_case.sh -p prefix -r /path/GRCh38"
   exit 1
 }
@@ -26,12 +28,17 @@ do
         x) rnaseq_vcf=$OPTARG;;
         c) rnaseq_ntct=$OPTARG;;
 	f) rnaseq_fpkm=$OPTARG;;
-        h) usage;;
+ 	b) targetbed=$OPTARG;;
+	h) usage;;
     esac
 done
 if [[ -z $tumor_vcf ]] || [[ -z $subject ]] || [[ -z $index_path ]]; then
     usage
 fi 
+if [[ -z $targetbed ]]
+then
+targetbed="${index_path}/clinseq_prj/UTSWV2.bed"
+fi
 
 shift $(($OPTIND -1))
 baseDir="`dirname \"$0\"`"
@@ -53,14 +60,14 @@ fi
 tabix -f somatic_germline.vcf.gz
 
 perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path $rnaseq_vcf $rnaseq_ntct
-vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b ${index_path}/clinseq_prj/UTSWV2.bed | uniq | bgzip > ${subject}.vcf.gz
+vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
 tabix -f ${subject}.pass.vcf.gz
 
 #Makes TumorMutationBurenFile
 
-bedtools intersect -header -a ${subject}.pass.vcf.gz -b ${index_path}/clinseq_prj/UTSWV2.bed  |uniq |bgzip > ${subject}.utswpass.vcf.gz
+bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed  |uniq |bgzip > ${subject}.utswpass.vcf.gz
 zgrep -c "SS=2" ${subject}.utswpass.vcf.gz |awk '{print "Class,TMB\n,"sprintf("%.2f",$1/4.6)}' > ${subject}.TMB.csv
 perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
 

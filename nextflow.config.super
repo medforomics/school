@@ -1,5 +1,5 @@
 process.executor = 'slurm'
-process.clusterOptions = '--hold'
+process.clusterOptions = '--hold --no-kill'
 process.queue = '128GB,256GB,256GBv1'
 trace.enabled = true
 trace.file = 'pipeline_trace.txt'

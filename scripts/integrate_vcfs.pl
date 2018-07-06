@@ -2,15 +2,18 @@
 #integrate_datasets.pl
 
 #module load vcftools/0.1.14 samtools/1.6 bedtools/2.26.0 
-my ($subject,$tumorid,$normalid,$refdir,$rnaseq_vcf,$rnaseq_ntct) = @ARGV;
+use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
+my %opt = ();
+my $results = GetOptions (\%opt,'subject|s=s','tumor|t','normal|n','refdata|r','rnaseqvcf|v','rnaseqntct|c','help|h');
 
-open OM, "<$refdir\/clinseq_prj/panel1385.genelist.txt" or die $!;
+
+open OM, "<$opt{refdata}\/clinseq_prj/panel1385.genelist.txt" or die $!;
 while (my $line = <OM>) {
   chomp($line);
   $keep{$line} = 1;
 }
 close OM;
-open OM, "<$refdir\/clinseq_prj/cancer.genelist.txt" or die $!;
+open OM, "<$opt{refdata}\/clinseq_prj/cancer.genelist.txt" or die $!;
 while (my $line = <OM>) {
   chomp($line);
   $cgenelist{$line} = 1;
@@ -18,8 +21,8 @@ while (my $line = <OM>) {
 close OM;
 
 my $rnaseqid;
-if ($rnaseq_ntct && -e $rnaseq_ntct) {
-  open NRC, "<$rnaseq_ntct" or die $!;
+if ($opt{rnaseqntct} && -e $opt{rnaseqntct}) {
+  open NRC, "<$opt{rnaseqntct}" or die $!;
   while (my $line = <NRC>) {
     chomp($line);
     my ($chrom,$pos,$ref,$depth,@reads) = split(/\t/,$line);
@@ -42,7 +45,7 @@ if ($rnaseq_ntct && -e $rnaseq_ntct) {
     $rnaval{$chrom}{$pos} = [\%hash,$depth];
   }
   close NRC;
-  open RVCF, "gunzip -c $rnaseq_vcf |" or die $!;
+  open RVCF, "gunzip -c $opt{rnaseqvcf} |" or die $!;
  W1:while (my $line = <RVCF>) {
     chomp($line);
     if ($line =~ m/^#CHROM/) {
@@ -85,8 +88,8 @@ if ($rnaseq_ntct && -e $rnaseq_ntct) {
   }
 }
 
-open OUT, ">$subject\.all.vcf" or die $!;
-open PASS, ">$subject\.pass.vcf" or die $!;
+open OUT, ">$opt{subject}\.all.vcf" or die $!;
+open PASS, ">$opt{subject}\.pass.vcf" or die $!;
 
 my @sampids;
 open IN, "gunzip -c somatic_germline.vcf.gz |" or die $!;
@@ -100,7 +103,7 @@ W1:while (my $line = <IN>) {
     my @header = split(/\t/,$line);
     ($chrom, $pos,$id,$ref,$alt,$score,
      $filter,$info,$format,@gtheader) = split(/\t/, $line);
-    @sampids = ($tumorid,$normalid);
+    @sampids = ($opt{tumor},$opt{normal});
     push @sampids, $rnaseqid if ($rnaseqid);
     print OUT join("\t",$chrom,$pos,$id,$ref,$alt,$score,
 		   $filter,$info,$format,@sampids),"\n";
@@ -162,7 +165,7 @@ W1:while (my $line = <IN>) {
     my @mutallfreq = ();
     foreach my $k (0..$#ainfo) {
       $gtinfo{$subjid}{$deschead[$k]} = $ainfo[$k];
-      $hash{$deschead[$k]} = $ainfo[$k] if ($subjid eq $tumorid);
+      $hash{$deschead[$k]} = $ainfo[$k] if ($subjid eq $opt{tumor});
     }
     $gtinfo{$subjid}{DP} = (split(/,/,$gtinfo{$subjid}{DP}))[0] if ($gtinfo{$subjid}{DP});
     next F1 unless ($gtinfo{$subjid}{DP} && $gtinfo{$subjid}{DP} ne '.' && $gtinfo{$subjid}{DP} >= 1);
@@ -183,12 +186,12 @@ W1:while (my $line = <IN>) {
     }
     $gtinfo{$subjid}{MAF} = \@mutallfreq;
   }
-  next unless ($gtinfo{$tumorid}{DP} && $gtinfo{$tumorid}{DP} ne '.' && $gtinfo{$tumorid}{DP} >= 20);
-  unless ($gtinfo{$tumorid}{AO} =~ m/\d+/ && $gtinfo{$tumorid}{AD} =~ m/,/) {
+  next unless ($gtinfo{$opt{tumor}}{DP} && $gtinfo{$opt{tumor}}{DP} ne '.' && $gtinfo{$opt{tumor}}{DP} >= 20);
+  unless ($gtinfo{$opt{tumor}}{AO} =~ m/\d+/ && $gtinfo{$opt{tumor}}{AD} =~ m/,/) {
       warn "Missing Alt:$line\n";
   }
-  @tumormaf = @{$gtinfo{$tumorid}{MAF}};
-  @tumoraltct = split(/,/,$gtinfo{$tumorid}{AO});
+  @tumormaf = @{$gtinfo{$opt{tumor}}{MAF}};
+  @tumoraltct = split(/,/,$gtinfo{$opt{tumor}}{AO});
   
   if (exists $hash{INDEL}) {
       $hash{TYPE} = 'indel';
@@ -228,10 +231,10 @@ W1:while (my $line = <IN>) {
   }
   delete $hash{SOMATIC};
   $hash{SS} = 5  unless ($hash{SS});
-  if ($gtinfo{$normalid} && exists $gtinfo{$normalid}{MAF}) {
-      @normalmaf = @{$gtinfo{$normalid}{MAF}};
+  if ($gtinfo{$opt{normal}} && exists $gtinfo{$opt{normal}}{MAF}) {
+      @normalmaf = @{$gtinfo{$opt{normal}}{MAF}};
       $hash{NormalAF} = $normalmaf[0];
-      $hash{NormalDP} = $gtinfo{$normalid}{DP};
+      $hash{NormalDP} = $gtinfo{$opt{normal}}{DP};
     if ($normalmaf[0] >= 0.25) {
       $hash{SS} = 1;
     }elsif ($tumormaf[0] < 0.05 && ($normalmaf[0] > 0.01 || $normalmaf[0]*5 > $tumormaf[0])) {
@@ -242,7 +245,7 @@ W1:while (my $line = <IN>) {
       $hash{SS} = 2;
     }
   }
-  $gtinfo{$normalid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'} unless ($gtinfo{$normalid});
+  $gtinfo{$opt{normal}} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'} unless ($gtinfo{$opt{normal}});
   if ($rnaval{$chrom}{$pos}) {
     $gtinfo{$rnaseqid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'};
     my ($rnahashref,$rnadp) = @{$rnaval{$chrom}{$pos}};
@@ -289,6 +292,7 @@ W1:while (my $line = <IN>) {
 	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
 	$cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
     next unless ($impact =~ m/HIGH|MODERATE/ || $effect =~ /splice/i);
+    next if ($effect eq 'sequence_feature');
     next unless $keep{$gene};
     $keepforvcf = $gene;
     $cancergene = 1 if ($cgenelist{$gene});

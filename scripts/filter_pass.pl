@@ -19,6 +19,9 @@ W1:while (my $line = <IN>) {
   }
   my ($chrom, $pos,$id,$ref,$alt,$score,
       $filter,$annot,$format,@gts) = split(/\t/, $line);
+  if ($pos == 136515302) {
+      warn "debugging\n";
+  }
   next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
   my %hash = ();
   foreach $a (split(/;/,$annot)) {
@@ -99,12 +102,12 @@ W1:while (my $line = <IN>) {
 	  @callers = (@callers, split(/\,/, $hash{SomaticCallSet}));
       }
   }
-  if ((grep(/hotspot/,@callers) || $id =~ m/COS/) && $cosmicsubj >= 5) {
+  if ((grep(/hotspot/,@callers) || $id =~ m/COS/)) {
       next if ($altct[0] < 3 || $mutallfreq[0] < 0.01);
   }elsif ($id =~ m/rs/){
       next if ($mutallfreq[0] < 0.15);
   }else {
-      next if ($altct[0] < 8 || $mutallfreq[0] < 0.05);
+      next if ($altct[0] < 8 || $mutallfreq[0] < 0.05 || scalar(@callers) < 2);
   }
   my @aa;
   next unless ($hash{ANN});

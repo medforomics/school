@@ -137,9 +137,14 @@ process mpileup {
   
   output:
   set subjid,file("${subjid}.sam.vcf.gz") into samvcf
+  set subjid,file("${subjid}.sam.annot.vcf.gz") into samannot
   script:
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a mpileup
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.sam -v ${subjid}.sam.vcf.gz
+  mv ${subjid}.sam.vcf.gz ${subjid}.sam.ori.vcf.gz
+  mv ${subjid}.sam.norm.vcf.gz ${subjid}.sam.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.sam -r $index_path -v ${subjid}.sam.vcf.gz
   """
 }
 process hotspot {
@@ -149,11 +154,16 @@ process hotspot {
   set subjid,file(gbam),file(gidx) from hsbam
   output:
   set subjid,file("${subjid}.hotspot.vcf.gz") into hsvcf
+  set subjid,file("${subjid}.hotspot.annot.vcf.gz") into hsannot
   when:
   params.cancer == "detect"
   script:
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a hotspot
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.hotspot -v ${subjid}.hotspot.vcf.gz
+  mv ${subjid}.hotspot.vcf.gz ${subjid}.hotspot.ori.vcf.gz
+  mv ${subjid}.hotspot.norm.vcf.gz ${subjid}.hotspot.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.hotspot -r $index_path -v ${subjid}.hotspot.vcf.gz
   """
 }
 process speedseq {
@@ -164,9 +174,14 @@ process speedseq {
   set subjid,file(gbam),file(gidx) from ssbam
   output:
   set subjid,file("${subjid}.ssvar.vcf.gz") into ssvcf
+  set subjid,file("${subjid}.ssvar.annot.vcf.gz") into ssannot
   script:
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a speedseq
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.ssvar -v ${subjid}.ssvar.vcf.gz
+  mv ${subjid}.ssvar.vcf.gz ${subjid}.ssvar.ori.vcf.gz
+  mv ${subjid}.ssvar.norm.vcf.gz ${subjid}.ssvar.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.ssvar -r $index_path -v ${subjid}.ssvar.vcf.gz
   """
 }
 
@@ -178,16 +193,25 @@ process strelka2 {
   set subjid,file(gbam),file(gidx) from strelkabam
   output:
   set subjid,file("${subjid}.strelka2.vcf.gz") into strelkavcf
+  set subjid,file("${subjid}.strelka2.annot.vcf.gz") into strelkaannot
   script:
   if (params.nuctype == "dna")
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a strelka2
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.strelka2 -v ${subjid}.strelka2.vcf.gz
+  mv ${subjid}.strelka2.vcf.gz ${subjid}.strelka2.ori.vcf.gz
+  mv ${subjid}.strelka2.norm.vcf.gz ${subjid}.strelka2.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.strelka2 -r $index_path -v ${subjid}.strelka2.vcf.gz
   """
   else
   """
   source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a gatk
   mv ${subjid}.gatk.vcf.gz ${subjid}.strelka2.vcf.gz
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.strelka2 -v ${subjid}.strelka2.vcf.gz
+  mv ${subjid}.strelka2.vcf.gz ${subjid}.strelka2.ori.vcf.gz
+  mv ${subjid}.strelka2.norm.vcf.gz ${subjid}.strelka2.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.strelka2 -r $index_path -v ${subjid}.strelka2.vcf.gz
   """  
 }
 
@@ -199,11 +223,16 @@ process platypus {
   set subjid,file(gbam),file(gidx) from platbam
   output:
   set subjid,file("${subjid}.platypus.vcf.gz") into platvcf
-  when:
-  script:
+  set subjid,file("${subjid}.platypus.annot.vcf.gz") into platannot	
+  when:					       
+  script:				       
   if (params.nuctype == "dna")
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a platypus
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.platypus -v ${subjid}.platypus.vcf.gz
+  mv ${subjid}.platypus.vcf.gz ${subjid}.platypus.ori.vcf.gz
+  mv ${subjid}.platypus.norm.vcf.gz ${subjid}.platypus.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.platypus -r $index_path -v ${subjid}.platypus.vcf.gz
   """
   else
   """
@@ -211,6 +240,7 @@ process platypus {
   module load samtools/1.6
   cp ${index_path}/union.header.vcf ${subjid}.platypus.vcf
   bgzip ${subjid}.platypus.vcf
+  cp ${subjid}.platypus.vcf.gz ${subjid}.platypus.annot.vcf.gz
   """  
 }
 
@@ -228,8 +258,8 @@ process integrate {
   
   output:
   set subjid,file("${subjid}*union.vcf.gz") into union
-  file("${subjid}${params.projectid}.germline*vcf.gz") into annotvcf
-
+  file("${subjid}${params.projectid}.germline*vcf.gz") into annotunionvcf
+  file("${subjid}${params.projectid}.annot*vcf.gz") into annotvcf
   script:
   if (params.nuctype == "dna")
   """
