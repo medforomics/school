@@ -195,6 +195,7 @@ process geneabund {
   file("${pair_id}.cts")  into counts
   file("${pair_id}_stringtie") into strcts
   file("${pair_id}.fpkm.txt") into fpkm
+  file('*cbioportal.txt')
   """
   source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/diff_exp/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam}
