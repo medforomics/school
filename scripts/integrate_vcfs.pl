@@ -4,15 +4,8 @@
 #module load vcftools/0.1.14 samtools/1.6 bedtools/2.26.0 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
-my $results = GetOptions (\%opt,'subject|s=s','tumor|t','normal|n','refdata|r','rnaseqvcf|v','rnaseqntct|c','help|h');
+my $results = GetOptions (\%opt,'subject|s=s','tumor|t=s','normal|n=s','refdata|r=s','rnaseqvcf|v=s','rnaseqntct|c=s','help|h');
 
-
-open OM, "<$opt{refdata}\/clinseq_prj/panel1385.genelist.txt" or die $!;
-while (my $line = <OM>) {
-  chomp($line);
-  $keep{$line} = 1;
-}
-close OM;
 open OM, "<$opt{refdata}\/clinseq_prj/cancer.genelist.txt" or die $!;
 while (my $line = <OM>) {
   chomp($line);
@@ -181,9 +174,9 @@ W1:while (my $line = <IN>) {
 	$total += $act;
 	push @mutallfreq, sprintf("%.4f",$act/$gtinfo{$subjid}{DP});
     }
-    unless ($gtinfo{$subjid}{DP} eq $total) {
-	warn "Inconsistent Depth counts @ $chrom,$pos,$alt,$gtinfo{$subjid}{AD},$gtinfo{$subjid}{DP}\n";
-    }
+    #unless ($gtinfo{$subjid}{DP} eq $total) {
+	#warn "Inconsistent Depth counts @ $chrom,$pos,$alt,$gtinfo{$subjid}{AD},$gtinfo{$subjid}{DP}\n";
+    #}
     $gtinfo{$subjid}{MAF} = \@mutallfreq;
   }
   next unless ($gtinfo{$opt{tumor}}{DP} && $gtinfo{$opt{tumor}}{DP} ne '.' && $gtinfo{$opt{tumor}}{DP} >= 20);
@@ -293,7 +286,6 @@ W1:while (my $line = <IN>) {
 	$cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
     next unless ($impact =~ m/HIGH|MODERATE/ || $effect =~ /splice/i);
     next if ($effect eq 'sequence_feature');
-    next unless $keep{$gene};
     $keepforvcf = $gene;
     $cancergene = 1 if ($cgenelist{$gene});
   }

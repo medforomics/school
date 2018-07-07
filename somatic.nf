@@ -135,11 +135,20 @@ process sstumor {
   publishDir "$params.output/$pid/somatic", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from ssbam
+    
   output:
   set pid, file("${pid}.sssom.vcf.gz") into ssvcf
+  set pid,file("${pid}.sssom.annot.vcf.gz") into ssannot
+  set pid,file("${pid}.sssom.ori.vcf.gz") into ssori
+
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a speedseq
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${pid}.sssom -v ${pid}.sssom.vcf.gz
+  mv ${pid}.sssom.vcf.gz ${pid}.sssom.ori.vcf.gz
+  mv ${pid}.sssom.norm.vcf.gz ${pid}.sssom.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${pid}.sssom -r $index_path -v ${pid}.sssom.vcf.gz
+
   """
 }
 process mutect {
@@ -151,9 +160,15 @@ process mutect {
 
   output:
   set pid,file("${pid}.mutect.vcf.gz") into mutectvcf
+  set pid,file("${pid}.mutect.ori.vcf.gz") into mutectori
+  set pid,file("${pid}.mutect.annot.vcf.gz") into mutectannot
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a mutect2
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.mutect -v ${subjid}.mutect.vcf.gz
+  mv ${subjid}.mutect.vcf.gz ${subjid}.mutect.ori.vcf.gz
+  mv ${subjid}.mutect.norm.vcf.gz ${subjid}.mutect.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.mutect -r $index_path -v ${subjid}.mutect.vcf.gz
   """
 }
 // Channel
@@ -183,12 +198,18 @@ process varscan {
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from vscanbam
   output:
   set pid,file("${pid}.varscan.vcf.gz") into varscanvcf
+  set pid,file("${pid}.varscan.ori.vcf.gz") into varscanori
+  set pid,file("${pid}.varscan.annot.vcf.gz") into varscannot
   set pid,file("${pid}.vscancnv.copynumber.txt") into varscancnv
   script:
   """
   source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a varscan
   mv vscancnv.copynumber ${pid}.vscancnv.copynumber.txt
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.varscan -v ${subjid}.varscan.vcf.gz
+  mv ${subjid}.varscan.vcf.gz ${subjid}.varscan.ori.vcf.gz
+  mv ${subjid}.varscan.norm.vcf.gz ${subjid}.varscan.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.varscan -r $index_path -v ${subjid}.varscan.vcf.gz
   """
 }
 
@@ -199,9 +220,15 @@ process shimmer {
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from shimmerbam
   output:
   set pid, file("${pid}.shimmer.vcf.gz") into shimmervcf
+  set pid, file("${pid}.shimmer.vcf.gz") into shimmerori
+  set pid, file("${pid}.shimmer.vcf.gz") into shimmerannot
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a shimmer
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.shimmer -v ${subjid}.shimmer.vcf.gz
+  mv ${subjid}.shimmer.vcf.gz ${subjid}.shimmer.ori.vcf.gz
+  mv ${subjid}.shimmer.norm.vcf.gz ${subjid}.shimmer.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.shimmer -r $index_path -v ${subjid}.shimmer.vcf.gz
   """
 }
 
@@ -212,9 +239,15 @@ process virmid {
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from virmidbam
   output:
   set pid, file("${pid}.virmid.vcf.gz") into virmidvcf
+  set pid, file("${pid}.virmid.annot.vcf.gz") into virmidannot
+  set pid, file("${pid}.virmid.ori.vcf.gz") into virmidori
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a virmid
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.virmid -v ${subjid}.virmid.vcf.gz
+  mv ${subjid}.virmid.vcf.gz ${subjid}.virmid.ori.vcf.gz
+  mv ${subjid}.virmid.norm.vcf.gz ${subjid}.virmid.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.virmid -r $index_path -v ${subjid}.virmid.vcf.gz
   """
 }
 

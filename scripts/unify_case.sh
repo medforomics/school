@@ -59,7 +59,7 @@ fi
 
 tabix -f somatic_germline.vcf.gz
 
-perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path $rnaseq_vcf $rnaseq_ntct
+perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -n $normal_id -r $index_path -v $rnaseq_vcf -c $rnaseq_ntct
 vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
@@ -68,7 +68,9 @@ tabix -f ${subject}.pass.vcf.gz
 #Makes TumorMutationBurenFile
 
 bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed  |uniq |bgzip > ${subject}.utswpass.vcf.gz
-zgrep -c "SS=2" ${subject}.utswpass.vcf.gz |awk '{print "Class,TMB\n,"sprintf("%.2f",$1/4.6)}' > ${subject}.TMB.csv
+
+targetsize=`awk '{sum+=$3-$2} END {print sum/1000000}' $targetbed`
+zgrep -c "SS=2" ${subject}.utswpass.vcf.gz | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
 perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
 
 #Convert to HG37
