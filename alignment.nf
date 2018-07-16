@@ -97,6 +97,7 @@ process markdups_consensus {
   set subjid, pair_id, file(sbam) from aligned
   output:
   set subjid, pair_id, file("${pair_id}.consensus.bam") into deduped
+  set subjid, pair_id, file("${pair_id}.consensus.bam") into qcbam
   script:
   """
   bash $baseDir/process_scripts/alignment/markdups.sh -a fgbio_umi -b $sbam -p $pair_id
@@ -104,15 +105,27 @@ process markdups_consensus {
   """
 }
 process markdups_picard {
-  //publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
   set subjid, pair_id, file(sbam) from aligned2
   output:
-  set subjid, pair_id, file("${pair_id}.dedup.bam") into qcbam
+  file("*fastqc*") into fastqc
+  file("${pair_id}.flagstat.txt") into alignstats
+  file("${pair_id}.ontarget.flagstat.txt") into ontarget
+  file("${pair_id}.meanmap.txt") into meanmap
+  file("${pair_id}.libcomplex.txt") into libcomplex
+  file("${pair_id}.hist.txt") into insertsize
+  file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
+  file("${pair_id}.genomecov.txt") into genomecov
+  file("${pair_id}.covhist.txt") into covhist
+  file("*coverage.txt") into capcovstat
+  file("${pair_id}.mapqualcov.txt") into mapqualcov
+
   script:
   """
   bash $baseDir/process_scripts/alignment/markdups.sh -a picard_umi -b $sbam -p $pair_id
+  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${pair_id}.dedup.bam -p $pair_id  
   """
 }
 
@@ -123,23 +136,16 @@ process seqqc {
   input:
   set subjid, pair_id, file(sbam) from qcbam
   output:
-  file("${pair_id}.flagstat.txt") into alignstats
-  file("${pair_id}.ontarget.flagstat.txt") into ontarget
   file("${pair_id}.dedupcov.txt") into dedupcov
-  file("${pair_id}.meanmap.txt") into meanmap
-  file("${pair_id}.libcomplex.txt") into libcomplex
-  file("${pair_id}.hist.txt") into insertsize
-  file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
-  file("*fastqc*") into fastqc
-  set pair_id, file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into ontargetbam
-  set pair_id,file("${pair_id}.ontarget.bam"),file("${pair_id}.ontarget.bam.bai") into genocovbam
-  file("${pair_id}.genomecov.txt") into genomecov
-  file("${pair_id}.covhist.txt") into covhist
-  file("*coverage.txt") into capcovstat
-  file("${pair_id}.mapqualcov.txt") into mapqualcov
+  file("${pair_id}.covuniqhist.txt") into covuniqhist
+  file("*coverageuniq.txt") into covuniqstat
   script:
   """
   bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b $sbam -p $pair_id
+  mv ${pair_id}.genomecov.txt ${pair_id}.dedupcov.txt
+  mv ${pair_id}.covhist.txt ${pair_id}.covuniqhist.txt
+  mv ${pair_id}_lowcoverage.txt ${pair_id}_lowcoverageuniq.txt
+  mv ${pair_id}_exoncoverage.txt ${pair_id}_exoncoverageuniq.txt
   """
 }
 

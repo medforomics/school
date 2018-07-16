@@ -103,8 +103,10 @@ process cnv {
   params.nuctype == "dna"
   output:
   file("${pair_id}.call.cns") into cns
+  file("${pair_id}.cns") into cnsori
+  file("${pair_id}.cnr") into cnr
   file("${pair_id}.*txt") into cnvtxt
-  file("${pair_id}.cnv.pdf") into cnvpdf
+  file("${pair_id}.cnv*pdf") into cnvpdf
   script:
   """
   bash $baseDir/process_scripts/variants/cnvkit.sh -u -b $sbam -p $pair_id
@@ -265,7 +267,6 @@ process integrate {
   output:
   set subjid,file("${subjid}*union.vcf.gz") into union
   file("${subjid}${params.projectid}.germline*vcf.gz") into annotunionvcf
-  file("${subjid}${params.projectid}.annot*vcf.gz") into annotvcf
   script:
   if (params.nuctype == "dna")
   """
