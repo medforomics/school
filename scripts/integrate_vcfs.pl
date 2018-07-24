@@ -4,7 +4,7 @@
 #module load vcftools/0.1.14 samtools/1.6 bedtools/2.26.0 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
-my $results = GetOptions (\%opt,'subject|s=s','tumor|t','normal|n','refdata|r','rnaseqvcf|v','rnaseqntct|c','help|h');
+my $results = GetOptions (\%opt,'subject|s=s','tumor|t=s','normal|n=s','refdata|r=s','rnaseqvcf|v=s','rnaseqntct|c=s','help|h');
 
 
 open OM, "<$opt{refdata}\/clinseq_prj/panel1385.genelist.txt" or die $!;

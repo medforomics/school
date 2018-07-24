@@ -16,7 +16,7 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:p:t:n:v:s:x:c:f:h opt
+while getopts :r:p:t:n:v:s:x:c:f:b:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -59,7 +59,7 @@ fi
 
 tabix -f somatic_germline.vcf.gz
 
-perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path $rnaseq_vcf $rnaseq_ntct
+perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -n $normal_id -r $index_path -v $rnaseq_vcf -c $rnaseq_ntct
 vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
