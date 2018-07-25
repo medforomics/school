@@ -265,8 +265,10 @@ process integrate {
   set subjid,file(vcf) from vcflist
   
   output:
-  set subjid,file("${subjid}*union.vcf.gz") into union
-  file("${subjid}${params.projectid}.germline*vcf.gz") into annotunionvcf
+  
+  file("${subjid}${params.projectid}.*union.vcf.gz") into annotunionvcf
+  file("${subjid}${params.projectid}.germline*vcf.gz") into annotvcf
+
   script:
   if (params.nuctype == "dna")
   """
