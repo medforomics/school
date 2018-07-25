@@ -3,7 +3,7 @@
 params.input = './fastq'
 params.output = './analysis'
 
-params.fastqs="$params.input/*.fastq.gz"
+params.bams="$params.input/*.bam"
 params.design="$params.input/design.txt"
 
 params.genome="/project/shared/bicf_workflow_ref/GRCh38"
@@ -15,7 +15,7 @@ reffa=file("$params.genome/genome.fa")
 dbsnp="$params.genome/dbSnp.vcf.gz"
 indel="$params.genome/GoldIndels.vcf.gz"
 
-fastqs=file(params.fastqs)
+bams=file(params.bams)
 design_file = file(params.design)
 dbsnp=file(dbsnp)
 knownindel=file(indel)
@@ -29,66 +29,45 @@ if (params.markdups == 'fgbio_umi') {
 
 def fileMap = [:]
 
-fastqs.each {
+bams.each {
     final fileName = it.getFileName().toString()
     prefix = fileName.lastIndexOf('/')
     fileMap[fileName] = it
 }
-def read = []
+def oribam = []
 new File(params.design).withReader { reader ->
     def hline = reader.readLine()
     def header = hline.split("\t")
-    prefixidx = header.findIndexOf{it == 'SampleID'};
-    oneidx = header.findIndexOf{it == 'FqR1'};
-    twoidx = header.findIndexOf{it == 'FqR2'};
+    tidx = header.findIndexOf{it == 'SampleID'};
+    oneidx = header.findIndexOf{it == 'BAM'};
     fidx = header.findIndexOf{it == 'FamilyID'};
     sidx = header.findIndexOf{it == 'SubjectID'};
     if (sidx == -1) {
-       sidx = prefixidx
+       sidx = tidx
     }
     if (fidx == -1) {
        fidx = sidx
     }
-    if (twoidx == -1) {
-       twoidx = oneidx
-       }
     while (line = reader.readLine()) {
     	   def row = line.split("\t")
     if (fileMap.get(row[oneidx]) != null) {
-	read << tuple(row[fidx],row[prefixidx],fileMap.get(row[oneidx]),fileMap.get(row[twoidx]))
+	oribam << tuple(row[fidx],row[tidx],fileMap.get(row[oneidx]))
 	   }
 
 }
 }
-if( ! read) { error "Didn't match any input files with entries in the design file" }
-
-process trim {
+process indexoribams {
   errorStrategy 'ignore'
   input:
-  set subjid,pair_id, file(read1), file(read2) from read
+  set sid,tid,file(tumor) from oribam
   output:
-  set subjid,pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into trimread
-  file("${pair_id}.trimreport.txt") into trimstat 
+  set sid,tid,file(tumor),file("${tumor}.bai") into aligned
+  set sid,tid,file(tumor),file("${tumor}.bai") into aligned2
   script:
   """
-  bash $baseDir/process_scripts/preproc_fastq/trimgalore.sh -p ${pair_id} -a ${read1} -b ${read2}
-  perl $baseDir/process_scripts/preproc_fastq/parse_trimreport.pl ${pair_id}.trimreport.txt *trimming_report.txt
+  bash $baseDir/process_scripts/alignment/indexbams.sh 
   """
 }
-
-process align {
-  errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
-
-  input:
-  set subjid,pair_id, file(fq1), file(fq2) from trimread
-  output:
-  set subjid,pair_id, file("${pair_id}.bam") into aligned
-  set subjid,pair_id, file("${pair_id}.bam") into aligned2
-  """
-  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2 $alignopts
-  """
- }
 
 process markdups_consensus {
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
@@ -149,46 +128,3 @@ process seqqc {
   """
 }
 
-process parse_stat {
-  errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
-
-  input:
-  file(txt) from alignstats.toList()
-  file(lc) from libcomplex.toList()
-  file(is) from insertsize.toList()
-  file(gc) from genomecov.toList()
-  file(on) from ontarget.toList()
-  file(tr) from trimstat.toList()
-  file(mq) from mapqualcov.toList()
-  file(de) from dedupcov.toList()
-  file(mm) from meanmap.toList()
-  file(asmet) from alignmentsummarymetrics.toList()
-  
-  output:
-  file('*sequence.stats.txt')
-  file('*.png')
-  script:
-  """
-  source /etc/profile.d/modules.sh
-  module load R/3.2.1-intel git/gcc/v2.12.2
-  perl $baseDir/scripts/sequenceqc_alignment_withumi.pl -r ${index_path} *.genomecov.txt
-  Rscript $baseDir/scripts/plot_hist_genocov.R
-  """
-}
-
-process gatkbam {
-  //errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
-
-  input:
-  set subjid, pair_id, file(sbam) from deduped
-
-  output:
-  set subjid, pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
-  
-  script:
-  """
-  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r ${index_path} -p $pair_id
-  """
-}
