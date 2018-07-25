@@ -103,8 +103,10 @@ process cnv {
   params.nuctype == "dna"
   output:
   file("${pair_id}.call.cns") into cns
+  file("${pair_id}.cns") into cnsori
+  file("${pair_id}.cnr") into cnr
   file("${pair_id}.*txt") into cnvtxt
-  file("${pair_id}.cnv.pdf") into cnvpdf
+  file("${pair_id}.cnv*pdf") into cnvpdf
   script:
   """
   bash $baseDir/process_scripts/variants/cnvkit.sh -u -b $sbam -p $pair_id
@@ -137,6 +139,7 @@ process mpileup {
   
   output:
   set subjid,file("${subjid}.sam.vcf.gz") into samvcf
+  set subjid,file("${subjid}.sam.ori.vcf.gz") into samori
   set subjid,file("${subjid}.sam.annot.vcf.gz") into samannot
   script:
   """
@@ -154,6 +157,7 @@ process hotspot {
   set subjid,file(gbam),file(gidx) from hsbam
   output:
   set subjid,file("${subjid}.hotspot.vcf.gz") into hsvcf
+  set subjid,file("${subjid}.hotspot.ori.vcf.gz") into hsori
   set subjid,file("${subjid}.hotspot.annot.vcf.gz") into hsannot
   when:
   params.cancer == "detect"
@@ -174,7 +178,9 @@ process speedseq {
   set subjid,file(gbam),file(gidx) from ssbam
   output:
   set subjid,file("${subjid}.ssvar.vcf.gz") into ssvcf
+  set subjid,file("${subjid}.ssvar.ori.vcf.gz") into ssori
   set subjid,file("${subjid}.ssvar.annot.vcf.gz") into ssannot
+
   script:
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a speedseq
@@ -193,6 +199,7 @@ process strelka2 {
   set subjid,file(gbam),file(gidx) from strelkabam
   output:
   set subjid,file("${subjid}.strelka2.vcf.gz") into strelkavcf
+  set subjid,file("${subjid}.strelka2.ori.vcf.gz") into strelkaori
   set subjid,file("${subjid}.strelka2.annot.vcf.gz") into strelkaannot
   script:
   if (params.nuctype == "dna")
@@ -223,6 +230,7 @@ process platypus {
   set subjid,file(gbam),file(gidx) from platbam
   output:
   set subjid,file("${subjid}.platypus.vcf.gz") into platvcf
+  set subjid,file("${subjid}.platypus.ori.vcf.gz") into platori
   set subjid,file("${subjid}.platypus.annot.vcf.gz") into platannot	
   when:					       
   script:				       
@@ -259,7 +267,6 @@ process integrate {
   output:
   set subjid,file("${subjid}*union.vcf.gz") into union
   file("${subjid}${params.projectid}.germline*vcf.gz") into annotunionvcf
-  file("${subjid}${params.projectid}.annot*vcf.gz") into annotvcf
   script:
   if (params.nuctype == "dna")
   """

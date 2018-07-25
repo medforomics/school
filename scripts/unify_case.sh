@@ -16,7 +16,7 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:p:t:n:v:s:x:c:f:h opt
+while getopts :r:p:t:n:v:s:x:c:b:f:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -32,6 +32,9 @@ do
 	h) usage;;
     esac
 done
+
+shift $(($OPTIND -1))
+
 if [[ -z $tumor_vcf ]] || [[ -z $subject ]] || [[ -z $index_path ]]; then
     usage
 fi 
@@ -40,7 +43,6 @@ then
 targetbed="${index_path}/clinseq_prj/UTSWV2.bed"
 fi
 
-shift $(($OPTIND -1))
 baseDir="`dirname \"$0\"`"
 vepdir='/project/shared/bicf_workflow_ref/vcf2maf'
 
@@ -52,14 +54,14 @@ then
     bcftools annotate -Ov -a $tumor_vcf -o somatic.only.vcf --columns CHROM,POS,CallSet $somatic_vcf
     vcf-shuffle-cols -t somatic.only.vcf $tumor_vcf |bgzip > tumor.vcf.gz
     bgzip -f somatic.only.vcf
-    vcf-concat somatic.only.vcf.gz tumor.vcf.gz |vcf-sort |bgzip > somatic_germline.vcf.gz
+    vcf-concat somatic.only.vcf.gz tumor.vcf.gz |vcf-sort |uniq | bgzip > somatic_germline.vcf.gz
 else
     ln -s $tumor_vcf somatic_germline.vcf.gz
 fi
 
 tabix -f somatic_germline.vcf.gz
 
-perl $baseDir/integrate_vcfs.pl ${subject} $tumor_id $normal_id $index_path $rnaseq_vcf $rnaseq_ntct
+perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -n $normal_id -r $index_path -v $rnaseq_vcf -c $rnaseq_ntct
 vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
@@ -67,8 +69,13 @@ tabix -f ${subject}.pass.vcf.gz
 
 #Makes TumorMutationBurenFile
 
-bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed  |uniq |bgzip > ${subject}.utswpass.vcf.gz
-zgrep -c "SS=2" ${subject}.utswpass.vcf.gz |awk '{print "Class,TMB\n,"sprintf("%.2f",$1/4.6)}' > ${subject}.TMB.csv
+bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed |uniq |bgzip > ${subject}.utswpass.vcf.gz
+
+targetsize=`awk '{sum+=$3-$2} END {print sum/1000000}' $targetbed`
+zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz |bgzip > ${subject}.utswpass.somatic.vcf.gz
+zgrep -c -v "#" ${subject}.utswpass.somatic.vcf.gz | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
+bcftools stats ${subject}.utswpass.somatic.vcf.gz > ${subject}.utswpass.somatic.bcfstats.txt
+plot-vcfstats -P -p ${subject}.bcfstat ${subject}.utswpass.somatic.bcfstats.txt
 perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
 
 #Convert to HG37

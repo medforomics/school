@@ -216,6 +216,7 @@ foreach $dtype (keys %samples) {
 	  }
       }
   }
+  print CAS "rsync -rlptgoD --exclude=\"*bam*\" $outnf/* /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
   print CAS "ln -s $outnf\/*/*/*.bam $outnf\n";  ####check me out
   print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --projectid _${prjid} --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
 }
@@ -232,7 +233,6 @@ print CAS "cd $outnf\n";
 
 foreach $case (keys %stype) {
   print CAS "rsync -avz $case /project/PHG/PHG_Clinical/".$stype{$case},"\n";
-  print CAS "rsync -rlptgoD --exclude=\"*bam*\" $case /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
 }
 
 foreach $project (keys %spairs) {
