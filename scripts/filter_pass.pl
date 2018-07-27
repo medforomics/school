@@ -1,10 +1,12 @@
 #!/usr/bin/perl -w
 #integrate_datasets.pl
 
-my ($tumorid) = @ARGV;
+my ($tumor_vcf) = @ARGV;
+
+my ($tumorid,@ext) = split(/\./,$tumor_vcf);
 
 open OUT, ">$tumorid\.PASS.vcf" or die $!;
-open IN, "gunzip -c $tumorid\.annot.vcf.gz|" or die $!;
+open IN, "gunzip -c $tumor_vcf|" or die $!;
 my %done;
 W1:while (my $line = <IN>) {
   chomp($line);
@@ -19,9 +21,6 @@ W1:while (my $line = <IN>) {
   }
   my ($chrom, $pos,$id,$ref,$alt,$score,
       $filter,$annot,$format,@gts) = split(/\t/, $line);
-  if ($pos == 136515302) {
-      warn "debugging\n";
-  }
   next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
   my %hash = ();
   foreach $a (split(/;/,$annot)) {
@@ -103,7 +102,7 @@ W1:while (my $line = <IN>) {
       }
   }
   if ((grep(/hotspot/,@callers) || $id =~ m/COS/)) {
-      next if ($altct[0] < 3 || $mutallfreq[0] < 0.01);
+      next if ($altct[0] < 3 || $mutallfreq[0] < 0.05);
   }elsif ($id =~ m/rs/){
       next if ($mutallfreq[0] < 0.15);
   }else {

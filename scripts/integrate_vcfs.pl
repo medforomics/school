@@ -303,7 +303,7 @@ W1:while (my $line = <IN>) {
 	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
 	$cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
     next unless ($impact =~ m/HIGH|MODERATE/ || $effect =~ /splice/i);
-    next if ($effect eq 'sequence_feature');
+    next if($effect eq 'sequence_feature');
     $keepforvcf = $gene;
     $cancergene = 1 if ($cgenelist{$gene});
   }

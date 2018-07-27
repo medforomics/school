@@ -165,10 +165,10 @@ process mutect {
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a mutect2
-  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.mutect -v ${subjid}.mutect.vcf.gz
-  mv ${subjid}.mutect.vcf.gz ${subjid}.mutect.ori.vcf.gz
-  mv ${subjid}.mutect.norm.vcf.gz ${subjid}.mutect.vcf.gz
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.mutect -r $index_path -v ${subjid}.mutect.vcf.gz
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${pid}.mutect -v ${pid}.mutect.vcf.gz
+  mv ${pid}.mutect.vcf.gz ${pid}.mutect.ori.vcf.gz
+  mv ${pid}.mutect.norm.vcf.gz ${pid}.mutect.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${pid}.mutect -r $index_path -v ${pid}.mutect.vcf.gz
   """
 }
 // Channel
@@ -206,10 +206,10 @@ process varscan {
   source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a varscan
   mv vscancnv.copynumber ${pid}.vscancnv.copynumber.txt
-  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.varscan -v ${subjid}.varscan.vcf.gz
-  mv ${subjid}.varscan.vcf.gz ${subjid}.varscan.ori.vcf.gz
-  mv ${subjid}.varscan.norm.vcf.gz ${subjid}.varscan.vcf.gz
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.varscan -r $index_path -v ${subjid}.varscan.vcf.gz
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${pid}.varscan -v ${pid}.varscan.vcf.gz
+  mv ${pid}.varscan.vcf.gz ${pid}.varscan.ori.vcf.gz
+  mv ${pid}.varscan.norm.vcf.gz ${pid}.varscan.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${pid}.varscan -r $index_path -v ${pid}.varscan.vcf.gz
   """
 }
 
@@ -225,10 +225,10 @@ process shimmer {
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a shimmer
-  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.shimmer -v ${subjid}.shimmer.vcf.gz
-  mv ${subjid}.shimmer.vcf.gz ${subjid}.shimmer.ori.vcf.gz
-  mv ${subjid}.shimmer.norm.vcf.gz ${subjid}.shimmer.vcf.gz
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.shimmer -r $index_path -v ${subjid}.shimmer.vcf.gz
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${pid}.shimmer -v ${pid}.shimmer.vcf.gz
+  mv ${pid}.shimmer.vcf.gz ${pid}.shimmer.ori.vcf.gz
+  mv ${pid}.shimmer.norm.vcf.gz ${pid}.shimmer.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${pid}.shimmer -r $index_path -v ${pid}.shimmer.vcf.gz
   """
 }
 
@@ -244,10 +244,10 @@ process virmid {
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a virmid
-  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${subjid}.virmid -v ${subjid}.virmid.vcf.gz
-  mv ${subjid}.virmid.vcf.gz ${subjid}.virmid.ori.vcf.gz
-  mv ${subjid}.virmid.norm.vcf.gz ${subjid}.virmid.vcf.gz
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${subjid}.virmid -r $index_path -v ${subjid}.virmid.vcf.gz
+  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${pid}.virmid -v ${pid}.virmid.vcf.gz
+  mv ${pid}.virmid.vcf.gz ${pid}.virmid.ori.vcf.gz
+  mv ${pid}.virmid.norm.vcf.gz ${pid}.virmid.vcf.gz
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${pid}.virmid -r $index_path -v ${pid}.virmid.vcf.gz
   """
 }
 
@@ -260,22 +260,22 @@ Channel
 
 process integrate {
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/somatic", mode: 'copy'
+  publishDir "$params.output/$pid/somatic", mode: 'copy'
   input:
-  set subjid,file(vcf) from vcflist
+  set pid,file(vcf) from vcflist
   file 'design.txt' from design_file
   output:
-  file("${subjid}${params.projectid}.somaticunion.vcf.gz") into union
-  file("${subjid}${params.projectid}.somatic.vcf.gz") into annotvcf
+  file("${pid}${params.projectid}.somaticunion.vcf.gz") into union
+  file("${pid}${params.projectid}.somatic.vcf.gz") into annotvcf
   script:
   """
   source /etc/profile.d/modules.sh
   module load samtools/1.6
-  bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p $subjid -r $index_path -v ${subjid}.union.vcf.gz
-  perl $baseDir/scripts/somatic_filter.pl ${subjid}.annot.vcf.gz
-  bgzip ${subjid}.somatic.vcf
-  mv ${subjid}.somatic.vcf.gz ${subjid}${params.projectid}.somatic.vcf.gz
-  mv ${subjid}.union.vcf.gz ${subjid}${params.projectid}.somaticunion.vcf.gz
+  bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $pid
+  bash $baseDir/process_scripts/variants/annotvcf.sh -p $pid -r $index_path -v ${pid}.union.vcf.gz
+  perl $baseDir/scripts/somatic_filter.pl ${pid}.annot.vcf.gz
+  bgzip ${pid}.somatic.vcf
+  mv ${pid}.somatic.vcf.gz ${pid}${params.projectid}.somatic.vcf.gz
+  mv ${pid}.union.vcf.gz ${pid}${params.projectid}.somaticunion.vcf.gz
   """
 }

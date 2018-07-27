@@ -112,7 +112,7 @@ process markdups_picard {
   output:
   file("*fastqc*") into fastqc
   file("${pair_id}.flagstat.txt") into alignstats
-  file("${pair_id}.ontarget.flagstat.txt") into ontarget
+  //file("${pair_id}.ontarget.flagstat.txt") into ontarget
   file("${pair_id}.meanmap.txt") into meanmap
   file("${pair_id}.libcomplex.txt") into libcomplex
   file("${pair_id}.hist.txt") into insertsize
@@ -158,7 +158,7 @@ process parse_stat {
   file(lc) from libcomplex.toList()
   file(is) from insertsize.toList()
   file(gc) from genomecov.toList()
-  file(on) from ontarget.toList()
+  //file(on) from ontarget.toList()
   file(tr) from trimstat.toList()
   file(mq) from mapqualcov.toList()
   file(de) from dedupcov.toList()

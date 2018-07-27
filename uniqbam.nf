@@ -128,3 +128,18 @@ process seqqc {
   """
 }
 
+process gatkbam {
+  //errorStrategy 'ignore'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+
+  input:
+  set subjid, pair_id, file(sbam) from deduped
+
+  output:
+  set subjid, pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
+  
+  script:
+  """
+  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r ${index_path} -p $pair_id
+  """
+}
