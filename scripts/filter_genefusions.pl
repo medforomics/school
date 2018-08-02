@@ -21,7 +21,7 @@ while (my $line = <OM>) {
   $known{$line} = 1;
 }
 close OM;
-open OM, "</project/shared/bicf_workflow_ref/GRCh38/clinseq_prj/panel1385.genelist.txt" or die $!;
+open OM, "</project/shared/bicf_workflow_ref/GRCh38/clinseq_prj/panel1410.genelist.txt" or die $!;
 while (my $line = <OM>) {
     chomp($line);
     $keep{$line} = 1;

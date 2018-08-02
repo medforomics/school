@@ -3,6 +3,11 @@
 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
+my %panel2bed = ('panel1385'=>'UTSWV2.bed','panel1385v2'=>'UTSWV2_2.bed',
+		 'IDTHemev1'=>'heme_panel_target100.bed',
+		 'IDTCellFreev1'=>'panelcf73_idt.100plus.bed',
+		 'medexomeplus'=>'MedExome_Plus.bed');
+
 my %opt = ();
 my $results = GetOptions (\%opt,'help|h','prjid|p=s');
 
@@ -190,15 +195,13 @@ foreach $dtype (keys %samples) {
     }
   }
   close SSOUT;
-  my $capture = "$capturedir\/UTSWV2.bed";
-  $capture = "$capturedir\/MedExome_Plus.bed" if ($dtype eq 'medexomeplus');
-  $capture = "$capturedir\/UTSWV2_2.bed" if ($dtype eq 'panel1385v2');
   my $mdup = 'picard';
   $mdup = 'fgbio_umi' if ($umi);
   $mdup = 'skip' if ($dtype =~ m/panelrnaseq/);
   my $germopts = '';
   my $rnaopts = '';
   if ($dtype =~ /panel1385|exome|dnaseq/) {
+    my $capture = "$capturedir\/$panel2bed{$dtype}";
     my $alignwf = "$baseDir\/alignment.nf";
     unless ($umi) {
       $alignwf = "$baseDir\/alignmentV1.nf";

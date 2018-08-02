@@ -134,7 +134,7 @@ foreach $sfile (@statfiles) {
     my ($all,$depth,$bp,$total,$percent) = split(/\t/,$line);
     $cov{$depth} = $percent;
     $sumdepth += $depth*$bp;
-    $totalbases = $total if ($depth == 0);
+    $totalbases = $total unless ($totalbases);
   }
   my $avgdepth = sprintf("%.0f",$sumdepth/$totalbases);
   my @depths = sort {$a <=> $b} keys %cov;
@@ -158,7 +158,7 @@ foreach $sfile (@statfiles) {
     my ($all,$depth,$bp,$total,$percent) = split(/\t/,$line);
     $dedup_cov{$depth} = $percent;
     $sumdepth += $depth*$bp;
-    $totalbases = $total if ($depth == 0);
+    $totalbases = $total unless ($totalbases);
   }
   my $dedup_avgdepth = sprintf("%.0f",$sumdepth/$totalbases);
   @depths = sort {$a <=> $b} keys %dedup_cov;
