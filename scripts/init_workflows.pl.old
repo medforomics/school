@@ -4,8 +4,8 @@
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
 my %panel2bed = ('panel1385'=>'UTSWV2.bed','panel1385v2'=>'UTSWV2_2.bed',
-		 'idthemev1'=>'heme_panel_target100.bed',
-		 'idtcellfreev1'=>'panelcf73_idt.100plus.bed',
+		 'IDTHemev1'=>'heme_panel_target100.bed',
+		 'IDTCellFreev1'=>'panelcf73_idt.100plus.bed',
 		 'medexomeplus'=>'MedExome_Plus.bed');
 
 my %opt = ();
@@ -13,10 +13,10 @@ my $results = GetOptions (\%opt,'help|h','prjid|p=s');
 
 if (!defined $opt{prjid} || $opt{help}) {
   $usage = <<EOF;
-  usage: $0 -p prjid
-      
-      -p prjid -- this is the project name in /project/PHG/PHG_Illumina/BioCenter/ 140505_SN7001189_0117_AH7LRLADXX
-      
+usage: $0 -p prjid
+
+-p prjid -- this is the project name in /project/PHG/PHG_Illumina/BioCenter/ 140505_SN7001189_0117_AH7LRLADXX
+
 EOF
   die $usage,"\n";
 }
@@ -26,43 +26,17 @@ pop @execdir;
 pop @execdir;
 $baseDir = join("/",@execdir);
 
-my $umi = 1;
 my $prjid = $opt{prjid};
-my $seqdatadir = "/project/PHG/PHG_Clinical/illumina/$prjid";
 my $oriss = "/project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.csv";
-my $newss = "$seqdatadir\/$prjid\.csv";
+my $newss = "/project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.bcl2fastq.csv";
 my $capturedir = "/project/shared/bicf_workflow_ref/GRCh38/clinseq_prj";
 
-#Relocate Run Data to New Location
-system("mkdir /project/PHG/PHG_Clinical/illumina/$prjid");
-system("ln -s /project/PHG/PHG_Illumina/BioCenter/$prjid/* /project/PHG/PHG_Clinical/illumina/$prjid");
-system("mv /project/PHG/PHG_Clinical/illumina/$prjid/RunInfo.xml /project/PHG/PHG_Clinical/illumina/$prjid/RunInfo.xml.ori");
-
-$umi = `grep "<Read Number=\\\"2\\\" NumCycles=\\\"14\\\" IsIndexedRead=\\\"Y\\\" />" $seqdatadir/RunInfo.xml.ori`;
-
-#If UMI Fix RunInfo so that the UMI can be parsed to the ReadName
-if ($umi) {
-  open IN, "<$seqdatadir\/RunInfo.xml.ori" or die $!;
-  open OUT, ">$seqdatadir\/RunInfo.xml" or die $!;
-  while (my $line = <IN>) {
-    chomp($line);
-    if ($line =~ m/(\s+)<Read Number="(\d+)" /) {
-      if ($2 eq 1) {
-	print OUT $line,"\n";
-      } elsif ($2 eq 2) {
-	print OUT $1.qq{<Read Number="2" NumCycles="6" IsIndexedRead="Y" />},"\n";
-      } elsif ($2 eq 3) {
-	print OUT $1.qq{<Read Number="3" NumCycles="84" IsIndexedRead="N" />},"\n";
-      } 
-    }else {
-      print OUT $line,"\n";
-    }
-  }
-}else {
-  system("cp /project/PHG/PHG_Clinical/illumina/$prjid/RunInfo.xml.ori /project/PHG/PHG_Clinical/illumina/$prjid/RunInfo.xml");
+my $seqdatadir = "/project/PHG/PHG_Illumina/BioCenter/$prjid";
+if (-e "/project/PHG/PHG_Illumina/Research/$prjid") {
+  $seqdatadir = "/project/PHG/PHG_Illumina/Research/$prjid";
 }
 
-#Create New SampleSheet
+$umi = `grep "<Read Number=\\\"2\\\" NumCycles=\\\"14\\\" IsIndexedRead=\\\"Y\\\" />" $seqdatadir/RunInfo.xml`;
 
 open SS, "<$oriss" or die $!;
 open SSOUT, ">$newss" or die $!;
@@ -99,9 +73,9 @@ while (my $line = <SS>){
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
       $hash{Assay} = 'panel1385' if ($hash{Assay} eq 'dnaseqdevelopment');
+      $hash{Assay} = 'panel1385' if ($hash{Assay} eq 'panel1385');
       $hash{Assay} = 'panel1385v2' if ($hash{MergeName} =~ m/panel1385v2/);
       $hash{Assay} = 'panelrnaseq' if ($hash{MergeName} =~ m/panelrnaseq/);
-      $hash{Assay} = 'wholernaseq' if ($hash{MergeName} =~ m/wholernaseq/);
       my @samplename = split(/_/,$hash{Sample_Name});
       unless ($hash{Class}) {
 	$hash{Class} = 'tumor';
@@ -127,7 +101,7 @@ while (my $line = <SS>){
       $spairs{$hash{SubjectID}}{lc($hash{Class})}{$hash{MergeName}} = 1;
       $sampleinfo{$hash{Sample_Name}} = \%hash;
       push @{$samples{lc($hash{Assay})}{$hash{SubjectID}}}, $hash{Sample_Name};
-      
+
       my @newline;
       foreach my $j (0..$#row) {
 	push @newline, $hash{$colnames[$j]};
@@ -140,13 +114,14 @@ while (my $line = <SS>){
 }
 close SSOUT;
 
-open CAS, ">$seqdatadir\/run_$prjid\.sh" or die $!;
+open CAS, ">/project/PHG/PHG_Clinical/illumina/logs/run_casava_$prjid\.sh" or die $!;
 print CAS "#!/bin/bash\n#SBATCH --job-name $prjid\n#SBATCH -N 1\n";
 print CAS "#SBATCH -t 14-0:0:00\n#SBATCH -o $prjid.out\n#SBATCH -e $prjid.err\n";
+print CAS "#SBATCH --mail-type ALL\n#SBATCH --mail-user erika.villa\@utsouthwestern.edu\n";
 print CAS "source /etc/profile.d/modules.sh\n";
 print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.27.6 vcftools/0.1.14 samtools/1.6\n";
 
-print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --ignore-missing-positions --no-lane-splitting --ignore-missing-filter --ignore-missing-bcls --runfolder-dir $seqdatadir --sample-sheet $newss &> $seqdatadir\/bcl2fastq_$prjid\.log\n";
+print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --ignore-missing-positions --no-lane-splitting --ignore-missing-filter --ignore-missing-bcls --runfolder-dir $seqdatadir --sample-sheet /project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.bcl2fastq.csv &> /project/PHG/PHG_Clinical/illumina/logs/run_casava_$prjid\.log\n";
 print CAS "mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid");
 print CAS "cp -R /project/PHG/PHG_Clinical/illumina/$prjid\/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Reports");
 print CAS "mv /project/PHG/PHG_Clinical/illumina/$prjid\/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Stats");
@@ -155,7 +130,7 @@ my %completeout;
 my %control;
 my %completeout_somatic;
 
-my $prodir = "/project/PHG/PHG_Clinical/devel/umi_demultiplexing_fix";
+my $prodir = "/project/PHG/PHG_Clinical/processing";
 my $outdir = "$prodir\/$prjid/fastq";
 my $outnf = "$prodir\/$prjid/analysis";
 my $workdir = "$prodir\/$prjid/work";
@@ -163,7 +138,7 @@ system("mkdir $prodir\/$prjid") unless (-e "$prodir\/$prjid");
 system("mkdir $outdir") unless (-e $outdir);
 system("mkdir $outnf") unless (-e $outnf);
 system("mkdir $workdir") unless (-e $workdir);
-print CAS "cd $prodir\/$prjid\n";
+print CAS "cd /project/PHG/PHG_Clinical/processing/$prjid\n";
 
 open TNPAIR, ">$outdir\/design_tumor_normal.txt" or die $!;
 my $tnpairs = 0;
@@ -225,27 +200,30 @@ foreach $dtype (keys %samples) {
   $mdup = 'skip' if ($dtype =~ m/panelrnaseq/);
   my $germopts = '';
   my $rnaopts = '';
-  unless ($dtype =~ /rna/) { 
+  if ($dtype =~ /panel1385|exome|dnaseq/) {
     my $capture = "$capturedir\/$panel2bed{$dtype}";
     my $alignwf = "$baseDir\/alignment.nf";
-    print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $alignwf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf --markdups $mdup > $outnf\/$dtype\.nextflow_alignment.log\n";
+    unless ($umi) {
+      $alignwf = "$baseDir\/alignmentV1.nf";
+    }
+    print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $alignwf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf --markdups $mdup > $outnf\/$dtype\.nextflow_alignment.log\n";
   } elsif ($dtype =~ m/rnaseq/) {
     $rnaopts .= " --bamct skip " if ($dtype =~ m/whole/);
-    print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/rnaseq.nf --design $outdir\/$dtype\.design.txt --input $outdir --output $outnf $rnaopts --markdups $mdup > $outnf\/$dtype\.nextflow_rnaseq.log\n";
+    print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/rnaseq.nf --design $outdir\/$dtype\.design.txt --input $outdir --output $outnf $rnaopts --markdups $mdup > $outnf\/$dtype\.nextflow_rnaseq.log\n";
     $germopts = " --genome /project/shared/bicf_workflow_ref/GRCh38/hisat_index --nuctype rna --callsvs skip";
   }
   foreach $project (keys %spairs) {
-    foreach $class (keys  %{$spairs{$project}}) {
-      foreach $samp (keys %{$spairs{$project}{$class}}) {
-	print CAS "mv $outnf\/$samp\.* $outnf\/$samp\_* $outnf\/$project\/$samp\n";
+      foreach $class (keys  %{$spairs{$project}}) {
+	  foreach $samp (keys %{$spairs{$project}{$class}}) {
+	      print CAS "mv $outnf\/$samp\.* $outnf\/$samp\_* $outnf\/$project\/$samp\n";
+	  }
       }
-    }
   }
   print CAS "rsync -rlptgoD --exclude=\"*bam*\" $outnf/* /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
   print CAS "ln -s $outnf\/*/*/*.bam $outnf\n";  ####check me out
-  print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --projectid _${prjid} --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
+  print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --projectid _${prjid} --capture $capture --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
 }
-print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt --projectid _${prjid} --callsvs skip --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
+print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt --projectid _${prjid} --callsvs skip --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
 print CAS "wait\n";
 
 my $controlfile = $outnf."/GM12878/GM12878_".$prjid.".germline.vcf.gz";

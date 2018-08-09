@@ -24,7 +24,6 @@ bams=file(params.bams)
 dbsnp=file(dbsnp_file)
 knownindel=file(indel)
 index_path = file(params.genome)
-capture_bed = file(params.targetpanel)
 
 snpeff_vers = 'GRCh38.86';
 

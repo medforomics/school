@@ -64,6 +64,7 @@ if( ! read) { error "Didn't match any input files with entries in the design fil
 
 process trim {
   errorStrategy 'ignore'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
   set subjid,pair_id, file(read1), file(read2) from read
   output:
@@ -112,7 +113,6 @@ process markdups_picard {
   output:
   file("*fastqc*") into fastqc
   file("${pair_id}.flagstat.txt") into alignstats
-  //file("${pair_id}.ontarget.flagstat.txt") into ontarget
   file("${pair_id}.meanmap.txt") into meanmap
   file("${pair_id}.libcomplex.txt") into libcomplex
   file("${pair_id}.hist.txt") into insertsize
