@@ -38,7 +38,7 @@ system("mkdir /project/PHG/PHG_Clinical/illumina/$prjid");
 system("ln -s /project/PHG/PHG_Illumina/BioCenter/$prjid/* /project/PHG/PHG_Clinical/illumina/$prjid");
 system("mv /project/PHG/PHG_Clinical/illumina/$prjid/RunInfo.xml /project/PHG/PHG_Clinical/illumina/$prjid/RunInfo.xml.ori");
 
-$umi = `grep "<Read Number=\\\"2\\\" NumCycles=\\\"14\\\" IsIndexedRead=\\\"Y\\\" />" $seqdatadir/RunInfo.xml.ori`;
+$umi = `grep "<Read Number=\\\"2\\\" NumCycles=\\\"14\\\" IsIndexedRead=\\\"Y\\\" />" /project/PHG/PHG_Illumina/BioCenter/$prjid/RunInfo.xml`;
 
 #If UMI Fix RunInfo so that the UMI can be parsed to the ReadName
 if ($umi) {
@@ -98,6 +98,7 @@ while (my $line = <SS>){
       }
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
+      $hash{Assay} = lc($hash{Assay});
       $hash{Assay} = 'panel1385' if ($hash{Assay} eq 'dnaseqdevelopment');
       $hash{Assay} = 'panel1385v2' if ($hash{MergeName} =~ m/panel1385v2/);
       $hash{Assay} = 'panelrnaseq' if ($hash{MergeName} =~ m/panelrnaseq/);
@@ -119,23 +120,26 @@ while (my $line = <SS>){
       $hash{VcfID} = $hash{SubjectID}."_".$prjid;
       if (($hash{Description} && $hash{Description} =~ m/research/i) ||
 	  ($hash{Sample_Name} !~ m/ORD/ && $hash{SubjectID} !~ m/GM12878|ROS/)) {
-	$clinres = 'toresearch';
+	  $clinres = 'toresearch';
       }
       $hash{ClinRes} = $clinres;
+      unless ($umi) {
+	  $hash{Sample_Name} = $hash{Sample_Name}."_ClarityID-".$hash{Sample_ID};
+      }
       $hash{Sample_ID} = $hash{Sample_Name};
       $stype{$hash{SubjectID}} = $clinres;
       $spairs{$hash{SubjectID}}{lc($hash{Class})}{$hash{MergeName}} = 1;
       $sampleinfo{$hash{Sample_Name}} = \%hash;
-      push @{$samples{lc($hash{Assay})}{$hash{SubjectID}}}, $hash{Sample_Name};
+      push @{$samples{$hash{Assay}}{$hash{SubjectID}}}, $hash{Sample_Name};
       
       my @newline;
       foreach my $j (0..$#row) {
-	push @newline, $hash{$colnames[$j]};
+	  push @newline, $hash{$colnames[$j]};
       }
       print SSOUT join(",",@newline),"\n";
     }
   } else {
-    print SSOUT $line,"\n";
+      print SSOUT $line,"\n";
   }
 }
 close SSOUT;
@@ -155,7 +159,7 @@ my %completeout;
 my %control;
 my %completeout_somatic;
 
-my $prodir = "/project/PHG/PHG_Clinical/devel/umi_demultiplexing_fix";
+my $prodir = "/project/PHG/PHG_Clinical/processing";
 my $outdir = "$prodir\/$prjid/fastq";
 my $outnf = "$prodir\/$prjid/analysis";
 my $workdir = "$prodir\/$prjid/work";
@@ -228,6 +232,9 @@ foreach $dtype (keys %samples) {
   unless ($dtype =~ /rna/) { 
     my $capture = "$capturedir\/$panel2bed{$dtype}";
     my $alignwf = "$baseDir\/alignment.nf";
+    unless ($umi) {
+	$alignwf = "$baseDir\/alignmentV1.nf";
+    }
     print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $alignwf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf --markdups $mdup > $outnf\/$dtype\.nextflow_alignment.log\n";
   } elsif ($dtype =~ m/rnaseq/) {
     $rnaopts .= " --bamct skip " if ($dtype =~ m/whole/);

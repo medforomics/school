@@ -9,7 +9,7 @@ params.design="$params.input/design.txt"
 params.genome="/project/shared/bicf_workflow_ref/GRCh38"
 params.targetpanel="$params.genome/clinseq_prj/UTSWV2.bed"
 params.cancer="detect"
-params.callsvs="detect"
+params.callsvs="skip"
 params.nuctype='dna'
 params.projectid=''
 
