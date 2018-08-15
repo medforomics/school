@@ -11,6 +11,6 @@ foreach my $ss (@samplesheets) {
       system("cp $ss /project/PHG/PHG_Clinical/illumina/sample_sheets/$fname");
       system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/init_workflows.pl -p $prjid");
       system("source /etc/profile.d/modules.sh");
-      system("sbatch -p PHG,super /project/PHG/PHG_Clinical/illumina/logs/run_casava_$prjid\.sh");
+      system("sbatch -p PHG,super /project/PHG/PHG_Clinical/illumina/$prjid/run_$prjid\.sh");
   }
 }
