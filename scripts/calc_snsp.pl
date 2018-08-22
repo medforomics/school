@@ -116,17 +116,14 @@ while (my $line = <IN>) {
   $is_gs = 0 if (grep(/hotspot/,@callers) && $maf > 0.1);
   $is_gs = 0 if ($maf < 0.05);
   $is_gs = 0 if ($maf < 0.1  && $vartype ne 'snp');
+  $is_gs = 0 if ($hash{CallSetInconsistent} && $vartype ne 'snp');
   if ($id =~ m/COS/ && $cosmicsubj >= 5) {
     $is_gs = 0 if ($dp < 20 || $altct < 3);
-    #$is_gs = 0 if ($maf < 0.01 && $vartype eq 'snp');
-    #$is_gs = 0 if ($maf < 0.05 && $vartype ne 'snp');
   }elsif ($id =~ m/rs/){
       $is_gs = 0 if ($dp < 10 || $maf < 0.15);
   }else {
     $is_gs = 0 unless (scalar(@callers) > 1);
     $is_gs = 0 if ($dp < 20 || $altct < 8);
-    #$is_gs = 0 if ($maf < 0.05 && $vartype eq 'snp');
-    #$is_gs = 0 if ($maf < 0.1 && $vartype ne 'snp');
   }
   if ($is_gs) {
       print GS $line,"\n";
