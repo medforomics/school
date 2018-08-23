@@ -25,6 +25,14 @@ W1:while (my $line = <IN>) {
     my ($key,$val) = split(/=/,$a);
     $hash{$key} = $val unless ($hash{$key});
   }
+  if ($hash{REFREP} && $hash{REFREP} =~ m/^\d$/) {
+      $numreps= (split(/,/,$hash{REFREP}))[0];
+      next if $numreps > 1;
+  }
+  my $vartype = 'snp';
+  if (length($alt) == length($ref) && length($ref) > 1) {
+      $vartype = 'indel';
+  }
   my %fail;
   $fail{'StrandBias'} = 1 if (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i);
   my $exacaf = '';
@@ -66,19 +74,22 @@ W1:while (my $line = <IN>) {
       $totalaltct += $acts[$i];
     }
   }
-  next unless ($altct[0] && $altct[0] > 2);
+  next unless ($altct[0] && $hash{DP} );
+  next if ($hash{DP} < 20 || $altct[0] < 3);
   if ($hash{DP} =~ m/,/) {
-    $hash{DP} = $totalaltct+$hash{RO};
+      $hash{DP} = $totalaltct+$hash{RO};
   }
   $hash{AD} = join(",",$hash{RO},@altct);
-  next unless ($hash{DP});
   my @mutallfreq;
   foreach  my $act (@altct) {
-    push @mutallfreq, sprintf("%.4f",$act/$hash{DP});
+      push @mutallfreq, sprintf("%.4f",$act/$hash{DP});
   }
   my @sortao = sort {$b <=> $a} @altct;
   $hash{AF} = join(",",@mutallfreq);
-  next if ($hash{DP} < 10);
+  next if ($vartype eq 'snp' && $mutallfreq[0] < 0.05);
+  if ($vartype ne 'snp') {
+      next if ( $mutallfreq[0] < 0.1)
+  }
   my @callers;
   if ($hash{CallSet} && $hash{CallSet} =~ m/\|/ || $hash{SomaticCallSet} && $hash{SomaticCallSet} =~ m/\|/) {
       my @callinfo ;
@@ -100,11 +111,9 @@ W1:while (my $line = <IN>) {
       }
   }
   if ((grep(/hotspot/,@callers) || $id =~ m/COS/) && $cosmicsubj >= 5) {
-      next if ($altct[0] < 3 || $mutallfreq[0] < 0.01);
-  }elsif ($id =~ m/rs/){
-      next if ($mutallfreq[0] < 0.15);
+      next if ($altct[0] < 3);
   }else {
-      next if ($altct[0] < 8 || $mutallfreq[0] < 0.05);
+      next if ($altct[0] < 8);
   }
   my @aa;
   next unless ($hash{ANN});

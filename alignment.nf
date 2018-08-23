@@ -88,6 +88,7 @@ process align {
   set subjid,pair_id, file("${pair_id}.bam") into aligned2
   """
   bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2 $alignopts
+  bash $baseDir/process_scripts/alignment/bam2tdf.sh -r $index_path -b ${pair_id}.bam -p ${pair_id}.raw  
   """
  }
 
@@ -99,12 +100,25 @@ process markdups_consensus {
   output:
   set subjid, pair_id, file("${pair_id}.consensus.bam") into deduped
   set subjid, pair_id, file("${pair_id}.consensus.bam") into qcbam
+  set subjid, pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
+  file("${pair_id}.dedupcov.txt") into dedupcov
+  file("${pair_id}.covuniqhist.txt") into covuniqhist
+  file("*coverageuniq.txt") into covuniqstat
+
   script:
   """
   bash $baseDir/process_scripts/alignment/markdups.sh -a fgbio_umi -b $sbam -p $pair_id
   mv ${pair_id}.dedup.bam ${pair_id}.consensus.bam
+  bash $baseDir/process_scripts/alignment/bam2tdf.sh -r $index_path -b ${pair_id}.consensus.bam -p ${pair_id}.uniq
+  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b ${pair_id}.consensus.bam -r ${index_path} -p $pair_id
+  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${pair_id}.consensus.bam -p $pair_id
+  mv ${pair_id}.genomecov.txt ${pair_id}.dedupcov.txt
+  mv ${pair_id}.covhist.txt ${pair_id}.covuniqhist.txt
+  mv ${pair_id}_lowcoverage.txt ${pair_id}_lowcoverageuniq.txt
+  mv ${pair_id}_exoncoverage.txt ${pair_id}_exoncoverageuniq.txt
   """
 }
+
 process markdups_picard {
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
@@ -126,26 +140,6 @@ process markdups_picard {
   """
   bash $baseDir/process_scripts/alignment/markdups.sh -a picard_umi -b $sbam -p $pair_id
   bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${pair_id}.dedup.bam -p $pair_id  
-  """
-}
-
-process seqqc {
-  errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
-
-  input:
-  set subjid, pair_id, file(sbam) from qcbam
-  output:
-  file("${pair_id}.dedupcov.txt") into dedupcov
-  file("${pair_id}.covuniqhist.txt") into covuniqhist
-  file("*coverageuniq.txt") into covuniqstat
-  script:
-  """
-  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b $sbam -p $pair_id
-  mv ${pair_id}.genomecov.txt ${pair_id}.dedupcov.txt
-  mv ${pair_id}.covhist.txt ${pair_id}.covuniqhist.txt
-  mv ${pair_id}_lowcoverage.txt ${pair_id}_lowcoverageuniq.txt
-  mv ${pair_id}_exoncoverage.txt ${pair_id}_exoncoverageuniq.txt
   """
 }
 
@@ -174,21 +168,5 @@ process parse_stat {
   module load R/3.2.1-intel git/gcc/v2.12.2
   perl $baseDir/scripts/sequenceqc_alignment_withumi.pl -r ${index_path} *.genomecov.txt
   Rscript $baseDir/scripts/plot_hist_genocov.R
-  """
-}
-
-process gatkbam {
-  //errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
-
-  input:
-  set subjid, pair_id, file(sbam) from deduped
-
-  output:
-  set subjid, pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
-  
-  script:
-  """
-  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r ${index_path} -p $pair_id
   """
 }

@@ -93,6 +93,7 @@ process mergebam {
   set pair_id,file(bams) from bamgrp
   output:
   set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into qcbam
+  set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into qcbam2
   set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into deduped
   script:
   """
@@ -109,6 +110,27 @@ process mergebam {
   samtools index ${pair_id}.bam
   """
 }
+process uniqqc {
+  errorStrategy 'ignore'
+  publishDir "$params.output/$pair_id", mode: 'copy'
+
+  input:
+  set pair_id, file(sbam),file(sbai) from qcbam2
+  output:
+  file("${pair_id}.dedupcov.txt") into dedupcov
+  file("${pair_id}.covuniqhist.txt") into covuniqhist
+  file("*coverageuniq.txt") into covuniqstat
+  script:
+  """
+  module load samtools/1.6
+  samtools view -1 -F 1024 -o ${pair_id}.rmdup.bam $sbam
+  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${pair_id}.rmdup.bam -p $pair_id
+  mv ${pair_id}.genomecov.txt ${pair_id}.dedupcov.txt
+  mv ${pair_id}.covhist.txt ${pair_id}.covuniqhist.txt
+  mv ${pair_id}_lowcoverage.txt ${pair_id}_lowcoverageuniq.txt
+  mv ${pair_id}_exoncoverage.txt ${pair_id}_exoncoverageuniq.txt
+  """
+}
 process seqqc {
   errorStrategy 'ignore'
   publishDir "$params.output/$pair_id", mode: 'copy'
@@ -118,7 +140,6 @@ process seqqc {
   output:
   file("${pair_id}.flagstat.txt") into alignstats
   file("${pair_id}.ontarget.flagstat.txt") into ontarget
-  file("${pair_id}.dedupcov.txt") into dedupcov
   file("${pair_id}.meanmap.txt") into meanmap
   file("${pair_id}.hist.txt") into insertsize
   file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
