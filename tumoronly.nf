@@ -17,7 +17,7 @@ dbsnp_file="$params.genome/dbSnp.vcf.gz"
 indel="$params.genome/GoldIndels.vcf.gz"
 cosmic="$params.genome/cosmic.vcf.gz"
 reffa=file("$params.genome/genome.fa")
-
+capture=file(params.targetpanel)
 design_file = file(params.design)
 bams=file(params.bams)
 
@@ -108,7 +108,7 @@ process cnv {
   file("${pair_id}.cnv*pdf") into cnvpdf
   script:
   """
-  bash $baseDir/process_scripts/variants/cnvkit.sh -u -b $sbam -p $pair_id
+  bash $baseDir/process_scripts/variants/cnvkit.sh -u -c $capture -b $sbam -p $pair_id
   """
 }
 process svcall {

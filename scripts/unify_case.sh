@@ -40,7 +40,7 @@ if [[ -z $tumor_vcf ]] || [[ -z $subject ]] || [[ -z $index_path ]]; then
 fi 
 if [[ -z $targetbed ]]
 then
-targetbed="${index_path}/clinseq_prj/UTSWV2.bed"
+targetbed="${index_path}/clinseq_prj/UTSWV2_2.panelplus.bed"
 fi
 
 baseDir="`dirname \"$0\"`"
