@@ -28,6 +28,7 @@ foreach my $dfile (@designfiles) {
     open IN, "<$dfile" or die $!;
     my $d = (split(/\//,$dfile))[-1];
     my $baitpool = (split(/\./,$d))[0];
+    next if ($baitpool eq 'wholernaseq');
     my $header = <IN>;
     chomp($header);
     my @colnames = split(/\t/,$header);
@@ -73,18 +74,19 @@ foreach my $dfile (@designfiles) {
     }
 }
 
+my @prop = ('bait.pool','project.name','sample.alignment','sample.coverage.raw','sample.coverage.uniq',
+	    'sample.name','somatic.seq.stats','tdf.raw','tdf.uniq','giab.snsp',
+	    'somatic.translocation');
 
 foreach $sid (sort {$a cmp $b} keys %sinfo) {
     open OUT, ">$opt{dir}\/$opt{prjid}/$sid\.properties" or die $!;
     print OUT join("=",'dmux.conversion.stats',$rinfo{'dmux.conversion.stats'}),"\n";
     print OUT join("=",'run.name',$rinfo{'run.name'}),"\n";
-    foreach $prop (sort {$a cmp $b} keys %{$sinfo{$sid}}) {
-	#$sinfo{$sid}{$prop} =~ s/\/project\/PHG//;
+    foreach $prop (@prop) {
 	$sinfo{$sid}{$prop} = '' unless ($sinfo{$sid}{$prop});
 	print OUT join("=",$prop,$sinfo{$sid}{$prop}),"\n";
     }
     close OUT;
     $outdir = $opt{dir};
-    #$outdir =~ s/\/project\/PHG//;
     print (qq{curl "http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResultsWithProp?token=\$nucliatoken&propFilePath=$outdir\/$opt{prjid}/$sid\.properties"\n});
 } 
