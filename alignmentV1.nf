@@ -78,7 +78,7 @@ process align {
   """
   source /etc/profile.d/modules.sh
   touch ${pair_id}.dedup.stat.txt
-  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2
+  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -g $sname -p $pair_id -x $fq1 -y $fq2
   bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b ${pair_id}.bam -p $pair_id
   mv ${pair_id}.dedup.stat.txt ${pair_id}.libcomplex.txt
   """

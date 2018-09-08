@@ -260,10 +260,10 @@ print CAS "wait\n";
 
 my $controlfile = $outnf."/GM12878/GM12878_".$prjid.".germline.vcf.gz";
 foreach my $ctrls (keys %control){
-    my ($posCtrls,$dtype) = @{$ctrls}
+    my ($posCtrls,$dtype) = @{$control{$ctrls}};
   print CAS "cd $outnf\/GM12878\n";
   print CAS "vcf-subset -c ",$posCtrls," ",$controlfile," |bgzip > ",$posCtrls.".annot.vcf.gz\n";
-  print CAS "bash $baseDir\/scripts/snsp.sh -p $posCtrls -r capturedir -t $capturedir\/$panel2bed{$dtype} > $posCtrls\.snsp\.txt\n";
+  print CAS "bash $baseDir\/scripts/snsp.sh -p $posCtrls -r $capturedir -t $capturedir\/$panel2bed{$dtype} > $posCtrls\.snsp\.txt\n";
 }
 print CAS "cd $outnf\n";
 
