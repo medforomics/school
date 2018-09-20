@@ -73,7 +73,8 @@ foreach my $dfile (@designfiles) {
 	
     }
 }
-
+open SH, ">$opt{dir}\/$opt{prjid}.curlcommand.sh" or die $!;
+print SH "nucliatoken=\$1\n";
 my @prop = ('bait.pool','project.name','sample.alignment','sample.coverage.raw','sample.coverage.uniq',
 	    'sample.name','somatic.seq.stats','tdf.raw','tdf.uniq','giab.snsp',
 	    'somatic.translocation');
@@ -88,5 +89,6 @@ foreach $sid (sort {$a cmp $b} keys %sinfo) {
     }
     close OUT;
     $outdir = $opt{dir};
-    print (qq{curl "http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResultsWithProp?token=\$nucliatoken&propFilePath=$outdir\/$opt{prjid}/$sid\.properties"\n});
+    print SH (qq{curl "http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResultsWithProp?token=\$nucliatoken&propFilePath=$outdir\/$opt{prjid}/$sid\.properties"\n});
 } 
+close SH;

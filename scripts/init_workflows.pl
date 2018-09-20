@@ -3,7 +3,7 @@
 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
-my %panel2bed = ('panel1385'=>'UTSWV2.bed','panel1385v2'=>'UTSWV2_2.bed',
+my %panel2bed = ('panel1385'=>'UTSWV2.bed','panel1385v2'=>'UTSWV2_2.panelplus.bed',
 		 'idthemev1'=>'heme_panel_probes.bed',
 		 'idtcellfreev1'=>'panelcf73_idt.100plus.bed',
 		 'medexomeplus'=>'MedExome_Plus.bed');
@@ -152,9 +152,9 @@ open CAS, ">$seqdatadir\/run_$prjid\.sh" or die $!;
 print CAS "#!/bin/bash\n#SBATCH --job-name $prjid\n#SBATCH -N 1\n";
 print CAS "#SBATCH -t 14-0:0:00\n#SBATCH -o $prjid.out\n#SBATCH -e $prjid.err\n";
 print CAS "source /etc/profile.d/modules.sh\n";
-print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.27.6 vcftools/0.1.14 samtools/1.6\n";
+print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.31.0 vcftools/0.1.14 samtools/1.6\n";
 
-print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --ignore-missing-positions --no-lane-splitting --runfolder-dir $seqdatadir --sample-sheet $newss &> $seqdatadir\/bcl2fastq_$prjid\.log\n";
+print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --no-lane-splitting --runfolder-dir $seqdatadir --sample-sheet $newss &> $seqdatadir\/bcl2fastq_$prjid\.log\n";
 print CAS "mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid");
 print CAS "cp -R /project/PHG/PHG_Clinical/illumina/$prjid\/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Reports");
 print CAS "cp -R /project/PHG/PHG_Clinical/illumina/$prjid\/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Stats");
@@ -260,7 +260,7 @@ print CAS "wait\n";
 
 my $controlfile = $outnf."/GM12878/GM12878_".$prjid.".germline.vcf.gz";
 foreach my $ctrls (keys %control){
-    my ($posCtrls,$dtype) = @{$ctrls}
+    my ($posCtrls,$dtype) = @{$ctrls};
   print CAS "cd $outnf\/GM12878\n";
   print CAS "vcf-subset -c ",$posCtrls," ",$controlfile," |bgzip > ",$posCtrls.".annot.vcf.gz\n";
   print CAS "bash $baseDir\/scripts/snsp.sh -p $posCtrls -r capturedir -t $capturedir\/$panel2bed{$dtype} > $posCtrls\.snsp\.txt\n";
