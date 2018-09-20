@@ -3,8 +3,8 @@
 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
-my %panel2bed = ('panel1385'=>'UTSWV2.bed','panel1385v2'=>'UTSWV2_2.bed',
-		 'idthemev1'=>'heme_panel_target100.bed',
+my %panel2bed = ('panel1385'=>'UTSWV2.bed','panel1385v2'=>'UTSWV2_2.panelplus.bed',
+		 'idthemev1'=>'heme_panel_probes.bed',
 		 'idtcellfreev1'=>'panelcf73_idt.100plus.bed',
 		 'medexomeplus'=>'MedExome_Plus.bed');
 
@@ -21,16 +21,46 @@ EOF
   die $usage,"\n";
 }
 
+#identify the working directory
 my @execdir = split(/\//,$0);
 pop @execdir;
 pop @execdir;
 $baseDir = join("/",@execdir);
 
+#determine the writing and processing directories
+my $umi = 1;
 my $prjid = $opt{prjid};
 my $seqdatadir = "/project/PHG/PHG_Clinical/illumina/$prjid";
 my $oriss = "/project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.csv";
 my $newss = "$seqdatadir\/$prjid\.csv";
 my $capturedir = "/project/shared/bicf_workflow_ref/GRCh38/clinseq_prj";
+
+#Relocate Run Data to New Location
+system("mv /project/PHG/PHG_Clinical/illumina/$prjid/RunInfo.xml /project/PHG/PHG_Clinical/illumina/$prjid/RunInfo.xml.ori");
+
+#If UMI Fix RunInfo so that the UMI can be parsed to the ReadName
+if ($umi) {
+  open IN, "<$seqdatadir\/RunInfo.xml.ori" or die $!;
+  open OUT, ">$seqdatadir\/RunInfo.xml" or die $!;
+  while (my $line = <IN>) {
+    chomp($line);
+    if ($line =~ m/(\s+)<Read Number="(\d+)" /) {
+      if ($2 eq 1) {
+	print OUT $line,"\n";
+      } elsif ($2 eq 2) {
+	print OUT $1.qq{<Read Number="2" NumCycles="6" IsIndexedRead="Y" />},"\n";
+      } elsif ($2 eq 3) {
+	print OUT $1.qq{<Read Number="3" NumCycles="84" IsIndexedRead="N" />},"\n";
+      } 
+    }else {
+      print OUT $line,"\n";
+    }
+  }
+}else {
+  system("cp /project/PHG/PHG_Clinical/illumina/$prjid/RunInfo.xml.ori /project/PHG/PHG_Clinical/illumina/$prjid/RunInfo.xml");
+}
+
+#Create New SampleSheet
 
 open SS, "<$oriss" or die $!;
 open SSOUT, ">$newss" or die $!;
@@ -44,6 +74,9 @@ while (my $line = <SS>){
   $line =~ s/ //g;
   $line =~ s/,+$//g;
   if ($line =~ m/^\[Data\]/) {
+    if ($umi) {
+      print SSOUT join("\n","[Settings]","ReverseComplement,0","Read2UMILength,8"),"\n";
+    }
     print SSOUT $line,"\n";
     $header = <SS>;
     $header =~ s/\r//g;
@@ -63,6 +96,7 @@ while (my $line = <SS>){
       }
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
+      $hash{Assay} = lc($hash{Assay});
       $hash{Assay} = 'panel1385' if ($hash{Assay} eq 'dnaseqdevelopment');
       $hash{Assay} = 'panel1385v2' if ($hash{MergeName} =~ m/panel1385v2/);
       $hash{Assay} = 'panelrnaseq' if ($hash{MergeName} =~ m/panelrnaseq/);
@@ -84,34 +118,39 @@ while (my $line = <SS>){
       $hash{VcfID} = $hash{SubjectID}."_".$prjid;
       if (($hash{Description} && $hash{Description} =~ m/research/i) ||
 	  ($hash{Sample_Name} !~ m/ORD/ && $hash{SubjectID} !~ m/GM12878|ROS/)) {
-	$clinres = 'toresearch';
+	  $clinres = 'toresearch';
       }
-      $hash{Sample_Name} = $hash{Sample_Name}."_ClarityID-".$hash{Sample_ID};
-      $hash{Sample_ID} = $hash{Sample_Name};
       $hash{ClinRes} = $clinres;
+      unless ($umi) {
+	  $hash{Sample_Name} = $hash{Sample_Name}."_ClarityID-".$hash{Sample_ID};
+      }
+      $hash{Sample_ID} = $hash{Sample_Name};
       $stype{$hash{SubjectID}} = $clinres;
       $spairs{$hash{SubjectID}}{lc($hash{Class})}{$hash{MergeName}} = 1;
       $sampleinfo{$hash{Sample_Name}} = \%hash;
-      push @{$samples{lc($hash{Assay})}{$hash{SubjectID}}}, $hash{Sample_Name};
+      push @{$samples{$hash{Assay}}{$hash{SubjectID}}}, $hash{Sample_Name};
       
       my @newline;
       foreach my $j (0..$#row) {
-	push @newline, $hash{$colnames[$j]};
+	  push @newline, $hash{$colnames[$j]};
       }
       print SSOUT join(",",@newline),"\n";
     }
   } else {
-    print SSOUT $line,"\n";
+      print SSOUT $line,"\n";
   }
 }
 close SSOUT;
+
+#create a batch 
 
 open CAS, ">$seqdatadir\/run_$prjid\.sh" or die $!;
 print CAS "#!/bin/bash\n#SBATCH --job-name $prjid\n#SBATCH -N 1\n";
 print CAS "#SBATCH -t 14-0:0:00\n#SBATCH -o $prjid.out\n#SBATCH -e $prjid.err\n";
 print CAS "source /etc/profile.d/modules.sh\n";
-print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.27.6 vcftools/0.1.14 samtools/1.6\n";
-print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --ignore-missing-positions --no-lane-splitting --runfolder-dir $seqdatadir --sample-sheet $newss &> $seqdatadir\/bcl2fastq_$prjid\.log\n";
+print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.31.0 vcftools/0.1.14 samtools/1.6\n";
+
+print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --no-lane-splitting --runfolder-dir $seqdatadir --sample-sheet $newss &> $seqdatadir\/bcl2fastq_$prjid\.log\n";
 print CAS "mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid");
 print CAS "cp -R /project/PHG/PHG_Clinical/illumina/$prjid\/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Reports");
 print CAS "cp -R /project/PHG/PHG_Clinical/illumina/$prjid\/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Stats");
@@ -165,10 +204,20 @@ foreach $dtype (keys %samples) {
     foreach $samp (@{$samples{$dtype}{$project}}) {
       my %info = %{$sampleinfo{$samp}};
       if($info{SubjectID} =~ m/GM12878/){ #Positive Control
-	$control{$info{MergeName}}='GM12878';
+	$control{$info{MergeName}}=['GM12878',$dtype];
       }
       print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outdir\/$samp\.R1.fastq.gz\n";
       print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outdir\/$samp\.R2.fastq.gz\n";
+      my $finaloutput = '/project/PHG/PHG_Clinical/'.$info{ClinRes};
+      unless (-e "$finaloutput\/$info{SubjectID}") {
+	system("mkdir $finaloutput\/$info{SubjectID}");
+      }
+      my $finalrestingplace = "$finaloutput\/$info{SubjectID}\/$info{MergeName}";
+      unless (-e $finalrestingplace) {
+	system("mkdir $finalrestingplace");
+      }
+      print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $finalrestingplace\/$samp\.R1.fastq.gz\n";
+      print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $finalrestingplace\/$samp\.R2.fastq.gz\n";
       print SSOUT join("\t",$info{MergeName},$info{Sample_ID},$info{Sample_Name},$info{VcfID},
 		       $info{SubjectID},"$samp\.R1.fastq.gz","$samp\.R2.fastq.gz",
 		       $info{MergeName}.".bam",$info{MergeName}.".final.bam"),"\n";
@@ -176,12 +225,16 @@ foreach $dtype (keys %samples) {
   }
   close SSOUT;
   my $mdup = 'picard';
+  $mdup = 'fgbio_umi' if ($umi);
   $mdup = 'skip' if ($dtype =~ m/panelrnaseq/);
   my $germopts = '';
   my $rnaopts = '';
   unless ($dtype =~ /rna/) { 
     my $capture = "$capturedir\/$panel2bed{$dtype}";
-    my $alignwf = "$baseDir\/alignmentV1.nf";
+    my $alignwf = "$baseDir\/alignment.nf";
+    unless ($umi) {
+	$alignwf = "$baseDir\/alignmentV1.nf";
+    }
     print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $alignwf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf --markdups $mdup > $outnf\/$dtype\.nextflow_alignment.log\n";
   } elsif ($dtype =~ m/rnaseq/) {
     $rnaopts .= " --bamct skip " if ($dtype =~ m/whole/);
@@ -195,22 +248,8 @@ foreach $dtype (keys %samples) {
       }
     }
   }
-  print CAS "ln -s $outnf\/*/*/*.bam $outnf\n";  ####check me out
+  print CAS "ln -s $outnf\/*/*/*.bam $outnf\n";  
   print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --projectid _${prjid} --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
 }
 print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt --projectid _${prjid} --callsvs skip --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
 print CAS "wait\n";
-print CAS "cd $outnf\n";
-foreach $case (keys %stype) {
-  print CAS "rsync -avz $case /project/PHG/PHG_Clinical/".$stype{$case},"\n";
-}
-print CAS "rsync -rlptgoD --exclude=\"*fastq.gz*\" --exclude=\"*bam*\" $prodir\/$prjid /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
-
-foreach $project (keys %spairs) {
-  foreach $class (keys  %{$spairs{$project}}) {
-    foreach $samp (keys %{$spairs{$project}{$class}}) {
-      print CAS "curl \"http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResults?token=\$nucliatoken&subjectName=$project&sampleName=$samp&runName=$opt{prjid}\"\n";
-    }
-  }
-}
-close CAS;
