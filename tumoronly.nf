@@ -247,6 +247,7 @@ process platypus {
   module load samtools/1.6
   cp ${index_path}/union.header.vcf ${subjid}.platypus.vcf
   bgzip ${subjid}.platypus.vcf
+  cp ${subjid}.platypus.vcf.gz ${subjid}.platypus.ori.vcf.gz
   cp ${subjid}.platypus.vcf.gz ${subjid}.platypus.annot.vcf.gz
   """  
 }
