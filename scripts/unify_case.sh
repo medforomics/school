@@ -16,7 +16,7 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:p:t:n:v:s:x:c:f:b:h opt
+while getopts :r:p:t:n:v:s:x:c:b:f:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -32,15 +32,17 @@ do
 	h) usage;;
     esac
 done
+
+shift $(($OPTIND -1))
+
 if [[ -z $tumor_vcf ]] || [[ -z $subject ]] || [[ -z $index_path ]]; then
     usage
 fi 
 if [[ -z $targetbed ]]
 then
-targetbed="${index_path}/clinseq_prj/UTSWV2.bed"
+targetbed="${index_path}/clinseq_prj/UTSWV2_2.panelplus.bed"
 fi
 
-shift $(($OPTIND -1))
 baseDir="`dirname \"$0\"`"
 vepdir='/project/shared/bicf_workflow_ref/vcf2maf'
 
@@ -52,7 +54,7 @@ then
     bcftools annotate -Ov -a $tumor_vcf -o somatic.only.vcf --columns CHROM,POS,CallSet $somatic_vcf
     vcf-shuffle-cols -t somatic.only.vcf $tumor_vcf |bgzip > tumor.vcf.gz
     bgzip -f somatic.only.vcf
-    vcf-concat somatic.only.vcf.gz tumor.vcf.gz |vcf-sort |bgzip > somatic_germline.vcf.gz
+    vcf-concat somatic.only.vcf.gz tumor.vcf.gz |vcf-sort |uniq | bgzip > somatic_germline.vcf.gz
 else
     ln -s $tumor_vcf somatic_germline.vcf.gz
 fi
@@ -67,8 +69,13 @@ tabix -f ${subject}.pass.vcf.gz
 
 #Makes TumorMutationBurenFile
 
-bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed  |uniq |bgzip > ${subject}.utswpass.vcf.gz
-zgrep -c "SS=2" ${subject}.utswpass.vcf.gz |awk '{print "Class,TMB\n,"sprintf("%.2f",$1/4.6)}' > ${subject}.TMB.csv
+bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed |uniq |bgzip > ${subject}.utswpass.vcf.gz
+
+targetsize=`awk '{sum+=$3-$2} END {print sum/1000000}' $targetbed`
+zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz |bgzip > ${subject}.utswpass.somatic.vcf.gz
+zgrep -c -v "#" ${subject}.utswpass.somatic.vcf.gz | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
+bcftools stats ${subject}.utswpass.somatic.vcf.gz > ${subject}.utswpass.somatic.bcfstats.txt
+plot-vcfstats -P -p ${subject}.bcfstat ${subject}.utswpass.somatic.bcfstats.txt
 perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
 
 #Convert to HG37
@@ -79,8 +86,6 @@ perl $baseDir/philips_excel.pl ${subject}.PASS.hg19.vcf $rnaseq_fpkm
 
 zcat ${subject}.pass.vcf.gz |perl -p -e 's/^chr//g' > ${subject}.formaf.vcf
 perl ${vepdir}/vcf2maf.pl --input ${subject}.formaf.vcf --output ${subject}.maf --species homo_sapiens --ncbi-build GRCh37 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh37.75.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot.txt --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc.txt --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
-
-rsync -rlptgoD ${subject}.vcf.gz ${subject}.TMB.csv /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/${subject}
 
 python $baseDir/../IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p $password -o ${subject}.xml
 

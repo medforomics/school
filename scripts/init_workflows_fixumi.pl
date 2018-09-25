@@ -3,7 +3,7 @@
 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
-my %panel2bed = ('panel1385'=>'UTSWV2.bed','panel1385v2'=>'UTSWV2_2.bed',
+my %panel2bed = ('panel1385'=>'UTSWV2.bed','panel1385v2'=>'UTSWV2_2.panelplus.bed',
 		 'idthemev1'=>'heme_panel_probes.bed',
 		 'idtcellfreev1'=>'panelcf73_idt.100plus.bed',
 		 'medexomeplus'=>'MedExome_Plus.bed');
@@ -36,11 +36,7 @@ my $newss = "$seqdatadir\/$prjid\.csv";
 my $capturedir = "/project/shared/bicf_workflow_ref/GRCh38/clinseq_prj";
 
 #Relocate Run Data to New Location
-system("mkdir /project/PHG/PHG_Clinical/illumina/$prjid");
-system("ln -s /project/PHG/PHG_Illumina/BioCenter/$prjid/* /project/PHG/PHG_Clinical/illumina/$prjid");
 system("mv /project/PHG/PHG_Clinical/illumina/$prjid/RunInfo.xml /project/PHG/PHG_Clinical/illumina/$prjid/RunInfo.xml.ori");
-
-$umi = `grep "<Read Number=\\\"2\\\" NumCycles=\\\"14\\\" IsIndexedRead=\\\"Y\\\" />" /project/PHG/PHG_Illumina/BioCenter/$prjid/RunInfo.xml`;
 
 #If UMI Fix RunInfo so that the UMI can be parsed to the ReadName
 if ($umi) {
@@ -152,9 +148,9 @@ open CAS, ">$seqdatadir\/run_$prjid\.sh" or die $!;
 print CAS "#!/bin/bash\n#SBATCH --job-name $prjid\n#SBATCH -N 1\n";
 print CAS "#SBATCH -t 14-0:0:00\n#SBATCH -o $prjid.out\n#SBATCH -e $prjid.err\n";
 print CAS "source /etc/profile.d/modules.sh\n";
-print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.27.6 vcftools/0.1.14 samtools/1.6\n";
+print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.31.0 vcftools/0.1.14 samtools/1.6\n";
 
-print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --ignore-missing-positions --no-lane-splitting --runfolder-dir $seqdatadir --sample-sheet $newss &> $seqdatadir\/bcl2fastq_$prjid\.log\n";
+print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --no-lane-splitting --runfolder-dir $seqdatadir --sample-sheet $newss &> $seqdatadir\/bcl2fastq_$prjid\.log\n";
 print CAS "mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid");
 print CAS "cp -R /project/PHG/PHG_Clinical/illumina/$prjid\/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Reports");
 print CAS "cp -R /project/PHG/PHG_Clinical/illumina/$prjid\/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/Stats");
@@ -163,7 +159,7 @@ my %completeout;
 my %control;
 my %completeout_somatic;
 
-my $prodir = "/project/PHG/PHG_Clinical/processing";
+my $prodir = "/project/PHG/PHG_Clinical/devel/umi_demultiplexing_fix";
 my $outdir = "$prodir\/$prjid/fastq";
 my $outnf = "$prodir\/$prjid/analysis";
 my $workdir = "$prodir\/$prjid/work";
@@ -257,28 +253,3 @@ foreach $dtype (keys %samples) {
 }
 print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt --projectid _${prjid} --callsvs skip --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
 print CAS "wait\n";
-
-my $controlfile = $outnf."/GM12878/GM12878_".$prjid.".germline.vcf.gz";
-foreach my $ctrls (keys %control){
-    my ($posCtrls,$dtype) = @{$control{$ctrls}};
-  print CAS "cd $outnf\/GM12878\n";
-  print CAS "vcf-subset -c ",$posCtrls," ",$controlfile," |bgzip > ",$posCtrls.".annot.vcf.gz\n";
-  print CAS "bash $baseDir\/scripts/snsp.sh -p $posCtrls -r $capturedir -t $capturedir\/$panel2bed{$dtype} > $posCtrls\.snsp\.txt\n";
-}
-print CAS "cd $outnf\n";
-
-foreach $case (keys %stype) {
-  print CAS "rsync -avz $case /project/PHG/PHG_Clinical/".$stype{$case},"\n";
-}
-
-print CAS "rsync -rlptgoD --exclude=\"*fastq*\" --exclude \"*work*\" --exclude=\"*bam*\" $prodir\/$prjid /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
-print CAS "perl $baseDir\/scripts/create_properties_run.pl -p $prjid -d /project/PHG/PHG_BarTender/bioinformatics/seqanalysis\n";
-
-foreach $project (keys %spairs) {
-  foreach $class (keys  %{$spairs{$project}}) {
-    foreach $samp (keys %{$spairs{$project}{$class}}) {
-	print CAS (qq{curl "http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResultsWithProp?token=\$nucliatoken&propFilePath=/project/PHG/PHG_BarTender/bioinformatics/seqanalysis\/$opt{prjid}/$samp\.properties"\n});
-    }
-  }
-}
-close CAS

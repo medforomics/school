@@ -31,11 +31,13 @@ fastqs.each {
     fileMap[fileName] = it
 }
 def read = []
+def prefix = []
 new File(params.design).withReader { reader ->
     def hline = reader.readLine()
     def header = hline.split("\t")
     iidx = header.findIndexOf{it == 'SampleID'};
     nidx = header.findIndexOf{it == 'SampleName'};
+    fidx = header.findIndexOf{it == 'FamilyID'};
     oneidx = header.findIndexOf{it == 'FqR1'};
     twoidx = header.findIndexOf{it == 'FqR2'};
     if (twoidx == -1) {
@@ -45,8 +47,8 @@ new File(params.design).withReader { reader ->
     	   def row = line.split("\t")
     if (fileMap.get(row[oneidx]) != null) {
 	read << tuple(row[iidx],row[nidx],fileMap.get(row[oneidx]),fileMap.get(row[twoidx]))
+	prefix << tuple(row[fidx],row[iidx])
 	   }
-
 }
 }
 if( ! read) { error "Didn't match any input files with entries in the design file" }
@@ -71,12 +73,12 @@ process align {
   input:
   set sname,pair_id, file(fq1), file(fq2) from trimread
   output:
-  set sname, file("${pair_id}.dedup.bam") into aligned
+  set sname,file("${pair_id}.dedup.bam") into aligned
   file("${pair_id}.libcomplex.txt") into libcomplex
   """
   source /etc/profile.d/modules.sh
   touch ${pair_id}.dedup.stat.txt
-  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2
+  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -g $sname -p $pair_id -x $fq1 -y $fq2
   bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b ${pair_id}.bam -p $pair_id
   mv ${pair_id}.dedup.stat.txt ${pair_id}.libcomplex.txt
   """
@@ -87,13 +89,15 @@ aligned
    .set {bamgrp}
 
 process mergebam {
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id,file(bams) from bamgrp
   output:
   set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into qcbam
+  set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into qcbam2
   set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into deduped
+
   script:
   """
   source /etc/profile.d/modules.sh
@@ -107,6 +111,28 @@ process mergebam {
   fi
   samtools sort --threads \$SLURM_CPUS_ON_NODE -o ${pair_id}.bam merge.bam
   samtools index ${pair_id}.bam
+  
+  """
+}
+process uniqqc {
+  errorStrategy 'ignore'
+  publishDir "$params.output/$pair_id", mode: 'copy'
+
+  input:
+  set pair_id, file(sbam),file(sbai) from qcbam2
+  output:
+  file("${pair_id}.dedupcov.txt") into dedupcov
+  file("${pair_id}.covuniqhist.txt") into covuniqhist
+  file("*coverageuniq.txt") into covuniqstat
+  script:
+  """
+  module load samtools/1.6
+  samtools view -1 -F 1024 -o ${pair_id}.rmdup.bam $sbam
+  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${pair_id}.rmdup.bam -p $pair_id
+  mv ${pair_id}.genomecov.txt ${pair_id}.dedupcov.txt
+  mv ${pair_id}.covhist.txt ${pair_id}.covuniqhist.txt
+  mv ${pair_id}_lowcoverage.txt ${pair_id}_lowcoverageuniq.txt
+  mv ${pair_id}_exoncoverage.txt ${pair_id}_exoncoverageuniq.txt
   """
 }
 process seqqc {
@@ -118,7 +144,6 @@ process seqqc {
   output:
   file("${pair_id}.flagstat.txt") into alignstats
   file("${pair_id}.ontarget.flagstat.txt") into ontarget
-  file("${pair_id}.dedupcov.txt") into dedupcov
   file("${pair_id}.meanmap.txt") into meanmap
   file("${pair_id}.hist.txt") into insertsize
   file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
@@ -162,10 +187,9 @@ process parse_stat {
   Rscript $baseDir/scripts/plot_hist_genocov.R
   """
 }
-
 process gatkbam {
   errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
+  publishDir "$params.output/$pair_id", mode: 'copy'
 
   input:
   set pair_id, file(sbam),file(sbai) from deduped

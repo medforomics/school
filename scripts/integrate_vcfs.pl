@@ -6,13 +6,6 @@ use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
 my $results = GetOptions (\%opt,'subject|s=s','tumor|t=s','normal|n=s','refdata|r=s','rnaseqvcf|v=s','rnaseqntct|c=s','help|h');
 
-
-open OM, "<$opt{refdata}\/clinseq_prj/panel1385.genelist.txt" or die $!;
-while (my $line = <OM>) {
-  chomp($line);
-  $keep{$line} = 1;
-}
-close OM;
 open OM, "<$opt{refdata}\/clinseq_prj/cancer.genelist.txt" or die $!;
 while (my $line = <OM>) {
   chomp($line);
@@ -117,6 +110,7 @@ W1:while (my $line = <IN>) {
   }
   my ($chrom, $pos,$id,$ref,$alt,$score,
       $filter,$annot,$format,@gts) = split(/\t/, $line);
+
   next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
   my %hash = ();
   foreach $a (split(/;/,$annot)) {
@@ -130,6 +124,12 @@ W1:while (my $line = <IN>) {
   my $exacaf;
   if ($hash{AF_POPMAX}) {
     foreach (split(/,/,$hash{AF_POPMAX})) {
+      push @exacaf, $_ if ($_ ne '.');
+    }
+    @exacaf = sort {$b <=> $a} @exacaf;
+    $exacaf = $exacaf[0] if ($exacaf[0]);
+  }elsif ($hash{dbNSFP_ExAC_Adj_AF}) {
+    foreach (split(/,/,$hash{dbNSFP_ExAC_Adj_AF})) {
       push @exacaf, $_ if ($_ ne '.');
     }
     @exacaf = sort {$b <=> $a} @exacaf;
@@ -148,6 +148,7 @@ W1:while (my $line = <IN>) {
     $exacaf = sprintf("%.4f",$ac/$an) if ($ac > 0 && $an > 10);
   }
   $fail{'COMMON'} = 1 if ($exacaf && $exacaf > 0.01);
+  next if ($exacaf && $exacaf > 0.2);
   $fail{'StrandBias'} = 1 if (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i);
   my $cosmicsubj = 0;
   if ($hash{CNT}) {
@@ -181,9 +182,6 @@ W1:while (my $line = <IN>) {
 	$total += $act;
 	push @mutallfreq, sprintf("%.4f",$act/$gtinfo{$subjid}{DP});
     }
-    unless ($gtinfo{$subjid}{DP} eq $total) {
-	warn "Inconsistent Depth counts @ $chrom,$pos,$alt,$gtinfo{$subjid}{AD},$gtinfo{$subjid}{DP}\n";
-    }
     $gtinfo{$subjid}{MAF} = \@mutallfreq;
   }
   next unless ($gtinfo{$opt{tumor}}{DP} && $gtinfo{$opt{tumor}}{DP} ne '.' && $gtinfo{$opt{tumor}}{DP} >= 20);
@@ -204,30 +202,43 @@ W1:while (my $line = <IN>) {
       my @callinfo ;
       @callinfo = split(/\|/, $hash{CallSet}) if ($hash{CallSet});
       if ($hash{SomaticCallSet}) {
-	  @callinfo = split(/\|/, $hash{SomaticCallSet}) if ($hash{SomaticCallSet});
+	  @callinfo = (@callinfo, split(/\|/, $hash{SomaticCallSet}));
       }
       foreach $cinfo (@callinfo) {
 	  my ($caller, $alt, @samafinfo) = split(/\//,$cinfo);
 	  push @callers, $caller;
       }
-      $hash{CallSet} = join("|",@callinfo);
-  }else {
+      $hash{CallSet} = join(",",@callinfo);
+      $hash{CallSet} =~ s/\//\|/g;
+  } elsif ($hash{CallSet} && $hash{CallSet} =~ m/\|/ || $hash{SomaticCallSet} && $hash{SomaticCallSet} =~ m/\|/) {
+      my @callinfo ;
+      @callinfo = split(/,/, $hash{CallSet}) if ($hash{CallSet});
+      if ($hash{SomaticCallSet}) {
+	  @callinfo = (@callinfo, split(/,/, $hash{SomaticCallSet}));
+      }
+      foreach $cinfo (@callinfo) {
+	  my ($caller, $alt, @samafinfo) = split(/\|/,$cinfo);
+	  push @callers, $caller;
+      }
+      $hash{CallSet} = join(",",@callinfo);
+  } else {
       if ($hash{CallSet}) {
 	  @callers = (@callers, split(/\,/, $hash{CallSet}));
       }
       if ($hash{SomaticCallSet}) {
 	  @callers = (@callers, split(/\,/, $hash{SomaticCallSet}));
       }
+      $hash{CallSet} = join(",",@callers);
   }
   if ($id =~ m/COS/ && $cosmicsubj >= 5) {
       $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 3);
-      $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.01);
-      #$fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.03 && $hash{TYPE} ne 'snp');
+      $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.05);
+      $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.1 && $hash{TYPE} ne 'snp');
   }else {
     $fail{'OneCaller'} = 1 if (scalar(@callers) < 2);
     $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 8);
     $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.05);
-    #$fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.10 && $hash{TYPE} ne 'snp');
+    $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.10 && $hash{TYPE} ne 'snp');
   }
   delete $hash{SOMATIC};
   $hash{SS} = 5  unless ($hash{SS});
@@ -292,8 +303,7 @@ W1:while (my $line = <IN>) {
 	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
 	$cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
     next unless ($impact =~ m/HIGH|MODERATE/ || $effect =~ /splice/i);
-    next if ($effect eq 'sequence_feature');
-    next unless $keep{$gene};
+    next if($effect eq 'sequence_feature');
     $keepforvcf = $gene;
     $cancergene = 1 if ($cgenelist{$gene});
   }
@@ -312,9 +322,9 @@ W1:while (my $line = <IN>) {
       push @nannot, $info;
     }
   }
-  $newannot = join(";",@nannot);
+  my $newannot = join(";",@nannot);
   print PASS join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$newannot,
-		  $newformat,@newgt),"\n" if ($filter eq 'PASS');
+		  $newformat,@newgt),"\n" if ($filter eq 'PASS' || $filter eq 'FailedQC;COMMON');
   print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$newannot,
 		 $newformat,@newgt),"\n" if ($filter eq 'PASS' || $id =~ m/COS/ || $cancergene || $filter eq 'FailedQC;COMMON');
 }
