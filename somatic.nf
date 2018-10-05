@@ -109,7 +109,7 @@ process checkmates {
   """
 }
 
-process svcall {
+process delly {
   publishDir "$params.output/$pid/somatic", mode: 'copy'
   errorStrategy 'ignore'
   input:
@@ -117,19 +117,16 @@ process svcall {
 
   output:
   file("${pid}.delly.vcf.gz") into dellyvcf
-  file("${pid}.sssv.sv.vcf.gz") into lumpyvcf
-  file("${pid}.sv.annot.vcf.gz") into svintvcf
-  file("${pid}.sv.annot.txt") into svannot
-  file("${pid}.sv.annot.genefusion.txt") into gfannot
   when:
   params.callsvs == "detect"
   script:
   """
   source /etc/profile.d/modules.sh
   perl $baseDir/scripts/make_delly_sample.pl ${tid} ${nid}
-  bash $baseDir/process_scripts/variants/svcalling.sh -r ${index_path} -p ${pid} -b ${tumor} -n ${normal} -k ${tid}
+  bash $baseDir/process_scripts/variants/svcalling.sh -r ${index_path} -p ${pid} -b ${tumor} -n ${normal} -i ${tid} -m delly
   """
 }
+
 process sstumor {
   errorStrategy 'ignore'
   publishDir "$params.output/$pid/somatic", mode: 'copy'

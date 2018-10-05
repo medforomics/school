@@ -104,6 +104,7 @@ process cnv {
   file("${pair_id}.call.cns") into cns
   file("${pair_id}.cns") into cnsori
   file("${pair_id}.cnr") into cnr
+  file("${pair_id}.answerplot*") into cnvansplot
   file("${pair_id}.*txt") into cnvtxt
   file("${pair_id}.cnv*pdf") into cnvpdf
   script:
@@ -111,22 +112,17 @@ process cnv {
   bash $baseDir/process_scripts/variants/cnvkit.sh -u -c $capture -b $sbam -p $pair_id
   """
 }
-process svcall {
+process pindel {
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
   set subjid,pair_id,file(ssbam),file(ssidx) from svbam
   output:
-  file("${pair_id}.delly.vcf.gz") into dellyvcf
-  file("${pair_id}.sssv.sv.vcf.gz") into svvcf
-  file("${pair_id}.sv.annot.vcf.gz") into svintvcf
-  file("${pair_id}.sv.annot.txt") into svannot
-  file("${pair_id}.sv.annot.genefusion.txt") into gfusion
-  when:
-  params.callsvs == "detect"
+  file("${pair_id}.pindel_*.vcf.gz") into pindelvcf
+
   script:
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -b $ssbam -r $index_path -p $pair_id
+  bash $baseDir/process_scripts/variants/pindel.sh -r ${index_path} -p ${pair_id}
   """
 }
 
@@ -247,6 +243,7 @@ process platypus {
   module load samtools/1.6
   cp ${index_path}/union.header.vcf ${subjid}.platypus.vcf
   bgzip ${subjid}.platypus.vcf
+  cp ${subjid}.platypus.vcf.gz ${subjid}.platypus.ori.vcf.gz
   cp ${subjid}.platypus.vcf.gz ${subjid}.platypus.annot.vcf.gz
   """  
 }
