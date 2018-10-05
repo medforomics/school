@@ -263,16 +263,16 @@ my $controlfile = $outnf."/GM12878/GM12878_".$prjid.".germline.vcf.gz";
 foreach my $ctrls (keys %control){
     my ($posCtrls,$dtype) = @{$control{$ctrls}};
   print CAS "cd $outnf\/GM12878\n";
-  print CAS "vcf-subset -c ",$posCtrls," ",$controlfile," |bgzip > ",$posCtrls.".annot.vcf.gz\n";
-  print CAS "bash $baseDir\/scripts/snsp.sh -p $posCtrls -r $capturedir -t $capturedir\/$panel2bed{$dtype} > $posCtrls\.snsp\.txt\n";
+  print CAS "vcf-subset -c ",$ctrls," ",$controlfile," |bgzip > ",$ctrls.".annot.vcf.gz\n";
+  print CAS "bash $baseDir\/scripts/snsp.sh -p $ctrls -r $capturedir -t $capturedir\/$panel2bed{$dtype} > $ctrls\.snsp\.txt\n";
 }
 print CAS "cd $outnf\n";
 
 foreach $case (keys %stype) {
   print CAS "rsync -avz $case /archive/PHG/PHG_Clinical/".$stype{$case},"\n";
 }
-
-print CAS "rsync -rlptgoD --exclude=\"*fastq*\" --exclude \"*work*\" --exclude=\"*bam*\" $prodir\/$prjid /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
+print CAS "cd $prodir\/$prjid\n";
+print CAS "rsync -rlptgoD --exclude=\"*fastq.gz*\" --exclude \"*work*\" --exclude=\"*bam*\" $prodir\/$prjid /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
 print CAS "perl $baseDir\/scripts/create_properties_run.pl -p $prjid -d /project/PHG/PHG_BarTender/bioinformatics/seqanalysis\n";
 
 foreach $project (keys %spairs) {
