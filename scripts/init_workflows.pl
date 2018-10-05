@@ -5,6 +5,7 @@ use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
 my %panel2bed = ('panel1385'=>'UTSWV2.bed','panel1385v2'=>'UTSWV2_2.bed',
 		 'idthemev1'=>'heme_panel_probes.bed',
+		 'idthemev2'=>'hemepanelV2.bed',
 		 'idtcellfreev1'=>'panelcf73_idt.100plus.bed',
 		 'medexomeplus'=>'MedExome_Plus.bed');
 
@@ -118,11 +119,11 @@ while (my $line = <SS>){
 	  $hash{MergeName} = join("_",@samplename);
 	}
       }
-      my $clinres = 'complete';
+      my $clinres = 'cases';
       $hash{VcfID} = $hash{SubjectID}."_".$prjid;
       if (($hash{Description} && $hash{Description} =~ m/research/i) ||
 	  ($hash{Sample_Name} !~ m/ORD/ && $hash{SubjectID} !~ m/GM12878|ROS/)) {
-	  $clinres = 'toresearch';
+	  $clinres = 'researchCases';
       }
       $hash{ClinRes} = $clinres;
       unless ($umi) {
@@ -218,10 +219,10 @@ foreach $dtype (keys %samples) {
       }
       my $finalrestingplace = "$finaloutput\/$info{SubjectID}\/$info{MergeName}";
       unless (-e $finalrestingplace) {
-	system("mkdir $finalrestingplace");
+	#system("mkdir $finalrestingplace");
       }
-      print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $finalrestingplace\/$samp\.R1.fastq.gz\n";
-      print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $finalrestingplace\/$samp\.R2.fastq.gz\n";
+      #print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $finalrestingplace\/$samp\.R1.fastq.gz\n";
+      #print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $finalrestingplace\/$samp\.R2.fastq.gz\n";
       print SSOUT join("\t",$info{MergeName},$info{Sample_ID},$info{Sample_Name},$info{VcfID},
 		       $info{SubjectID},"$samp\.R1.fastq.gz","$samp\.R2.fastq.gz",
 		       $info{MergeName}.".bam",$info{MergeName}.".final.bam"),"\n";
@@ -255,7 +256,7 @@ foreach $dtype (keys %samples) {
   print CAS "ln -s $outnf\/*/*/*.bam $outnf\n";  
   print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --projectid _${prjid} --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
 }
-print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt --projectid _${prjid} --callsvs skip --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
+print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt --projectid _${prjid} --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
 print CAS "wait\n";
 
 my $controlfile = $outnf."/GM12878/GM12878_".$prjid.".germline.vcf.gz";
@@ -268,7 +269,7 @@ foreach my $ctrls (keys %control){
 print CAS "cd $outnf\n";
 
 foreach $case (keys %stype) {
-  print CAS "rsync -avz $case /project/PHG/PHG_Clinical/".$stype{$case},"\n";
+  print CAS "rsync -avz $case /archive/PHG/PHG_Clinical/".$stype{$case},"\n";
 }
 
 print CAS "rsync -rlptgoD --exclude=\"*fastq*\" --exclude \"*work*\" --exclude=\"*bam*\" $prodir\/$prjid /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";

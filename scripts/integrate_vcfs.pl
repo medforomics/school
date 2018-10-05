@@ -148,7 +148,7 @@ W1:while (my $line = <IN>) {
     $exacaf = sprintf("%.4f",$ac/$an) if ($ac > 0 && $an > 10);
   }
   $fail{'COMMON'} = 1 if ($exacaf && $exacaf > 0.01);
-  next if ($exacaf && $exacaf > 0.2);
+  next if ($exacaf && $exacaf > 0.05);
   $fail{'StrandBias'} = 1 if (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i);
   my $cosmicsubj = 0;
   if ($hash{CNT}) {
