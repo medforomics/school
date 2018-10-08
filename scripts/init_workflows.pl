@@ -104,6 +104,7 @@ while (my $line = <SS>){
       $hash{Assay} = lc($hash{Assay});
       $hash{Assay} = 'panel1385' if ($hash{Assay} eq 'dnaseqdevelopment');
       $hash{Assay} = 'panel1385v2' if ($hash{MergeName} =~ m/panel1385v2/);
+      $hash{Assay} = 'idthemev2' if ($hash{MergeName} =~ m/IDTHemev2/);
       $hash{Assay} = 'panelrnaseq' if ($hash{MergeName} =~ m/panelrnaseq/);
       $hash{Assay} = 'wholernaseq' if ($hash{MergeName} =~ m/wholernaseq/);
       my @samplename = split(/_/,$hash{Sample_Name});
