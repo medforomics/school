@@ -104,6 +104,7 @@ while (my $line = <SS>){
       $hash{Assay} = lc($hash{Assay});
       $hash{Assay} = 'panel1385' if ($hash{Assay} eq 'dnaseqdevelopment');
       $hash{Assay} = 'panel1385v2' if ($hash{MergeName} =~ m/panel1385v2/);
+      $hash{Assay} = 'idthemev2' if ($hash{MergeName} =~ m/IDTHemev2/);
       $hash{Assay} = 'panelrnaseq' if ($hash{MergeName} =~ m/panelrnaseq/);
       $hash{Assay} = 'wholernaseq' if ($hash{MergeName} =~ m/wholernaseq/);
       my @samplename = split(/_/,$hash{Sample_Name});
@@ -267,10 +268,6 @@ foreach my $ctrls (keys %control){
     print CAS "bash $baseDir\/scripts/snsp.sh -p $posCtrls -r $capturedir -t $capturedir\/$panel2bed{$dtype} > $posCtrls\.snsp\.txt\n";
 }
 print CAS "cd $outnf\n";
-
-foreach $case (keys %stype) {
-  print CAS "rsync -avz $case /archive/PHG/PHG_Clinical/".$stype{$case},"\n";
-}
 print CAS "cd $prodir\/$prjid\n";
 print CAS "rsync -rlptgoD --exclude=\"*fastq.gz*\" --exclude \"*work*\" --exclude=\"*bam*\" $prodir\/$prjid /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
 print CAS "perl $baseDir\/scripts/create_properties_run.pl -p $prjid -d /project/PHG/PHG_BarTender/bioinformatics/seqanalysis\n";

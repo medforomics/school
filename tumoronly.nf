@@ -9,7 +9,7 @@ params.design="$params.input/design.txt"
 params.genome="/project/shared/bicf_workflow_ref/GRCh38"
 params.targetpanel="$params.genome/clinseq_prj/UTSWV2.bed"
 params.cancer="detect"
-params.callsvs="skip"
+params.callsvs="detect"
 params.nuctype='dna'
 params.projectid=''
 
@@ -119,7 +119,8 @@ process pindel {
   set subjid,pair_id,file(ssbam),file(ssidx) from svbam
   output:
   file("${pair_id}.pindel_*.vcf.gz") into pindelvcf
-
+  when:
+  params.nuctype == "dna"
   script:
   """
   bash $baseDir/process_scripts/variants/pindel.sh -r ${index_path} -p ${pair_id}
