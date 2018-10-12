@@ -268,10 +268,6 @@ foreach my $ctrls (keys %control){
   print CAS "bash $baseDir\/scripts/snsp.sh -p $ctrls -r $capturedir -t $capturedir\/$panel2bed{$dtype} > $ctrls\.snsp\.txt\n";
 }
 print CAS "cd $outnf\n";
-
-foreach $case (keys %stype) {
-  print CAS "rsync -avz $case /archive/PHG/PHG_Clinical/".$stype{$case},"\n";
-}
 print CAS "cd $prodir\/$prjid\n";
 print CAS "rsync -rlptgoD --exclude=\"*fastq.gz*\" --exclude \"*work*\" --exclude=\"*bam*\" $prodir\/$prjid /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
 print CAS "perl $baseDir\/scripts/create_properties_run.pl -p $prjid -d /project/PHG/PHG_BarTender/bioinformatics/seqanalysis\n";

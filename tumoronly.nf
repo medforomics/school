@@ -119,7 +119,8 @@ process pindel {
   set subjid,pair_id,file(ssbam),file(ssidx) from svbam
   output:
   file("${pair_id}.pindel_*.vcf.gz") into pindelvcf
-
+  when:
+  params.nuctype == "dna"
   script:
   """
   bash $baseDir/process_scripts/variants/pindel.sh -r ${index_path} -p ${pair_id}
