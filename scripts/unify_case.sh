@@ -61,7 +61,19 @@ fi
 
 tabix -f somatic_germline.vcf.gz
 
-perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -n $normal_id -r $index_path -v $rnaseq_vcf -c $rnaseq_ntct
+icommand="perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -r $index_path"
+if [[ -a $normal_id ]]
+then 
+    icommand.=" -n $normal_id"
+fi
+if [[ -a $rnaseq_vcf ]]
+then
+    icommand.=" -v $rnaseq_vcf -c $rnaseq_ntct"
+fi
+
+$icommand
+
+#perl $baseDir/integrate_vcfs.pl -r $index_path -s ${subject} -t $tumor_id -n $normal_id -v $rnaseq_vcf -c $rnaseq_ntct
 vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
@@ -72,11 +84,14 @@ tabix -f ${subject}.pass.vcf.gz
 bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed |uniq |bgzip > ${subject}.utswpass.vcf.gz
 
 targetsize=`awk '{sum+=$3-$2} END {print sum/1000000}' $targetbed`
+if [[ -a $normal_id ]]
+then
 zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz |bgzip > ${subject}.utswpass.somatic.vcf.gz
 zgrep -c -v "#" ${subject}.utswpass.somatic.vcf.gz | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
 bcftools stats ${subject}.utswpass.somatic.vcf.gz > ${subject}.utswpass.somatic.bcfstats.txt
 plot-vcfstats -P -p ${subject}.bcfstat ${subject}.utswpass.somatic.bcfstats.txt
 perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
+fi 
 
 #Convert to HG37
 module load crossmap/0.2.5
