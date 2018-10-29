@@ -96,7 +96,8 @@ W1:while (my $line = <IN>) {
     my @header = split(/\t/,$line);
     ($chrom, $pos,$id,$ref,$alt,$score,
      $filter,$info,$format,@gtheader) = split(/\t/, $line);
-    @sampids = ($opt{tumor},$opt{normal});
+    push @sampids, $opt{tumor};
+    push @sampids,$opt{normal} if ($opt{normal});
     push @sampids, $rnaseqid if ($rnaseqid);
     print OUT join("\t",$chrom,$pos,$id,$ref,$alt,$score,
 		   $filter,$info,$format,@sampids),"\n";
@@ -242,7 +243,7 @@ W1:while (my $line = <IN>) {
   }
   delete $hash{SOMATIC};
   $hash{SS} = 5  unless ($hash{SS});
-  if ($gtinfo{$opt{normal}} && exists $gtinfo{$opt{normal}}{MAF}) {
+  if ($opt{normal} && $gtinfo{$opt{normal}} && exists $gtinfo{$opt{normal}}{MAF}) {
       @normalmaf = @{$gtinfo{$opt{normal}}{MAF}};
       $hash{NormalAF} = $normalmaf[0];
       $hash{NormalDP} = $gtinfo{$opt{normal}}{DP};
@@ -256,7 +257,9 @@ W1:while (my $line = <IN>) {
       $hash{SS} = 2;
     }
   }
-  $gtinfo{$opt{normal}} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'} unless ($gtinfo{$opt{normal}});
+  if ($opt{normal}) {
+      $gtinfo{$opt{normal}} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'} unless ($gtinfo{$opt{normal}});
+  }
   if ($rnaval{$chrom}{$pos}) {
     $gtinfo{$rnaseqid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'};
     my ($rnahashref,$rnadp) = @{$rnaval{$chrom}{$pos}};

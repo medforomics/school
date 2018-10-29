@@ -86,6 +86,7 @@ process align {
   output:
   set subjid,pair_id, file("${pair_id}.bam") into aligned
   set subjid,pair_id, file("${pair_id}.bam") into aligned2
+  file("${pair_id}.bam.bai") into baindex
   """
   bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2 $alignopts
   bash $baseDir/process_scripts/alignment/bam2tdf.sh -r $index_path -b ${pair_id}.bam -p ${pair_id}.raw  

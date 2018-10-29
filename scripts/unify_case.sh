@@ -71,8 +71,9 @@ then
     icommand.=" -v $rnaseq_vcf -c $rnaseq_ntct"
 fi
 
-echo "${icommand}"
+$icommand
 
+#perl $baseDir/integrate_vcfs.pl -r $index_path -s ${subject} -t $tumor_id -n $normal_id -v $rnaseq_vcf -c $rnaseq_ntct
 vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
