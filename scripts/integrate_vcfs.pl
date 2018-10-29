@@ -129,12 +129,17 @@ W1:while (my $line = <IN>) {
     }
     @exacaf = sort {$b <=> $a} @exacaf;
     $exacaf = $exacaf[0] if ($exacaf[0]);
-  }elsif ($hash{dbNSFP_ExAC_Adj_AF}) {
+  }if ($hash{dbNSFP_ExAC_Adj_AF}) {
     foreach (split(/,/,$hash{dbNSFP_ExAC_Adj_AF})) {
       push @exacaf, $_ if ($_ ne '.');
     }
     @exacaf = sort {$b <=> $a} @exacaf;
-    $exacaf = $exacaf[0] if ($exacaf[0]);
+    if ($exacaf[0]) {
+	if ($exacaf && $exacaf[0] < $exacaf ) {
+	    $exacaf[0] = $exacaf;
+	}else {
+	    $exacaf = $exacaf[0] if ($exacaf[0]);
+	}
   }elsif ($hash{AC_POPMAX} && $hash{AN_POPMAX}) {
     my @exacs = split(/,/,$hash{AC_POPMAX});
     my $ac = 0;
@@ -148,8 +153,8 @@ W1:while (my $line = <IN>) {
     }
     $exacaf = sprintf("%.4f",$ac/$an) if ($ac > 0 && $an > 10);
   }
-  $fail{'COMMON'} = 1 if ($exacaf && $exacaf > 0.01);
   next if ($exacaf && $exacaf > 0.05);
+  $fail{'COMMON'} = 1 if ($exacaf && $exacaf > 0.01);
   $fail{'StrandBias'} = 1 if (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i);
   my $cosmicsubj = 0;
   if ($hash{CNT}) {
