@@ -261,13 +261,14 @@ print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\
 print CAS "wait\n";
 
 my $controlfile = $outnf."/GM12878/GM12878_".$prjid.".germline.vcf.gz";
-foreach my $ctrls (keys %control){
-    my ($posCtrls,$dtype) = @{$control{$ctrls}};
+foreach my $sampid (keys %control){
+    my ($sampname,$dtype) = @{$control{$ctrls}};
     
     print CAS "cd $outnf\/GM12878\n";
-    print CAS "vcf-subset -c ",$posCtrls," ",$controlfile," |bgzip > ",$posCtrls.".annot.vcf.gz\n";
-    print CAS "bash $baseDir\/scripts/snsp.sh -p $posCtrls -r $capturedir -t $capturedir\/$panel2bed{$dtype} > $posCtrls\.snsp\.txt\n";
+    print CAS "vcf-subset -c ",$sampid," ",$controlfile," |bgzip > ",$sampid.".annot.vcf.gz\n";
+    print CAS "bash $baseDir\/scripts/snsp.sh -p $sampid -r $capturedir -t $capturedir\/$panel2bed{$dtype}\n";
 }
+
 print CAS "cd $outnf\n";
 print CAS "cd $prodir\/$prjid\n";
 print CAS "rsync -rlptgoD --exclude=\"*fastq.gz*\" --exclude \"*work*\" --exclude=\"*bam*\" $prodir\/$prjid /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";

@@ -64,11 +64,11 @@ tabix -f somatic_germline.vcf.gz
 icommand="perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -r $index_path"
 if [[ -a $normal_id ]]
 then 
-    icommand.=" -n $normal_id"
+    icommand+=" -n $normal_id"
 fi
 if [[ -a $rnaseq_vcf ]]
 then
-    icommand.=" -v $rnaseq_vcf -c $rnaseq_ntct"
+    icommand+=" -v $rnaseq_vcf -c $rnaseq_ntct"
 fi
 
 $icommand
