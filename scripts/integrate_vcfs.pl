@@ -129,18 +129,19 @@ W1:while (my $line = <IN>) {
     }
     @exacaf = sort {$b <=> $a} @exacaf;
     $exacaf = $exacaf[0] if ($exacaf[0]);
-  }if ($hash{dbNSFP_ExAC_Adj_AF}) {
+  } if ($hash{dbNSFP_ExAC_Adj_AF}) {
     foreach (split(/,/,$hash{dbNSFP_ExAC_Adj_AF})) {
       push @exacaf, $_ if ($_ ne '.');
     }
     @exacaf = sort {$b <=> $a} @exacaf;
     if ($exacaf[0]) {
-	if ($exacaf && $exacaf[0] < $exacaf ) {
-	    $exacaf[0] = $exacaf;
-	}else {
-	    $exacaf = $exacaf[0] if ($exacaf[0]);
-	}
-  }elsif ($hash{AC_POPMAX} && $hash{AN_POPMAX}) {
+      if ($exacaf && $exacaf[0] < $exacaf ) {
+	$exacaf[0] = $exacaf;
+      }else {
+	$exacaf = $exacaf[0] if ($exacaf[0]);
+      }
+    } 
+  } elsif ($hash{AC_POPMAX} && $hash{AN_POPMAX}) {
     my @exacs = split(/,/,$hash{AC_POPMAX});
     my $ac = 0;
     foreach $val (@exacs) {

@@ -129,7 +129,7 @@ process delly {
 
 process sstumor {
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic", mode: 'copy'
+  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from ssbam
     
@@ -150,7 +150,7 @@ process sstumor {
 }
 process mutect {
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic", mode: 'copy'
+  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
 
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from mutectbam
@@ -176,7 +176,7 @@ process mutect {
 
 // process strelka {
 //   errorStrategy 'ignore'
-//   publishDir "$params.output/$pid/somatic", mode: 'copy'
+//   publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
 
 //   input:
 //   set pid,mtid,mnid,file(mtumor),file(mnormal),file(mtidx),file(mnidx),tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from illuminabams
@@ -190,7 +190,7 @@ process mutect {
 // }
 process varscan {
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic", mode: 'copy'
+  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from vscanbam
   output:
@@ -212,7 +212,7 @@ process varscan {
 
 process shimmer {
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic", mode: 'copy'
+  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from shimmerbam
   output:
@@ -231,7 +231,7 @@ process shimmer {
 
 process virmid {
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic", mode: 'copy'
+  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from virmidbam
   output:
@@ -257,7 +257,7 @@ Channel
 
 process integrate {
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic", mode: 'copy'
+  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
   input:
   set pid,file(vcf) from vcflist
   file 'design.txt' from design_file

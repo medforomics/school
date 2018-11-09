@@ -210,7 +210,8 @@ foreach $dtype (keys %samples) {
     foreach $samp (@{$samples{$dtype}{$project}}) {
       my %info = %{$sampleinfo{$samp}};
       if($info{SubjectID} =~ m/GM12878/){ #Positive Control
-	$control{$info{MergeName}}=['GM12878',$dtype];
+	  $info{MergeName} = "GM12878_".$opt{prjid};
+	  $control{$info{MergeName}}=['GM12878',$dtype];
       }
       print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outdir\/$samp\.R1.fastq.gz\n";
       print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outdir\/$samp\.R2.fastq.gz\n";
@@ -255,7 +256,7 @@ foreach $dtype (keys %samples) {
     }
   }
   print CAS "ln -s $outnf\/*/*/*.bam $outnf\n";  
-  print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --projectid _${prjid} --input $outnf --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
+  print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --projectid _${prjid} --input $outnf --targetpanel $capture --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
 }
 print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt --projectid _${prjid} --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
 print CAS "wait\n";
