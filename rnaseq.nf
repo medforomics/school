@@ -113,7 +113,7 @@ process starfusion {
   params.fusion == 'detect' && params.pairs == 'pe'
   script:
   """
-  bash $baseDir/process_scripts/alignment/starfusion.sh -p ${pair_id} -r ${index_path} -a ${fq1} -b ${fq2} -m trinity
+  bash $baseDir/process_scripts/alignment/starfusion.sh -p ${pair_id} -r ${index_path} -a ${fq1} -b ${fq2} -m trinity -f
   """
 }
 process align {
