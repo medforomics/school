@@ -8,6 +8,7 @@ usage() {
   echo "-t  --TumorID"
   echo "-v  --tumor vcf"
   echo "-s  --somatic vcf"
+  echo "-i  --indel vcf"
   echo "-x  --rnaseq vcf"
   echo "-c  --rnaseq read ct"
   echo "-f  --rnaseq fpkm"
@@ -16,7 +17,7 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:p:t:n:v:s:x:c:b:f:h opt
+while getopts :r:p:t:n:v:s:i:x:c:b:f:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -25,6 +26,7 @@ do
         n) normal_id=$OPTARG;;
         v) tumor_vcf=$OPTARG;;
         s) somatic_vcf=$OPTARG;;
+	i) itd_vcf=$OPTARG;;
         x) rnaseq_vcf=$OPTARG;;
         c) rnaseq_ntct=$OPTARG;;
 	f) rnaseq_fpkm=$OPTARG;;
@@ -47,6 +49,10 @@ baseDir="`dirname \"$0\"`"
 vepdir='/project/shared/bicf_workflow_ref/vcf2maf'
 
 module load bedtools/2.26.0 samtools/1.6 vcftools/0.1.14
+if [[ -i $idt_vcf ]]
+then
+    zcat $idt_vcf | $SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar $SNPEFF_HOME/SnpSift.jar filter "(AF > 0.05 & DP > 20)" |bgzip > itd.vcf
+fi
 if [[ -a $somatic_vcf ]] 
 then
     tabix -f $somatic_vcf
@@ -74,7 +80,7 @@ fi
 $icommand
 
 #perl $baseDir/integrate_vcfs.pl -r $index_path -s ${subject} -t $tumor_id -n $normal_id -v $rnaseq_vcf -c $rnaseq_ntct
-vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
+cat ${subject}.all.vcf itd.vcf | vcf-sort | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
 tabix -f ${subject}.pass.vcf.gz

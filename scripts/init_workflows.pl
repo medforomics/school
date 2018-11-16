@@ -215,16 +215,14 @@ foreach $dtype (keys %samples) {
       }
       print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outdir\/$samp\.R1.fastq.gz\n";
       print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outdir\/$samp\.R2.fastq.gz\n";
-      my $finaloutput = '/project/PHG/PHG_Clinical/'.$info{ClinRes};
-      unless (-e "$finaloutput\/$info{SubjectID}") {
-	system("mkdir $finaloutput\/$info{SubjectID}");
+      unless (-e "$outnf\/$info{SubjectID}") {
+	system("mkdir $outnf\/$info{SubjectID}");
       }
-      my $finalrestingplace = "$finaloutput\/$info{SubjectID}\/$info{MergeName}";
-      unless (-e $finalrestingplace) {
-	#system("mkdir $finalrestingplace");
+      unless (-e "$outnf\/$info{SubjectID}/fastq") {
+	  system("mkdir $outnf\/$info{SubjectID}/fastq");
       }
-      #print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $finalrestingplace\/$samp\.R1.fastq.gz\n";
-      #print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $finalrestingplace\/$samp\.R2.fastq.gz\n";
+      print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outnf\/$info{SubjectID}/fastq\/$samp\.R1.fastq.gz\n";
+      print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outnf\/$info{SubjectID}/fastq\/$samp\.R2.fastq.gz\n";
       print SSOUT join("\t",$info{MergeName},$info{Sample_ID},$info{Sample_Name},$info{VcfID},
 		       $info{SubjectID},"$samp\.R1.fastq.gz","$samp\.R2.fastq.gz",
 		       $info{MergeName}.".bam",$info{MergeName}.".final.bam"),"\n";

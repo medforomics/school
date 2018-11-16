@@ -70,7 +70,7 @@ process indexoribams {
   input:
   set sid,tid,file(tumor) from oribam
   output:
-  set sid,tid,file(tumor),file("${tumor}.bai") into svbam
+  set sid,file(tumor),file("${tumor}.bai") into svbam
   set sid,tid,file(tumor),file("${tumor}.bai") into cnvbam
   script:
   """
@@ -92,6 +92,10 @@ process indexbams {
 idxbam
    .groupTuple(by:0)		
    .into { ssbam; sambam; hsbam; platbam; strelkabam }
+
+svbam
+   .groupTuple(by:0)		
+   .into { pindelbam }
 
 process cnv {
   errorStrategy 'ignore'
@@ -116,14 +120,22 @@ process pindel {
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
-  set subjid,pair_id,file(ssbam),file(ssidx) from svbam
+  set subjid,pair_id,file(ssbam),file(ssidx) from pindelbam
   output:
-  file("${pair_id}.pindel_*.vcf.gz") into pindelvcf
+  file("${subjid}.pindel_tandemdup.pass.vcf.gz") into tdvcf
+  file("${subjid}.pindel_indel.pass.vcf.gz") into pindelvcf
+  file("${subjid}.dna.genefusion.txt") into gf
   when:
   params.nuctype == "dna"
   script:
   """
-  bash $baseDir/process_scripts/variants/pindel.sh -r ${index_path} -p ${pair_id}
+  bash $baseDir/process_scripts/variants/pindel.sh -r ${index_path} -p ${subjid}
+  bash $baseDir/process_scripts/variants/filter_pindel.pl -d ${subjid}.pindel_tandemdup.vcf.gz -s ${subjid}.pindel_sv.vcf.gz -i ${subjid}.pindel_indel.vcf.gz
+  module load samtools/1.6 snpeff/4.3q
+  bgzip ${subjid}.pindel_indel.pass.vcf
+  bgzip ${subjid}.pindel_tandemdup.pass.vcf
+  grep '#CHROM' ${subjid}.pindel_sv.pass.vcf > ${subjid}.dna.genefusion.txt
+  cat ${subjid}.pindel_sv.pass.vcf | $SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar $SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS END ANN[*].EFFECT ANN[*].GENE ANN[*].HGVS_C ANN[*].HGVS_P GEN[*] |grep 'CHROM\|gene_fusion' |uniq >> ${subjid}.dna.genefusion.txt
   """
 }
 
