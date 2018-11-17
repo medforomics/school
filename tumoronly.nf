@@ -120,7 +120,7 @@ process pindel {
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
-  set subjid,pair_id,file(ssbam),file(ssidx) from pindelbam
+  set subjid,file(ssbam),file(ssidx) from pindelbam
   output:
   file("${subjid}.pindel_tandemdup.pass.vcf.gz") into tdvcf
   file("${subjid}.pindel_indel.pass.vcf.gz") into pindelvcf
