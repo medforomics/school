@@ -118,7 +118,7 @@ process cnv {
 }
 process pindel {
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$subjid/$params.nuctype$params.projectid", mode: 'copy'
   input:
   set subjid,file(ssbam),file(ssidx) from pindelbam
   output:
@@ -130,12 +130,12 @@ process pindel {
   script:
   """
   bash $baseDir/process_scripts/variants/pindel.sh -r ${index_path} -p ${subjid}
-  bash $baseDir/process_scripts/variants/filter_pindel.pl -d ${subjid}.pindel_tandemdup.vcf.gz -s ${subjid}.pindel_sv.vcf.gz -i ${subjid}.pindel_indel.vcf.gz
+  perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${subjid}.pindel_tandemdup.vcf.gz -s ${subjid}.pindel_sv.vcf.gz -i ${subjid}.pindel_indel.vcf.gz
   module load samtools/1.6 snpeff/4.3q
   bgzip ${subjid}.pindel_indel.pass.vcf
   bgzip ${subjid}.pindel_tandemdup.pass.vcf
   grep '#CHROM' ${subjid}.pindel_sv.pass.vcf > ${subjid}.dna.genefusion.txt
-  cat ${subjid}.pindel_sv.pass.vcf | $SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar $SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS END ANN[*].EFFECT ANN[*].GENE ANN[*].HGVS_C ANN[*].HGVS_P GEN[*] |grep 'CHROM\|gene_fusion' |uniq >> ${subjid}.dna.genefusion.txt
+  cat ${subjid}.pindel_sv.pass.vcf | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS END ANN[*].EFFECT ANN[*].GENE ANN[*].HGVS_C ANN[*].HGVS_P GEN[*] |grep -E 'CHROM|gene_fusion' |uniq >> ${subjid}.dna.genefusion.txt
   """
 }
 

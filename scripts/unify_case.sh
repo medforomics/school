@@ -48,10 +48,10 @@ fi
 baseDir="`dirname \"$0\"`"
 vepdir='/project/shared/bicf_workflow_ref/vcf2maf'
 
-module load bedtools/2.26.0 samtools/1.6 vcftools/0.1.14
-if [[ -i $idt_vcf ]]
+module load bedtools/2.26.0 samtools/1.6 vcftools/0.1.14 snpeff/4.3q
+if [[ -a $itd_vcf ]]
 then
-    zcat $idt_vcf | $SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar $SNPEFF_HOME/SnpSift.jar filter "(AF > 0.05 & DP > 20)" |bgzip > itd.vcf
+    zcat $itd_vcf | $SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar $SNPEFF_HOME/SnpSift.jar filter "(AF > 0.05 & DP > 20)" > itd.vcf
 fi
 if [[ -a $somatic_vcf ]] 
 then

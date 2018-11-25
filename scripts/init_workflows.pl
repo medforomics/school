@@ -210,7 +210,6 @@ foreach $dtype (keys %samples) {
     foreach $samp (@{$samples{$dtype}{$project}}) {
       my %info = %{$sampleinfo{$samp}};
       if($info{SubjectID} =~ m/GM12878/){ #Positive Control
-	  $info{MergeName} = "GM12878_".$opt{prjid};
 	  $control{$info{MergeName}}=['GM12878',$dtype];
       }
       print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outdir\/$samp\.R1.fastq.gz\n";
@@ -234,16 +233,17 @@ foreach $dtype (keys %samples) {
   $mdup = 'skip' if ($dtype =~ m/panelrnaseq/);
   my $germopts = '';
   my $rnaopts = '';
+  my $capture='';
   unless ($dtype =~ /rna/) { 
-    my $capture = "$capturedir\/$panel2bed{$dtype}";
+    $capture = "$capturedir\/$panel2bed{$dtype}";
     my $alignwf = "$baseDir\/alignment.nf";
     unless ($umi) {
 	$alignwf = "$baseDir\/alignmentV1.nf";
     }
-    print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $alignwf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf --markdups $mdup > $outnf\/$dtype\.nextflow_alignment.log\n";
+    print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $alignwf --design $outdir\/$dtype\.design.txt --capture $capture --input $outdir --output $outnf --markdups $mdup > $outnf\/$dtype\.nextflow_alignment.log\n";
   } elsif ($dtype =~ m/rnaseq/) {
     $rnaopts .= " --bamct skip " if ($dtype =~ m/whole/);
-    print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/rnaseq.nf --design $outdir\/$dtype\.design.txt --input $outdir --output $outnf $rnaopts --markdups $mdup > $outnf\/$dtype\.nextflow_rnaseq.log\n";
+    print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/rnaseq.nf --design $outdir\/$dtype\.design.txt --input $outdir --output $outnf $rnaopts --markdups $mdup > $outnf\/$dtype\.nextflow_rnaseq.log\n";
     $germopts = " --genome /project/shared/bicf_workflow_ref/GRCh38/hisat_index --nuctype rna --callsvs skip";
   }
   foreach $project (keys %spairs) {
@@ -253,10 +253,15 @@ foreach $dtype (keys %samples) {
       }
     }
   }
-  print CAS "ln -s $outnf\/*/*/*.bam $outnf\n";  
-  print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --projectid _${prjid} --input $outnf --targetpanel $capture --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
+  print CAS "ln -s $outnf\/*/*/*.bam $outnf\n";
+  if($dtype =~ m/rnaseq/){  
+    print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --projectid _${prjid} --input $outnf $capture --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
+  }
+  else{
+    print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/tumoronly.nf --design $outdir\/$dtype\.design.txt $germopts --projectid _${prjid} --input $outnf --targetpanel $capture --output $outnf > $outnf\/$dtype\.nextflow_tumoronly.log &\n";
+  }
 }
-print CAS "nextflow -C $baseDir\/nextflow.config.super run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt --projectid _${prjid} --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
+print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/somatic.nf --design $outdir\/design_tumor_normal.txt --projectid _${prjid} --input $outnf --output $outnf > $outnf\/nextflow_somatic.log &\n" if ($tnpairs);
 print CAS "wait\n";
 
 my $controlfile = $outnf."/GM12878/GM12878_".$prjid.".germline.vcf.gz";
@@ -265,7 +270,7 @@ foreach my $sampid (keys %control){
     
     print CAS "cd $outnf\/GM12878\n";
     print CAS "vcf-subset -c ",$sampid," ",$controlfile," |bgzip > ",$sampid.".annot.vcf.gz\n";
-    print CAS "bash $baseDir\/scripts/snsp.sh -p $sampid -r $capturedir -t $capturedir\/$panel2bed{$dtype}\n";
+    print CAS "bash $baseDir\/scripts/snsp.sh -p $sampid -r $capturedir -t $capturedir\/$panel2bed{$control{$sampid}[1]}\n";
 }
 
 print CAS "cd $outnf\n";

@@ -93,7 +93,7 @@ process indextarbams {
   """
 }
 process checkmates {
-  publishDir "$params.output/$pid/somatic", mode: 'copy'
+  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
   errorStrategy 'ignore'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from checkbams
@@ -110,7 +110,7 @@ process checkmates {
 }
 
 process delly {
-  publishDir "$params.output/$pid/somatic", mode: 'copy'
+  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
   errorStrategy 'ignore'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from dellybam
