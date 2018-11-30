@@ -87,6 +87,7 @@ process align {
   set subjid,pair_id, file("${pair_id}.bam") into aligned
   set subjid,pair_id, file("${pair_id}.bam") into aligned2
   file("${pair_id}.bam.bai") into baindex
+  file("${pair_id}*tdf") into tdfraw
   """
   bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2 $alignopts
   bash $baseDir/process_scripts/alignment/bam2tdf.sh -r $index_path -b ${pair_id}.bam -p ${pair_id}.raw  
@@ -105,7 +106,7 @@ process markdups_consensus {
   file("${pair_id}.dedupcov.txt") into dedupcov
   file("${pair_id}.covuniqhist.txt") into covuniqhist
   file("*coverageuniq.txt") into covuniqstat
-
+  file("${pair_id}*tdf") into tdfuniq
   script:
   """
   bash $baseDir/process_scripts/alignment/markdups.sh -a fgbio_umi -b $sbam -p $pair_id
