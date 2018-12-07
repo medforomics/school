@@ -129,6 +129,7 @@ process pindel {
   params.nuctype == "dna"
   script:
   """
+  source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/pindel.sh -r ${index_path} -p ${subjid}
   perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${subjid}.pindel_tandemdup.vcf.gz -s ${subjid}.pindel_sv.vcf.gz -i ${subjid}.pindel_indel.vcf.gz
   module load samtools/1.6 snpeff/4.3q
