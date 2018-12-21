@@ -51,7 +51,14 @@ vepdir='/project/shared/bicf_workflow_ref/vcf2maf'
 module load bedtools/2.26.0 samtools/1.6 vcftools/0.1.14 snpeff/4.3q
 if [[ -a $itd_vcf ]]
 then
-    zcat $itd_vcf | $SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar $SNPEFF_HOME/SnpSift.jar filter "(AF > 0.05 & DP > 20)" > itd.vcf
+    if [[ $rnaseq_vcf ]]
+    then
+	rnaseqid="`zgrep '#CHROM' $rnaseq_vcf |rev|cut -f 1 |rev`"
+	
+    else
+	zcat $itd_vcf | java -jar $SNPEFF_HOME/SnpSift.jar filter "(AF > 0.05 & DP > 20)" > itd.vcf
+    fi
+
 fi
 if [[ -a $somatic_vcf ]] 
 then
@@ -97,8 +104,11 @@ zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz |bgzip > ${subject}.utswpass.somatic.
 zgrep -c -v "#" ${subject}.utswpass.somatic.vcf.gz | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
 bcftools stats ${subject}.utswpass.somatic.vcf.gz > ${subject}.utswpass.somatic.bcfstats.txt
 plot-vcfstats -P -p ${subject}.bcfstat ${subject}.utswpass.somatic.bcfstats.txt
-perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
+else
+    echo -e "Class,TMB\n,0.00\n" > ${subject}.TMB.csv
 fi 
+
+perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
 
 #Convert to HG37
 module load crossmap/0.2.5
