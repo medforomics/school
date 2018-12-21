@@ -35,7 +35,7 @@ fi
 
 shift $(($OPTIND -1))
 baseDir="`dirname \"$0\"`"
-
+source /etc/profile.d/modules.sh
 module load samtools/1.6 bedtools/2.26.0 vcftools/0.1.14
 
 perl $baseDir/filter_giab.pl $ID
