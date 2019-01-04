@@ -106,8 +106,11 @@ zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz |bgzip > ${subject}.utswpass.somatic.
 zgrep -c -v "#" ${subject}.utswpass.somatic.vcf.gz | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
 bcftools stats ${subject}.utswpass.somatic.vcf.gz > ${subject}.utswpass.somatic.bcfstats.txt
 plot-vcfstats -P -p ${subject}.bcfstat ${subject}.utswpass.somatic.bcfstats.txt
-perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
+else
+    echo -e "Class,TMB\n,0.00\n" > ${subject}.TMB.csv
 fi 
+
+perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
 
 #Convert to HG37
 module load crossmap/0.2.5
