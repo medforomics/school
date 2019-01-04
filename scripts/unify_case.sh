@@ -90,7 +90,7 @@ fi
 $icommand
 
 #perl $baseDir/integrate_vcfs.pl -r $index_path -s ${subject} -t $tumor_id -n $normal_id -v $rnaseq_vcf -c $rnaseq_ntct
-vcf-concat ${subject}.all.vcf ${subject}.idt.vcf | vcf-sort | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
+cat ${subject}.all.vcf ${subject}.idt.vcf | vcf-sort | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
 tabix -f ${subject}.pass.vcf.gz
