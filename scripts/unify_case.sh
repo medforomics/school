@@ -73,8 +73,10 @@ then
 	vcf-shuffle-cols -t somatic_germline.vcf.gz itd.vcf > idt.rna.vcf
 	perl $baseDir/add_blank_sample_vcf.pl -s ${subject} -r $rnaseqid -v idt.rna.vcf
     else
-	vcf-shuffle-cols -t somatic_germline.vcf.gz idt.vcf > ${subject}.idt.vcf
+	vcf-shuffle-cols -t somatic_germline.vcf.gz idt.vcf > ${subject}.itd.vcf
     fi
+else
+    touch ${subject}.itd.vcf
 fi
 
 icommand="perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -r $index_path"
@@ -90,7 +92,7 @@ fi
 $icommand
 
 #perl $baseDir/integrate_vcfs.pl -r $index_path -s ${subject} -t $tumor_id -n $normal_id -v $rnaseq_vcf -c $rnaseq_ntct
-cat ${subject}.all.vcf ${subject}.idt.vcf | vcf-sort | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
+vcf-concat ${subject}.all.vcf ${subject}.itd.vcf | vcf-sort | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
 tabix -f ${subject}.pass.vcf.gz

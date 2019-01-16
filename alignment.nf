@@ -109,7 +109,7 @@ process markdups_consensus {
   file("${pair_id}*tdf") into tdfuniq
   script:
   """
-  bash $baseDir/process_scripts/alignment/markdups.sh -a fgbio_umi -b $sbam -p $pair_id
+  bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id
   mv ${pair_id}.dedup.bam ${pair_id}.consensus.bam
   bash $baseDir/process_scripts/alignment/bam2tdf.sh -r $index_path -b ${pair_id}.consensus.bam -p ${pair_id}.uniq
   bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b ${pair_id}.consensus.bam -r ${index_path} -p $pair_id
