@@ -5,7 +5,7 @@ use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
 my %panel2bed = ('panel1385'=>'UTSWV2.bed','panel1385v2'=>'UTSWV2_2.panelplus.bed',
 		 'idthemev1'=>'heme_panel_probes.bed',
-		 'idthemev2'=>'hemepanelV2.bed',
+		 'idthemev2'=>'hemepanelV3.bed',
 		 'idtcellfreev1'=>'panelcf73_idt.100plus.bed',
 		 'medexomeplus'=>'MedExome_Plus.bed');
 
