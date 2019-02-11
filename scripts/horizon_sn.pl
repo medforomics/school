@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #extract_greyzone.pl
 
-open REF, "</project/shared/bicf_workflow_ref/GRCh38/clinseq_prj/HorizonReference.txt" or die $!;
+open REF, "</project/shared/bicf_workflow_ref/human/GRCh38/clinseq_prj/HorizonReference.txt" or die $!;
 while (my $line = <REF>) {
     chomp($line);
     my ($sample,$cosmid,$chr,$pos) = split(/\t/,$line);

@@ -7,7 +7,7 @@ params.output = './'
 params.bams="$params.input/*.bam"
 params.design="$params.input/design.txt"
 params.callsvs="skip"
-params.genome="/project/shared/bicf_workflow_ref/GRCh38"
+params.genome="/project/shared/bicf_workflow_ref/human/GRCh38"
 params.projectid=''
 
 dbsnp="$params.genome/dbSnp.vcf.gz"

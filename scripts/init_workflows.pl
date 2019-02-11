@@ -34,7 +34,7 @@ my $prjid = $opt{prjid};
 my $seqdatadir = "/project/PHG/PHG_Clinical/illumina/$prjid";
 my $oriss = "/project/PHG/PHG_Clinical/illumina/sample_sheets/$prjid\.csv";
 my $newss = "$seqdatadir\/$prjid\.csv";
-my $capturedir = "/project/shared/bicf_workflow_ref/GRCh38/clinseq_prj";
+my $capturedir = "/project/shared/bicf_workflow_ref/human/GRCh38/clinseq_prj";
 
 #Relocate Run Data to New Location
 system("mkdir /project/PHG/PHG_Clinical/illumina/$prjid");
@@ -244,7 +244,7 @@ foreach $dtype (keys %samples) {
   } elsif ($dtype =~ m/rnaseq/) {
     $rnaopts .= " --bamct skip " if ($dtype =~ m/whole/);
     print CAS "nextflow -C $baseDir\/nextflow.config run -w $workdir $baseDir\/rnaseq.nf --design $outdir\/$dtype\.design.txt --input $outdir --output $outnf $rnaopts --markdups $mdup > $outnf\/$dtype\.nextflow_rnaseq.log\n";
-    $germopts = " --genome /project/shared/bicf_workflow_ref/GRCh38/hisat_index --nuctype rna --callsvs skip";
+    $germopts = " --genome /project/shared/bicf_workflow_ref/human/GRCh38/hisat_index --nuctype rna --callsvs skip";
   }
   foreach $project (keys %spairs) {
     foreach $class (keys  %{$spairs{$project}}) {

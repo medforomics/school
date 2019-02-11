@@ -118,7 +118,7 @@ perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.conc
 
 #Convert to HG37
 module load crossmap/0.2.5
-CrossMap.py vcf ${index_path}/../hg38ToHg19.over.chain.gz ${subject}.utswpass.vcf.gz /project/apps_database/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa ${subject}.PASS.hg19.vcf
+CrossMap.py vcf /project/shared/bicf_workflow_ref/human/hg38ToHg19.over.chain.gz ${subject}.utswpass.vcf.gz /project/apps_database/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa ${subject}.PASS.hg19.vcf
 perl $baseDir/philips_excel.pl ${subject}.PASS.hg19.vcf $rnaseq_fpkm
 
 #Create MAF file

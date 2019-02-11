@@ -7,7 +7,7 @@ params.output = './'
 params.fastqs="$params.input/*.fastq.gz"
 params.design="$params.input/design.txt"
 
-params.genome="/project/shared/bicf_workflow_ref/GRCh38/"
+params.genome="/project/shared/bicf_workflow_ref/human/GRCh38/"
 params.markdups="skip"
 params.stranded="0"
 params.pairs="pe"
@@ -146,7 +146,7 @@ process bamct {
   source /etc/profile.d/modules.sh
   module load samtools/1.6
   samtools index $rbam
-  ${index_path}/../seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -f ${index_path}/hisat_genome.fa $rbam > ${pair_id}.bamreadct.txt
+  /project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -f ${index_path}/genome.fa $rbam > ${pair_id}.bamreadct.txt
   """
 }
 
@@ -190,7 +190,6 @@ process geneabund {
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
   set subjid,pair_id, file(sbam) from deduped1
-  file gtf_file
   output:
   file("${pair_id}.cts")  into counts
   file("${pair_id}_stringtie") into strcts

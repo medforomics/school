@@ -6,7 +6,7 @@ params.output = './analysis'
 params.fastqs="$params.input/*.fastq.gz"
 params.design="$params.input/design.txt"
 
-params.genome="/project/shared/bicf_workflow_ref/GRCh38"
+params.genome="/project/shared/bicf_workflow_ref/human/GRCh38"
 params.capture="$params.genome/clinseq_prj/UTSWV2.bed"
 params.pairs="pe"
 params.markdups='fgbio_umi'

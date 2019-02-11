@@ -13,7 +13,7 @@ print OUT join(",",'LociGRCh38','LociGRCh37','gnomAD POPMAX AF','ID','Inconsiste
 	       'Cosmic Role','Tumor DNA AF','Tumor DNA Depth','Normal DNA AF','Normal DNA Depth','Tumor RNA AF',
 	       'Tumor RNA Depth','CallSet','CIVIC Gene Annotation'),"\n";
 
-my $refdir = '/project/shared/bicf_workflow_ref/GRCh38';
+my $refdir = '/project/shared/bicf_workflow_ref/human/GRCh38';
 my %cosmic;
 open OM, "<$refdir\/cosmic_census.txt" or die $!;
 while (my $line = <OM>) {

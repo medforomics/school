@@ -27,7 +27,7 @@ if [[ -z $ID ]]; then
     usage
 fi 
 if [[ -z $index_path ]]; then
-    index_path="/project/shared/bicf_workflow_ref/GRCh38/clinseq_prj"
+    index_path="/project/shared/bicf_workflow_ref/human/GRCh38/clinseq_prj"
 fi
 if [[ -z $index_path ]]; then
     targetbed="${index_path}/utswv2_cds.bed"
