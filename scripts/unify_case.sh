@@ -17,7 +17,7 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:p:t:n:v:s:i:x:c:b:f:h opt
+while getopts :r:p:t:n:v:s:i:x:c:d:b:f:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -27,6 +27,7 @@ do
         v) tumor_vcf=$OPTARG;;
         s) somatic_vcf=$OPTARG;;
 	i) itd_vcf=$OPTARG;;
+	d) cnv_answer=$OPTARG;;
         x) rnaseq_vcf=$OPTARG;;
         c) rnaseq_ntct=$OPTARG;;
 	f) rnaseq_fpkm=$OPTARG;;
@@ -66,17 +67,8 @@ tabix -f somatic_germline.vcf.gz
 
 if [[ -a $itd_vcf ]]
 then
-    zcat $itd_vcf | java -jar $SNPEFF_HOME/SnpSift.jar filter "(AF > 0.05 & DP > 20)" > itd.vcf
-    if [[ $rnaseq_vcf ]]
-    then
-	rnaseqid="`zgrep '#CHROM' $rnaseq_vcf |rev|cut -f 1 |rev`"
-	vcf-shuffle-cols -t somatic_germline.vcf.gz itd.vcf > idt.rna.vcf
-	perl $baseDir/add_blank_sample_vcf.pl -s ${subject} -r $rnaseqid -v idt.rna.vcf
-    else
-	vcf-shuffle-cols -t somatic_germline.vcf.gz idt.vcf > ${subject}.itd.vcf
-    fi
-else
-    touch ${subject}.itd.vcf
+    perl $baseDir/itdvcf2cnv.pl $tumor_id $itd_vcf
+    cat dupcnv.txt >> $cnv_answer
 fi
 
 icommand="perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -r $index_path"
@@ -92,12 +84,12 @@ fi
 $icommand
 
 #perl $baseDir/integrate_vcfs.pl -r $index_path -s ${subject} -t $tumor_id -n $normal_id -v $rnaseq_vcf -c $rnaseq_ntct
-vcf-concat ${subject}.all.vcf ${subject}.itd.vcf | vcf-sort | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
-vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.philips.vcf.gz
+vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
+#vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.philips.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
 tabix -f ${subject}.pass.vcf.gz
-tabix -f ${subject}.philips.vcf.gz
+#tabix -f ${subject}.philips.vcf.gz
 
 #Makes TumorMutationBurenFile
 

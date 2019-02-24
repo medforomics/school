@@ -50,5 +50,5 @@ tabix ${ID}.utswcoding.vcf.gz
 
 bedtools multiinter -i ${ID}.utswcoding.vcf.gz giab3.utswcoding.vcf.gz platinum_v2.utswcoding.vcf.gz -names union giab platinum |cut -f 1,2,3,5 | bedtools sort -i stdin | bedtools merge -c 4 -o distinct | bgzip > ${ID}.utswcoding.multiinter.bed.gz 
 tabix ${ID}.utswcoding.multiinter.bed.gz
-bcftools annotate -a  ${ID}.utswcoding.multiinter.bed.gz --columns CHROM,FROM,TO,PlatRef -h /project/shared/bicf_workflow_ref/PlatRef.header ${ID}.utswcoding.vcf.gz > ${ID}.eval.vcf
+bcftools annotate -a  ${ID}.utswcoding.multiinter.bed.gz --columns CHROM,FROM,TO,PlatRef -h /project/shared/bicf_workflow_ref/human/GRCh38/PlatRef.header ${ID}.utswcoding.vcf.gz > ${ID}.eval.vcf
 perl $baseDir/calc_snsp.pl ${ID}.eval.vcf
