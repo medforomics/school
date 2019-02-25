@@ -60,7 +60,7 @@ then
     bgzip -f somatic.only.vcf
     vcf-concat somatic.only.vcf.gz tumor.vcf.gz |vcf-sort |uniq | bgzip > somatic_germline.vcf.gz
 else
-    ln -s $tumor_vcf somatic_germline.vcf.gz
+    cp $tumor_vcf somatic_germline.vcf.gz
 fi
 
 tabix -f somatic_germline.vcf.gz
@@ -72,7 +72,7 @@ then
 fi
 
 icommand="perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -r $index_path"
-if [[ -a $normal_id ]]
+if [[ -n $normal_id ]]
 then 
     icommand+=" -n $normal_id"
 fi
@@ -82,7 +82,7 @@ then
 fi
 
 $icommand
-
+echo $icommand
 #perl $baseDir/integrate_vcfs.pl -r $index_path -s ${subject} -t $tumor_id -n $normal_id -v $rnaseq_vcf -c $rnaseq_ntct
 vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
 #vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.philips.vcf.gz
@@ -96,7 +96,7 @@ tabix -f ${subject}.pass.vcf.gz
 bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed |uniq |bgzip > ${subject}.utswpass.vcf.gz
 
 targetsize=`awk '{sum+=$3-$2} END {print sum/1000000}' $targetbed`
-if [[ -a $normal_id ]]
+if [[ -n $normal_id ]]
 then
 zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz |bgzip > ${subject}.utswpass.somatic.vcf.gz
 zgrep -c -v "#" ${subject}.utswpass.somatic.vcf.gz | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
@@ -115,7 +115,7 @@ perl $baseDir/philips_excel.pl ${subject}.PASS.hg19.vcf $rnaseq_fpkm
 
 #Create MAF file
 zcat ${subject}.pass.vcf.gz |perl -p -e 's/^chr//g' > ${subject}.formaf.vcf
-perl ${vepdir}/vcf2maf.pl --input ${subject}.formaf.vcf --output ${subject}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot.txt --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc.txt --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
+perl ${vepdir}/vcf2maf.pl --input ${subject}.formaf.vcf --output ${subject}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
 
 python $baseDir/../IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p $password -o ${subject}.xml
 
