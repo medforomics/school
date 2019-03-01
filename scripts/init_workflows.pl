@@ -154,7 +154,7 @@ open CAS, ">$seqdatadir\/run_$prjid\.sh" or die $!;
 print CAS "#!/bin/bash\n#SBATCH --job-name $prjid\n#SBATCH -N 1\n";
 print CAS "#SBATCH -t 14-0:0:00\n#SBATCH -o $prjid.out\n#SBATCH -e $prjid.err\n";
 print CAS "source /etc/profile.d/modules.sh\n";
-print CAS "module load bcl2fastq/2.17.1.14 fastqc/0.11.2 nextflow/0.31.0 vcftools/0.1.14 samtools/1.6\n";
+print CAS "module load bcl2fastq/2.17.1.14 nextflow/0.31.0 vcftools/0.1.14 samtools/1.6\n";
 
 print CAS "bcl2fastq --barcode-mismatches 0 -o /project/PHG/PHG_Clinical/illumina/$prjid --no-lane-splitting --runfolder-dir $seqdatadir --sample-sheet $newss &> $seqdatadir\/bcl2fastq_$prjid\.log\n";
 print CAS "mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n" unless (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid");
