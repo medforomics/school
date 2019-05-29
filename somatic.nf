@@ -42,8 +42,8 @@ new File(params.design).withReader { reader ->
     nidx = header.findIndexOf{it == 'NormalID'};
     oneidx = header.findIndexOf{it == 'TumorBAM'};
     twoidx = header.findIndexOf{it == 'NormalBAM'};
-    totidx = header.findIndexOf{it == 'TumorFinalBAM'};
-    notidx = header.findIndexOf{it == 'NormalFinalBAM'};
+    totidx = header.findIndexOf{it == 'TumorGATKBAM'};
+    notidx = header.findIndexOf{it == 'NormalGATKBAM'};
 
     if (twoidx == -1) {
        twoidx = oneidx
@@ -62,30 +62,30 @@ if( ! oribam) { error "Didn't match any input files with entries in the design f
 if( ! tarbam) { error "Didn't match any input files with entries in the design file" }
 
 process indexoribams {
+  executor 'local'
   errorStrategy 'ignore'
   input:
   set pid,tid,nid,file(tumor),file(normal) from oribam
   output:
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into dellybam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into mantrabam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into pindelbam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into platbam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into fbbam
   set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into checkbams
-
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into strelkabam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into shimmerbam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into virmidbam
   script:
   """
   bash $baseDir/process_scripts/alignment/indexbams.sh 
   """
 }
 process indextarbams {
+  executor 'local'
   errorStrategy 'ignore'
   input:
   set pid,tid,nid,file(tumor),file(normal) from tarbam
   output:
   set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into mutectbam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into strelkabam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into ssbam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into shimmerbam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into vscanbam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into virmidbam
   set pid,tid,nid into pairnames
   script:
   """
@@ -93,6 +93,7 @@ process indextarbams {
   """
 }
 process checkmates {
+  executor 'local'
   publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
   errorStrategy 'ignore'
   input:
@@ -108,171 +109,148 @@ process checkmates {
   perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${pid}_all.txt -o ${pid}${params.projectid}.sequence.stats.txt
   """
 }
-
-process delly {
-  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
+process pindel {
+  queue '32GB,128GB,256GB,256GBv1'
   errorStrategy 'ignore'
+  publishDir "$params.output/$pid", mode: 'copy'
   input:
-  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from dellybam
-
+  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from pindelbam
   output:
-  file("${pid}.delly.vcf.gz") into dellyvcf
-  when:
-  params.callsvs == "detect"
+  file("${pid}.pindel_tandemdup.pass.vcf.gz") into tdvcf
+  file("${pid}.pindel_indel.pass.vcf.gz") into pindelvcf
+  file("${pid}.dna.genefusion.txt") into gf
   script:
   """
   source /etc/profile.d/modules.sh
-  perl $baseDir/scripts/make_delly_sample.pl ${tid} ${nid}
-  bash $baseDir/process_scripts/variants/svcalling.sh -r ${index_path} -p ${pid} -b ${tumor} -n ${normal} -i ${tid} -m delly
+  bash $baseDir/process_scripts/variants/pindel.sh -r ${index_path} -p ${pid}
+  perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${pid}.pindel_tandemdup.vcf.gz -s ${pid}.pindel_sv.vcf.gz -i ${pid}.pindel_indel.vcf.gz
+  module load htslib/gcc/1.8 snpeff/4.3q
+  bgzip ${pid}.pindel_indel.pass.vcf
+  bgzip ${pid}.pindel_tandemdup.pass.vcf
+  grep '#CHROM' ${pid}.pindel_sv.pass.vcf > ${pid}.dna.genefusion.txt
+  cat ${pid}.pindel_sv.pass.vcf | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS END ANN[*].EFFECT ANN[*].GENE ANN[*].HGVS_C ANN[*].HGVS_P GEN[*] |grep -E 'CHROM|gene_fusion' |uniq >> ${pid}.dna.genefusion.txt
   """
 }
-
-process sstumor {
+process freebayes {
+  queue '32GB'
   errorStrategy 'ignore'
   publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
-  input:
-  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from ssbam
-    
-  output:
-  set pid, file("${pid}.sssom.vcf.gz") into ssvcf
-  set pid,file("${pid}.sssom.annot.vcf.gz") into ssannot
-  set pid,file("${pid}.sssom.ori.vcf.gz") into ssori
 
+  input:
+  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from fbbam
+  output:
+  set pid,file("${pid}.fb.vcf.gz") into fbvcf
+  set pid,file("${pid}.fb.ori.vcf.gz") into fbori
   script:
   """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a speedseq
-  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${pid}.sssom -v ${pid}.sssom.vcf.gz
-  mv ${pid}.sssom.vcf.gz ${pid}.sssom.ori.vcf.gz
-  mv ${pid}.sssom.norm.vcf.gz ${pid}.sssom.vcf.gz
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${pid}.sssom -r $index_path -v ${pid}.sssom.vcf.gz
-
+  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $pid -a freebayes
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${pid}.fb -v ${pid}.freebayes.vcf.gz
   """
 }
-process mutect {
+process platypus {
+  queue '32GB'
   errorStrategy 'ignore'
   publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
 
   input:
-  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from mutectbam
+  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from platbam
+  output:
+  set pid,file("${pid}.platypus.vcf.gz") into platvcf
+  set pid,file("${pid}.platypus.ori.vcf.gz") into platori
+  script:				       
+  """
+  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $pid -a platypus
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${pid}.platypus -v ${pid}.platypus.vcf.gz
+  """
+}
 
+process mutect {
+  queue '128GB,256GB,256GBv1'
+  errorStrategy 'ignore'
+  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
+  input:
+  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from mutectbam
   output:
   set pid,file("${pid}.mutect.vcf.gz") into mutectvcf
   set pid,file("${pid}.mutect.ori.vcf.gz") into mutectori
-  set pid,file("${pid}.mutect.annot.vcf.gz") into mutectannot
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a mutect2
-  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${pid}.mutect -v ${pid}.mutect.vcf.gz
-  mv ${pid}.mutect.vcf.gz ${pid}.mutect.ori.vcf.gz
-  mv ${pid}.mutect.norm.vcf.gz ${pid}.mutect.vcf.gz
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${pid}.mutect -r $index_path -v ${pid}.mutect.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${pid}.mutect -v ${pid}.mutect.vcf.gz
   """
 }
-// Channel
-//   .empty()
-//   .mix(mantrabam,strelkabam)
-//   .groupTuple(by:0)
-//   .into { illuminabams }
-
-// process strelka {
-//   errorStrategy 'ignore'
-//   publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
-
-//   input:
-//   set pid,mtid,mnid,file(mtumor),file(mnormal),file(mtidx),file(mnidx),tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from illuminabams
-
-//   output:
-//   set pid,file("${pid}.strelka2.vcf.gz") into strelkavcf
-//   script:
-//   """
-//   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a strelka2
-//   """
-// }
-process varscan {
+process strelka {
+  queue '32GB'
   errorStrategy 'ignore'
   publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
   input:
-  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from vscanbam
+  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from strelkabam
   output:
-  set pid,file("${pid}.varscan.vcf.gz") into varscanvcf
-  set pid,file("${pid}.varscan.ori.vcf.gz") into varscanori
-  set pid,file("${pid}.varscan.annot.vcf.gz") into varscannot
-  set pid,file("${pid}.vscancnv.copynumber.txt") into varscancnv
+  set pid,file("${pid}.strelka2.vcf.gz") into strelkavcf
+  set pid,file("${pid}.strelka2.ori.vcf.gz") into strelkaori
   script:
   """
-  source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a varscan
-  mv vscancnv.copynumber ${pid}.vscancnv.copynumber.txt
-  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${pid}.varscan -v ${pid}.varscan.vcf.gz
-  mv ${pid}.varscan.vcf.gz ${pid}.varscan.ori.vcf.gz
-  mv ${pid}.varscan.norm.vcf.gz ${pid}.varscan.vcf.gz
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${pid}.varscan -r $index_path -v ${pid}.varscan.vcf.gz
+  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a strelka2
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${pid}.strelka2 -v ${pid}.strelka2.vcf.gz
   """
 }
-
 process shimmer {
+  queue '32GB'
   errorStrategy 'ignore'
   publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from shimmerbam
   output:
   set pid, file("${pid}.shimmer.vcf.gz") into shimmervcf
-  set pid, file("${pid}.shimmer.vcf.gz") into shimmerori
-  set pid, file("${pid}.shimmer.vcf.gz") into shimmerannot
+  set pid, file("${pid}.shimmer.ori.vcf.gz") into shimmerori
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a shimmer
-  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${pid}.shimmer -v ${pid}.shimmer.vcf.gz
-  mv ${pid}.shimmer.vcf.gz ${pid}.shimmer.ori.vcf.gz
-  mv ${pid}.shimmer.norm.vcf.gz ${pid}.shimmer.vcf.gz
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${pid}.shimmer -r $index_path -v ${pid}.shimmer.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${pid}.shimmer -v ${pid}.shimmer.vcf.gz
   """
 }
 
 process virmid {
+  queue '32GB'
   errorStrategy 'ignore'
   publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from virmidbam
   output:
   set pid, file("${pid}.virmid.vcf.gz") into virmidvcf
-  set pid, file("${pid}.virmid.annot.vcf.gz") into virmidannot
   set pid, file("${pid}.virmid.ori.vcf.gz") into virmidori
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a virmid
-  bash $baseDir/process_scripts/variants/norm_annot.sh -r $index_path -p ${pid}.virmid -v ${pid}.virmid.vcf.gz
-  mv ${pid}.virmid.vcf.gz ${pid}.virmid.ori.vcf.gz
-  mv ${pid}.virmid.norm.vcf.gz ${pid}.virmid.vcf.gz
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p ${pid}.virmid -r $index_path -v ${pid}.virmid.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${pid}.virmid -v ${pid}.virmid.vcf.gz
   """
 }
 
 Channel
   .empty()
-  .mix(ssvcf,mutectvcf,varscanvcf,virmidvcf,shimmervcf)
+  .mix(mutectvcf,platvcf,fbvcf,shimmervcf,strelkavcf)
   .groupTuple(by:0)
   .set { vcflist}
 
-
 process integrate {
+  executor 'local'
   errorStrategy 'ignore'
   publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
   input:
   set pid,file(vcf) from vcflist
   file 'design.txt' from design_file
   output:
-  file("${pid}${params.projectid}.somaticunion.vcf.gz") into union
   file("${pid}${params.projectid}.somatic.vcf.gz") into annotvcf
+  file("${pid}${params.projectid}.somaticunion.vcf.gz") into unionvcf
   script:
   """
   source /etc/profile.d/modules.sh
-  module load samtools/1.6
+  module load htslib/gcc/1.8
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $pid
-  bash $baseDir/process_scripts/variants/annotvcf.sh -p $pid -r $index_path -v ${pid}.union.vcf.gz
+  cp ${pid}.union.vcf.gz ${pid}${params.projectid}.somaticunion.vcf.gz
+  ln -s  ${pid}.union.vcf.gz ${pid}.annot.vcf.gz
   perl $baseDir/scripts/somatic_filter.pl ${pid}.annot.vcf.gz
   bgzip ${pid}.somatic.vcf
   mv ${pid}.somatic.vcf.gz ${pid}${params.projectid}.somatic.vcf.gz
-  mv ${pid}.union.vcf.gz ${pid}${params.projectid}.somaticunion.vcf.gz
   """
 }

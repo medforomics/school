@@ -18,7 +18,7 @@ params.dea = 'skip'
 params.cancer="detect"
 params.variant = "detect"
 params.bamct = "detect"
-
+params.gatk='skip'
 
 design_file = file(params.design)
 fastqs=file(params.fastqs)
@@ -91,6 +91,7 @@ if( ! read) { error "Didn't match any input files with entries in the design fil
 // Trim raw reads using trimgalore
 //
 process trim {
+  executor 'local'
   errorStrategy 'ignore'
   input:
   set subjid, pair_id, file(read1), file(read2) from read
@@ -126,13 +127,15 @@ process align {
   set subjid,pair_id, file("${pair_id}.bam") into aligned
   set subjid,pair_id, file("${pair_id}.bam") into ctbams
   set subjid,pair_id, file("${pair_id}.bam"),file("${pair_id}.alignerout.txt") into aligned2
-
+  set subjid,pair_id, file("${pair_id}.dedup.bam") into deduped1
+  set subjid,pair_id, file("${pair_id}.dedup.bam") into deduped2
   script:
   """
   bash $baseDir/process_scripts/alignment/rnaseqalign.sh -a $params.align -p $pair_id -r $index_path -x $f1 -y $f2 $alignopts
   """
 }
 process bamct {
+  executor 'local'
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
@@ -151,6 +154,7 @@ process bamct {
 }
 
 process alignqc {
+  executor 'local'
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
@@ -171,22 +175,23 @@ process alignqc {
 
 // Identify duplicate reads with Picard
 
-process markdups {
-  //publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+// process markdups {
+//   //publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
-  input:
-  set subjid,pair_id, file(sbam) from aligned
-  output:
-  set subjid,pair_id, file("${pair_id}.dedup.bam") into deduped1
-  set subjid,pair_id, file("${pair_id}.dedup.bam") into deduped2
-  script:
-  """
-  bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id
-  """
-}
+//   input:
+//   set subjid,pair_id, file(sbam) from aligned
+//   output:
+//   set subjid,pair_id, file("${pair_id}.dedup.bam") into deduped1
+//   set subjid,pair_id, file("${pair_id}.dedup.bam") into deduped2
+//   script:
+//   """
+//   bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id
+//   """
+// }
 
 process geneabund {
   errorStrategy 'ignore'
+  executor 'local'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
   set subjid,pair_id, file(sbam) from deduped1
@@ -210,7 +215,8 @@ process gatkbam {
 
   output:
   set file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
-
+  when:
+  params.gatk='detect'
   script:
   """
   bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam_rna -b $rbam -r ${index_path}/hisat_index -p $pair_id
