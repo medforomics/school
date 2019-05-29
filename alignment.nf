@@ -7,9 +7,11 @@ params.fastqs="$params.input/*.fastq.gz"
 params.design="$params.input/design.txt"
 
 params.genome="/project/shared/bicf_workflow_ref/human/GRCh38"
-params.capture="$params.genome/clinseq_prj/UTSWV2.bed"
+params.capture="$params.genome/clinseq_prj/hemepanelV3.bed"
 params.pairs="pe"
 params.markdups='fgbio_umi'
+params.aligner='bwa'
+params.cnv = "detect"
 
 reffa=file("$params.genome/genome.fa")
 dbsnp="$params.genome/dbSnp.vcf.gz"
@@ -63,6 +65,7 @@ new File(params.design).withReader { reader ->
 if( ! read) { error "Didn't match any input files with entries in the design file" }
 
 process trim {
+  queue '32GB,128GB,256GB,256GBv1'
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
@@ -78,6 +81,7 @@ process trim {
 }
 
 process align {
+  queue '32GB,128GB,256GB,256GBv1'
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
@@ -86,36 +90,51 @@ process align {
   output:
   set subjid,pair_id, file("${pair_id}.bam") into aligned
   set subjid,pair_id, file("${pair_id}.bam") into aligned2
+  set subjid,pair_id, file("${pair_id}.bam"), file("${pair_id}.bam.bai") into cnvbam
   file("${pair_id}.bam.bai") into baindex
   file("${pair_id}*tdf") into tdfraw
   """
-  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2 $alignopts
+  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -a $params.aligner -p $pair_id -x $fq1 -y $fq2 $alignopts
   bash $baseDir/process_scripts/alignment/bam2tdf.sh -r $index_path -b ${pair_id}.bam -p ${pair_id}.raw  
   """
  }
 
 process markdups_consensus {
+  queue '32GB,128GB,256GB,256GBv1'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
   set subjid, pair_id, file(sbam) from aligned
   output:
-  set subjid, pair_id, file("${pair_id}.consensus.bam") into deduped
-  set subjid, pair_id, file("${pair_id}.consensus.bam") into qcbam
-  set subjid, pair_id,file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
+  set subjid, pair_id, file("${pair_id}.consensus.bam"),file("${pair_id}.consensus.bam.bai") into qcbam
+  set subjid, pair_id, file("${pair_id}.consensus.bam"),file("${pair_id}.consensus.bam.bai") into togatkbam
+  script:
+  """
+  bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id
+  mv ${pair_id}.dedup.bam ${pair_id}.consensus.bam
+  mv ${pair_id}.dedup.bam.bai ${pair_id}.consensus.bam.bai
+  """
+}
+process qc_consensus {
+  errorStrategy 'ignore'
+  queue '128GB,256GB,256GBv1'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+
+  input:
+  set subjid, pair_id, file(sbam),file(idx) from qcbam
+  output:
+  file("${pair_id}.umihist.txt") into umihist
   file("${pair_id}.dedupcov.txt") into dedupcov
   file("${pair_id}.covuniqhist.txt") into covuniqhist
   file("*coverageuniq.txt") into covuniqstat
   file("${pair_id}*tdf") into tdfuniq
   script:
   """
-  bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id
-  mv ${pair_id}.dedup.bam ${pair_id}.consensus.bam
-  bash $baseDir/process_scripts/alignment/bam2tdf.sh -r $index_path -b ${pair_id}.consensus.bam -p ${pair_id}.uniq
-  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b ${pair_id}.consensus.bam -r ${index_path} -p $pair_id
-  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${pair_id}.consensus.bam -p $pair_id
+  bash $baseDir/process_scripts/alignment/bam2tdf.sh -r $index_path -b ${sbam} -p ${pair_id}.uniq
+  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${sbam} -p $pair_id
   mv ${pair_id}.genomecov.txt ${pair_id}.dedupcov.txt
   mv ${pair_id}.covhist.txt ${pair_id}.covuniqhist.txt
+  mv ${pair_id}.hist.txt ${pair_id}.umihist.txt
   mv ${pair_id}_lowcoverage.txt ${pair_id}_lowcoverageuniq.txt
   mv ${pair_id}_exoncoverage.txt ${pair_id}_exoncoverageuniq.txt
   """
@@ -123,6 +142,7 @@ process markdups_consensus {
 
 process markdups_picard {
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  queue '128GB,256GB,256GBv1'
 
   input:
   set subjid, pair_id, file(sbam) from aligned2
@@ -145,7 +165,41 @@ process markdups_picard {
   """
 }
 
+process cnv {
+  queue '32GB,128GB,256GB,256GBv1'
+  errorStrategy 'ignore'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  input:
+  set subjid,pair_id,file(sbam),file(sidx) from cnvbam
+  output:
+  file("${pair_id}.call.cns") into cns
+  file("${pair_id}.cns") into cnsori
+  file("${pair_id}.cnr") into cnr
+  file("${pair_id}.answerplot*") into cnvansplot
+  file("${pair_id}.*txt") into cnvtxt
+  file("${pair_id}.cnv*pdf") into cnvpdf
+  script:
+  """
+  bash $baseDir/process_scripts/variants/cnvkit.sh -u -c $capture_bed -b $sbam -p $pair_id
+  """
+}
+
+process gatkbam {
+  queue '32GB,128GB,256GB,256GBv1'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+
+  input:
+  set subjid, pair_id, file(sbam),file(idx) from togatkbam
+  output:
+  set subjid, pair_id, file("${pair_id}.final.bam*") into gatkbam
+  script:
+  """
+  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r $index_path -p $pair_id
+  """
+}
+
 process parse_stat {
+  queue '32GB,128GB,256GB,256GBv1'
   errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
 

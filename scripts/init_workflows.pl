@@ -131,7 +131,7 @@ while (my $line = <SS>){
 	  $hash{Sample_Name} = $hash{Sample_Name}."_ClarityID-".$hash{Sample_ID};
       }
       $hash{Sample_ID} = $hash{Sample_Name};
-      $stype{$hash{SubjectID}} = $clinres;
+      $stype{$hash{SubjectID}} = $hash{Case};
       $spairs{$hash{SubjectID}}{lc($hash{Class})}{$hash{MergeName}} = 1;
       $sampleinfo{$hash{Sample_Name}} = \%hash;
       push @{$samples{$hash{Assay}}{$hash{SubjectID}}}, $hash{Sample_Name};
@@ -274,6 +274,12 @@ foreach my $sampid (keys %control){
 }
 
 print CAS "cd $outnf\n";
+
+foreach my $case(keys %stype){
+	if($stype{$case} eq 'true'){
+		print CAS "rsync -avz $case /archive/PHG/PHG_Clinical/cases\n";
+	}
+}
 print CAS "cd $prodir\/$prjid\n";
 print CAS "rsync -rlptgoD --exclude=\"*fastq.gz*\" --exclude \"*work*\" --exclude=\"*bam*\" $prodir\/$prjid /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/\n";
 print CAS "perl $baseDir\/scripts/create_properties_run.pl -p $prjid -d /project/PHG/PHG_BarTender/bioinformatics/seqanalysis\n";

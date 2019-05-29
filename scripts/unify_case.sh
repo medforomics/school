@@ -5,6 +5,7 @@ usage() {
   echo "-h Help documentation for gatkrunner.sh"
   echo "-r  --Reference Genome: GRCh38 or GRCm38"
   echo "-p  --Prefix for output file name"
+  echo "-n  --NuCLIA CaseID"
   echo "-t  --TumorID"
   echo "-v  --tumor vcf"
   echo "-s  --somatic vcf"
@@ -13,14 +14,17 @@ usage() {
   echo "-c  --rnaseq read ct"
   echo "-f  --rnaseq fpkm"
   echo "-b  --targetbed"
+  echo "-a  --archive"
   echo "Example: bash unify_case.sh -p prefix -r /path/GRCh38"
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:p:t:n:v:s:i:x:c:d:b:f:h opt
+while getopts :r:n:a:p:t:n:v:s:i:x:c:d:a:b:f:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
+        n) caseID=$OPTARG;;
+	a) archive=$OPTARG;;
         p) subject=$OPTARG;;
         t) tumor_id=$OPTARG;;
         n) normal_id=$OPTARG;;
@@ -31,6 +35,7 @@ do
         x) rnaseq_vcf=$OPTARG;;
         c) rnaseq_ntct=$OPTARG;;
 	f) rnaseq_fpkm=$OPTARG;;
+	a) rnaseq_bam=$OPTARG;;
  	b) targetbed=$OPTARG;;
 	h) usage;;
     esac
@@ -49,9 +54,41 @@ fi
 baseDir="`dirname \"$0\"`"
 vepdir='/project/shared/bicf_workflow_ref/vcf2maf'
 
-module load bedtools/2.26.0 samtools/1.6 vcftools/0.1.14 snpeff/4.3q
+module load bedtools/2.26.0 samtools/gcc/1.8 htslib/gcc/1.8 vcftools/0.1.14 snpeff/4.3q
 
-if [[ -a $somatic_vcf ]] 
+if [[ -a ${caseID} ]]
+then
+    if [[ ! -f ${caseID}.json ]]
+    then
+	curl -o ${caseID}.json "https://nuclia.biohpc.swmed.edu/getSampleAndRunIds?token=$nucliatoken&projectId=$caseID"
+    fi
+    jsonout=$(perl ${baseDir}/parse_getsampleJson.pl ${caseID}.json 2>&1)
+    myarray=($jsonout)
+    subject=${myarray[1]}
+    tumor_id=${myarray[3]}
+    dna_runid=${myarray[2]}
+    rna_runid=${myarray[6]}
+    normal_id=${myarray[5]}
+    rnaseq_id=${myarray[7]}
+    if [[ "somatic_${dna_runid}/${subject}_${dna_runid}.somatic.vcf.gz" ]]
+    then
+	somaticvcf="somatic_${dna_runid}/${subject}_${dna_runid}.somatic.vcf.gz"
+    else
+	tumor_vcf="${subject}_${dna_runid}.germline.vcf.gz"
+    fi
+    itd_vcf="${subject}.pindel_tandemdup.pass.vcf.gz"
+    cnv_answer="$tumor_id/$tumor_id.cnv.answer.txt"
+    if [[ "${subject}_${rna_runid}.germline.rna.vcf.gz" ]]
+    then
+	rnaseq_vcf="${subject}_${rna_runid}.germline.rna.vcf.gz"
+	rnaseq_ntct="${subject}/${rna_runid}/${rna_runid}.bamreadct.txt"
+	rnaseq_ntct="${subject}/${rna_runid}/${rna_runid}.fpkm.txt"
+	rnaseq_bam="${subject}/${rna_runid}/${rna_runid}.bam"
+    fi
+fi
+
+#Merge VCFs if there are 2
+if [[ -a $somatic_vcf && -a $tumor_vcf ]]
 then
     tabix -f $somatic_vcf
     tabix -f $tumor_vcf
@@ -59,11 +96,15 @@ then
     vcf-shuffle-cols -t somatic.only.vcf $tumor_vcf |bgzip > tumor.vcf.gz
     bgzip -f somatic.only.vcf
     vcf-concat somatic.only.vcf.gz tumor.vcf.gz |vcf-sort |uniq | bgzip > somatic_germline.vcf.gz
-else
+elif [[ -a $tumor_vcf ]]
+then   
     cp $tumor_vcf somatic_germline.vcf.gz
+else
+    cp $somatic_vcf somatic_germline.vcf.gz
 fi
-
 tabix -f somatic_germline.vcf.gz
+
+#Merge ITD with CNV File
 
 if [[ -a $itd_vcf ]]
 then
@@ -71,6 +112,7 @@ then
     cat dupcnv.txt >> $cnv_answer
 fi
 
+#Filter VCF File
 icommand="perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -r $index_path"
 if [[ -n $normal_id ]]
 then 
@@ -80,44 +122,32 @@ if [[ -a $rnaseq_vcf ]]
 then
     icommand+=" -v $rnaseq_vcf -c $rnaseq_ntct"
 fi
-
 $icommand
-echo $icommand
-#perl $baseDir/integrate_vcfs.pl -r $index_path -s ${subject} -t $tumor_id -n $normal_id -v $rnaseq_vcf -c $rnaseq_ntct
 vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
-#vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.philips.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
 tabix -f ${subject}.pass.vcf.gz
-#tabix -f ${subject}.philips.vcf.gz
+
+#Identify functional splice sites
+/project/shared/bicf_workflow_ref/seqprg/bin/regtools cis-splice-effects identify ${subject}.vcf.gz ${rnaseq_bam} ${index_path}/genome.fa ${index_path}/gencode.gtf -o ${subject}.splicevariants.txt -v ${subject}.splicevariants.vcf -s 0 -e 5 -i 5
 
 #Makes TumorMutationBurenFile
 
 bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed |uniq |bgzip > ${subject}.utswpass.vcf.gz
 
+#Calculate TMB
 targetsize=`awk '{sum+=$3-$2} END {print sum/1000000}' $targetbed`
 if [[ -n $normal_id ]]
 then
-zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz |bgzip > ${subject}.utswpass.somatic.vcf.gz
+zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz > ${subject}.utswpass.somatic.vcf
 zgrep -c -v "#" ${subject}.utswpass.somatic.vcf.gz | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
-bcftools stats ${subject}.utswpass.somatic.vcf.gz > ${subject}.utswpass.somatic.bcfstats.txt
-plot-vcfstats -P -p ${subject}.bcfstat ${subject}.utswpass.somatic.bcfstats.txt
 else
     echo -e "Class,TMB\n,0.00" > ${subject}.TMB.csv
-fi 
-
+fi
 perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
-
-#Convert to HG37
-module load crossmap/0.2.5
-CrossMap.py vcf /project/shared/bicf_workflow_ref/human/hg38ToHg19.over.chain.gz ${subject}.utswpass.vcf.gz /project/apps_database/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa ${subject}.PASS.hg19.vcf
-perl $baseDir/philips_excel.pl ${subject}.PASS.hg19.vcf $rnaseq_fpkm
-
-#Create MAF file
-zcat ${subject}.pass.vcf.gz |perl -p -e 's/^chr//g' > ${subject}.formaf.vcf
-perl ${vepdir}/vcf2maf.pl --input ${subject}.formaf.vcf --output ${subject}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
-
 python $baseDir/../IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p $password -o ${subject}.xml
 
-#sequencestats
-#exoncoverage
+if [[ -a $archive ]]
+then
+    bash $baseDir/syncCase2Azure.sh ${subject}
+fi

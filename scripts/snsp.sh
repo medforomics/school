@@ -1,54 +1,61 @@
 #!/bin/bash
 #snsp.sh
 
-ID=$1
-Bam=$2
-TPANEL=$3
-
 usage() {
   echo "-h Help documentation for gatkrunner.sh"
   echo "-t  --Target Panel Bed File"
   echo "-p  --SampleID"
-  echo "-r  --Reference Genome: GRCh38 or GRCm38"
-  echo "Example: bash snsp.sh -p prefix -b bamfile -t targetpanel"
+  echo "-b  --BAM File"
+  echo "-v  --VCF File"
+  echo "Example: bash snsp.sh -p prefix -b bamfile -t targetpanel -v VCF"
   exit 1
 }
+
 OPTIND=1 # Reset OPTIND
-while getopts :r:p:t:b:h opt
+while getopts :t:r:v:s:p:b:h opt
 do
     case $opt in
-        r) index_path=$OPTARG;;
-        p) ID=$OPTARG;;
-        t) targetbed=$OPTARG;;
-        h) usage;;
+        p) id=$OPTARG;;
+        t) tpanel=$OPTARG;;
+	r) index_path=$OPTARG;;
+        b) bam=$OPTARG;;
+        v) vcf=$OPTARG;;
+	h) usage;;
     esac
 done
-if [[ -z $ID ]]; then
+
+shift $(($OPTIND -1))
+baseDir="`dirname \"$0\"`"
+
+if [[ -z ${id} ]]; then
     usage
 fi 
 if [[ -z $index_path ]]; then
     index_path="/project/shared/bicf_workflow_ref/human/GRCh38/clinseq_prj"
 fi
 if [[ -z $index_path ]]; then
-    targetbed="${index_path}/utswv2_cds.bed"
+    tpanel="${index_path}/utswv2_cds.bed"
 fi
 
 shift $(($OPTIND -1))
 baseDir="`dirname \"$0\"`"
 source /etc/profile.d/modules.sh
-module load samtools/1.6 bedtools/2.26.0 vcftools/0.1.14
+module load samtools/gcc/1.8 htslib/gcc/1.8 bedtools/2.26.0 vcftools/0.1.14
 
-perl $baseDir/filter_giab.pl $ID
-
-#cat ${index_path}/../gencode.CDS.bed |awk '{print $1"\t"$2-5"\t"$3+5}' |grep ^chr > gencode.cds.bed 
 cut -f 1,2,3 ${index_path}/../gencode.CDS.bed |grep ^chr > gencode.cds.bed 
 
-bedtools intersect -header -a ${index_path}/giab3.vcf.gz -b ${targetbed} | bedtools intersect -v -header -a stdin -b ${index_path}/HLA_HG38.bed | bedtools intersect -header -a stdin -b ${index_path}/giab3_platinum2.hg38.highConf.bed  | bedtools intersect -header -a stdin -b gencode.cds.bed | vcf-sort |uniq |bgzip > giab3.utswcoding.vcf.gz
-bedtools intersect -header -a ${index_path}/platinum_v2.vcf.gz -b ${targetbed} | bedtools intersect -v -header -a stdin -b ${index_path}/HLA_HG38.bed | bedtools intersect -header -a stdin -b ${index_path}/giab3_platinum2.hg38.highConf.bed  | bedtools intersect -header -a stdin -b gencode.cds.bed | vcf-sort |uniq | bgzip > platinum_v2.utswcoding.vcf.gz
-bedtools intersect -header -a ${ID}.PASS.vcf -b ${targetbed} | bedtools intersect -v -header -a stdin -b ${index_path}/HLA_HG38.bed | bedtools intersect -header -a stdin -b ${index_path}/giab3_platinum2.hg38.highConf.bed  | bedtools intersect -header -a stdin -b gencode.cds.bed | vcf-sort |uniq | bgzip > ${ID}.utswcoding.vcf.gz
-tabix ${ID}.utswcoding.vcf.gz
+bedtools intersect -header -a ${index_path}/giab3.vcf.gz -b ${tpanel} | bedtools intersect -v -header -a stdin -b ${index_path}/HLA_HG38.bed | bedtools intersect -header -a stdin -b ${index_path}/giab3_platinum2.hg38.highConf.bed | bedtools intersect -header -a stdin -b gencode.cds.bed | vcf-sort | uniq | /project/shared/bicf_workflow_ref/seqprg/vt/vt decompose_blocksub - -a -o giab3.utswcoding.vcf
+bgzip giab3.utswcoding.vcf
+tabix giab3.utswcoding.vcf.gz
+bedtools intersect -header -a ${index_path}/platinum_v2.vcf.gz -b ${tpanel} | bedtools intersect -v -header -a stdin -b ${index_path}/HLA_HG38.bed | bedtools intersect -header -a stdin -b ${index_path}/giab3_platinum2.hg38.highConf.bed  | bedtools intersect -header -a stdin -b gencode.cds.bed | vcf-sort | uniq | /project/shared/bicf_workflow_ref/seqprg/vt/vt decompose_blocksub - -a -o platinum_v2.utswcoding.vcf
+bgzip platinum_v2.utswcoding.vcf
+tabix platinum_v2.utswcoding.vcf.gz
+bedtools intersect -header -a ${vcf} -b ${tpanel} | bedtools intersect -v -header -a stdin -b ${index_path}/HLA_HG38.bed | bedtools intersect -header -a stdin -b ${index_path}/giab3_platinum2.hg38.highConf.bed  | bedtools intersect -header -a stdin -b gencode.cds.bed | vcf-sort |uniq | bgzip > ${id}.utswcoding.vcf.gz
+tabix ${id}.utswcoding.vcf.gz
 
-bedtools multiinter -i ${ID}.utswcoding.vcf.gz giab3.utswcoding.vcf.gz platinum_v2.utswcoding.vcf.gz -names union giab platinum |cut -f 1,2,3,5 | bedtools sort -i stdin | bedtools merge -c 4 -o distinct | bgzip > ${ID}.utswcoding.multiinter.bed.gz 
-tabix ${ID}.utswcoding.multiinter.bed.gz
-bcftools annotate -a  ${ID}.utswcoding.multiinter.bed.gz --columns CHROM,FROM,TO,PlatRef -h /project/shared/bicf_workflow_ref/human/GRCh38/PlatRef.header ${ID}.utswcoding.vcf.gz > ${ID}.eval.vcf
-perl $baseDir/calc_snsp.pl ${ID}.eval.vcf
+bcftools annotate -Oz -a giab3.utswcoding.vcf.gz --columns CHROM,POS,REF,ALT,platforms -o ${id}.g.vcf.gz ${id}.utswcoding.vcf.gz
+tabix ${id}.g.vcf.gz
+bcftools annotate -Ov -a platinum_v2.utswcoding.vcf.gz --columns CHROM,POS,REF,ALT,MTD -o ${id}.eval.vcf ${id}.g.vcf.gz
+bedtools genomecov -bga -split -ibam ${bam} -g ${index_path}/genomefile.txt |awk '$4 > 19' | cut -f 1,2,3 | bedtools merge -i stdin > enoughcov.bed
+bedtools intersect -header -a giab3.utswcoding.vcf.gz -b platinum_v2.utswcoding.vcf.gz |bedtools intersect -header -v -a stdin -b ${id}.utswcoding.vcf.gz | bedtools intersect -a stdin -b enoughcov.bed > fn.vcf
+perl $baseDir/calc_snsp.pl ${id}.eval.vcf

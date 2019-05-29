@@ -112,6 +112,10 @@ W1:while (my $line = <IN>) {
   }
   if ((grep(/hotspot/,@callers) || $id =~ m/COS/) && $cosmicsubj >= 5) {
       next if ($altct[0] < 3);
+  }if ((grep(/hotspot/,@callers) || $id =~ m/COS/) && $cosmicsubj >= 5) {
+      next if ($altct[0] < 3);
+  }if ($hash{OncoKBHotspot}) {
+      next if ($altct[0] < 3);
   }else {
       next if ($altct[0] < 8);
   }
