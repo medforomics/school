@@ -52,9 +52,11 @@ while (my $line = <IN>) {
     my ($key,$val) = split(/=/,$a);
     $hash{$key} = $val unless ($hash{$key});
   }
-  my $cosmicsubj = 0;
   @cosmicct = split(/,/,$hash{CNT}) if $hash{CNT};
-  $cosmicsubj = $cosmicct[0];
+  my $cosmicsubj = 0;
+  foreach my $ctcs(@cosmicct) {
+      $cosmicsubj += $ctcs;
+  }
   my @deschead = split(/:/,$format);
   my $allele_info = shift @gts;
   @ainfo = split(/:/, $allele_info);
@@ -112,12 +114,13 @@ while (my $line = <IN>) {
       @callers = (@callers, split(/\,/, $hash{SomaticCallSet}));
     }
   }
+  next if ($dp < 50 && $vartype ne 'snp');
   $is_gs = 1;
   $is_gs = 0 if (grep(/hotspot/,@callers) && $maf > 0.1);
   $is_gs = 0 if ($maf < 0.05);
   $is_gs = 0 if ($maf < 0.1  && $vartype ne 'snp');
   $is_gs = 0 if ($hash{CallSetInconsistent} && $vartype ne 'snp');
-  if ($id =~ m/COS/ && $cosmicsubj >= 5) {
+  if ($id =~ m/COS/ && ($cosmicsubj >= 5 || $hash{OncoKBHotspot})) {
     $is_gs = 0 if ($dp < 20 || $altct < 3);
   }elsif ($id =~ m/rs/){
       $is_gs = 0 if ($dp < 10 || $maf < 0.15);

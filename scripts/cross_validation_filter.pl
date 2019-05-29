@@ -4,95 +4,17 @@
 #module load vcftools/0.1.14 samtools/1.6 bedtools/2.26.0 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
-my $results = GetOptions (\%opt,'subject|s=s','tumor|t=s','normal|n=s','refdata|r=s','rnaseqvcf|v=s','rnaseqntct|c=s','help|h');
+my $results = GetOptions (\%opt,'subject|s=s','vcf|v=s', 'tumor|t=s','normal|n=s','help|h');
 
-open OM, "<$opt{refdata}\/clinseq_prj/cancer.genelist.txt" or die $!;
-while (my $line = <OM>) {
-  chomp($line);
-  $cgenelist{$line} = 1;
-}
-close OM;
-
-my $rnaseqid;
-if ($opt{rnaseqntct} && -e $opt{rnaseqntct}) {
-  open NRC, "<$opt{rnaseqntct}" or die $!;
-  while (my $line = <NRC>) {
-    chomp($line);
-    my ($chrom,$pos,$ref,$depth,@reads) = split(/\t/,$line);
-    next unless ($depth > 10);
-    $chrom = 'chr'.$chrom if ($chrom !~ m/^chr/);
-    my $ro;
-    my %hash;
-    foreach my $rct (@reads) {
-	my ($base,$basect,@otherstats) = split(/:/,$rct);
-	if ($ref eq $base) {
-	    $hash{$base} = $basect;
-	}else {
-	  if ($base =~ m/\+|\-/) {
-	    $base =~ s/\+/$ref/;
-	    #$base =~ s/\-/$ref/;
-	  }
-	  $hash{$base} = $basect if ($basect);
-	}
-      }
-    $rnaval{$chrom}{$pos} = [\%hash,$depth];
-  }
-  close NRC;
-  open RVCF, "gunzip -c $opt{rnaseqvcf} |" or die $!;
- W1:while (my $line = <RVCF>) {
-    chomp($line);
-    if ($line =~ m/^#CHROM/) {
-      my @header = split(/\t/,$line);
-      ($chrom, $pos,$id,$ref,$alt,$score,
-       $filter,$info,$format,@gtheader) = split(/\t/, $line);
-      $rnaseqid = $gtheader[0];
-    }
-    if ($line =~ m/^#/) {
-      next;
-    }
-    my ($chrom, $pos,$id,$ref,$alt,$score,
-	$filter,$annot,$format,@gts) = split(/\t/, $line);
-    next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
-    $chrom = 'chr'.$chrom if ($chrom !~ m/^chr/);
-    my %hash = ();
-    foreach $a (split(/;/,$annot)) {
-	my ($key,$val) = split(/=/,$a);
-	$hash{$key} = $val unless ($hash{$key});
-    }
-    my @deschead = split(/:/,$format);
-    my $allele_info = shift @gts;
-    @ainfo = split(/:/, $allele_info);
-    my %gtinfo = ();
-    my @mutallfreq = ();
-    foreach my $k (0..$#ainfo) {
-	$gtinfo{$deschead[$k]} = $ainfo[$k];
-    }
-    $gtinfo{DP} = (split(/,/,$gtinfo{DP}))[0];
-    next W1 if ($gtinfo{DP} < 10);
-    my ($ro,@altct) = split(/,/,$gtinfo{AD});
-    my @alts = split(/,/,$alt);
-    my %allct;
-    foreach my $j (0..$#altct) {
-	$act = $altct[$j];
-	$base = $alts[$j];
-      $allct{$base} = $act;
-    }
-    $rnaval{$chrom}{$pos} = [\%allct,$gtinfo{DP}];
-  }
-}
-
-open OUT, ">$opt{subject}\.all.vcf" or die $!;
-open PASS, ">$opt{subject}\.pass.vcf" or die $!;
+open OUT, ">$opt{subject}\.passqcgermline.vcf" or die $!;
 
 my @sampids;
-open IN, "gunzip -c somatic_germline.vcf.gz |" or die $!;
+open IN, "gunzip -c $opt{vcf} |" or die $!;
 W1:while (my $line = <IN>) {
   chomp($line);
   if ($line =~ m/^#CHROM/) {
     print OUT qq{##INFO=<ID=RnaSeqAF,Number=A,Type=Float,Description="RNASeq Allele Frequency">\n};
     print OUT qq{##INFO=<ID=RnaSeqDP,Number=1,Type=Integer,Description="RNASeq read depth">\n};
-    print PASS qq{##INFO=<ID=RnaSeqAF,Number=A,Type=Float,Description="RNASeq Allele Frequency">\n};
-    print PASS qq{##INFO=<ID=RnaSeqDP,Number=1,Type=Integer,Description="RNASeq read depth">\n};
     my @header = split(/\t/,$line);
     ($chrom, $pos,$id,$ref,$alt,$score,
      $filter,$info,$format,@gtheader) = split(/\t/, $line);
@@ -101,12 +23,9 @@ W1:while (my $line = <IN>) {
     push @sampids, $rnaseqid if ($rnaseqid);
     print OUT join("\t",$chrom,$pos,$id,$ref,$alt,$score,
 		   $filter,$info,$format,@sampids),"\n";
-    print PASS join("\t",$chrom,$pos,$id,$ref,$alt,$score,
-		    $filter,$info,$format,@sampids),"\n";
     next;
   } elsif ($line =~ m/^#/) {
     print OUT $line,"\n";
-    print PASS $line,"\n";
     next;
   }
   my ($chrom, $pos,$id,$ref,$alt,$score,
@@ -154,8 +73,6 @@ W1:while (my $line = <IN>) {
     }
     $exacaf = sprintf("%.4f",$ac/$an) if ($ac > 0 && $an > 10);
   }
-  next if ($exacaf && $exacaf > 0.05);
-  $fail{'COMMON'} = 1 if ($exacaf && $exacaf > 0.01);
   $fail{'StrandBias'} = 1 if (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i);
   my $cosmicsubj = 0;
   if ($hash{CNT}) {
@@ -237,7 +154,7 @@ W1:while (my $line = <IN>) {
       }
       $hash{CallSet} = join(",",@callers);
   }
-  if (($id =~ m/COS/ && $cosmicsubj >= 5) || $hash{OncoKBHotspot}) {
+  if ($id =~ m/COS/ && $cosmicsubj >= 5) {
       $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 3);
       $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.05);
       $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.1 && $hash{TYPE} ne 'snp');
@@ -266,34 +183,7 @@ W1:while (my $line = <IN>) {
   if ($opt{normal}) {
       $gtinfo{$opt{normal}} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'} unless ($gtinfo{$opt{normal}});
   }
-  if ($rnaval{$chrom}{$pos}) {
-    $gtinfo{$rnaseqid} ={GT=>'.',DP=>'.',AO=>'.',AD=>'.',RO=>'.'};
-    my ($rnahashref,$rnadp) = @{$rnaval{$chrom}{$pos}};
-    if ($rnadp > 10) {
-      my %rnantct = %{$rnahashref};
-      my @altcts;
-      my $totalaltct =0;
-      foreach $altnt (split(/,/,$alt)) {
-	my $ct = $rnantct{$altnt};
-	$ct = 0 unless ($ct);
-	$totalaltct += $ct;
-	      push @altcts, $ct;
-      }
-      $hash{RnaSeqDP} = $rnadp;
-      $hash{RnaSeqAF} = sprintf("%.4f",$altcts[0]/$rnadp);
-      $gtinfo{$rnaseqid}{RO} = $rnadp - $totalaltct;
-      $gtinfo{$rnaseqid}{AO} = join(",",@altcts);
-      $gtinfo{$rnaseqid}{GT} = '.';
-      $gtinfo{$rnaseqid}{DP} = $rnadp;
-      $gtinfo{$rnaseqid}{AD} = join(",",$gtinfo{$rnaseqid}{RO},@altcts);
-    }
-  }
-  if ($rnaseqid) {
-      if ($gtinfo{$rnaseqid}{AO} && $gtinfo{$rnaseqid}{AO} =~ m/^\d+/ &&
-	(split(/,/,$gtinfo{$rnaseqid}{AO}))[0] > 2) {
-      $hash{RnaSeqValidation} = 1
-    }
-  }
+  next unless ($hash{SS} == 1);
   my $newformat = 'GT:DP:AD:AO:RO';
   my @newgt;
   foreach $sample (@sampids) {
@@ -314,7 +204,6 @@ W1:while (my $line = <IN>) {
     next unless ($impact =~ m/HIGH|MODERATE/ || $effect =~ /splice/i);
     next if($effect eq 'sequence_feature');
     $keepforvcf = $gene;
-    $cancergene = 1 if ($cgenelist{$gene});
   }
   next unless $keepforvcf;
   my @fail = sort {$a cmp $b} keys %fail;
@@ -332,9 +221,7 @@ W1:while (my $line = <IN>) {
     }
   }
   my $newannot = join(";",@nannot);
-  print PASS join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$newannot,
-		  $newformat,@newgt),"\n" if ($filter eq 'PASS' || $filter eq 'FailedQC;COMMON');
   print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$newannot,
-		 $newformat,@newgt),"\n" if ($filter eq 'PASS' || $id =~ m/COS/ || $cancergene || $filter eq 'FailedQC;COMMON');
+		 $newformat,@newgt),"\n" if ($filter eq 'PASS');
 }
 close IN;
