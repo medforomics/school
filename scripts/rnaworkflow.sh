@@ -1,6 +1,6 @@
-#!/bin/bash\n
+#!/bin/bash
 #SBATCH --job-name rnaworkflow
-#SBATCH -N 1\n' > ${shscript}
+#SBATCH -N 1
 #SBATCH -t 14-0:0:00
 #SBATCH -o rnaworkflow.out
 #SBATCH -e rnaworkflow.err
@@ -39,6 +39,7 @@ outdir="$analdir/fastq"
 outnf="$analdir/analysis"
 workdir="$analdir/work"
 
-nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/rnaseq_bySample.nf --design design.txt --input design.txt --output $outnf $bamct --markdups skip > nextflow.log
-${outnf}/*/*/*.bam $outnf
+module load nextflow/0.31.0
+nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/rnaseq.nf --design design.txt --input $outdir --output $outnf $bamct --markdups skip > nextflow.log
+ln -fs ${outnf}/*/*/*.bam $outnf
 nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/tumoronly.nf --design design_tumor_only.txt --genome $index_path --nuctype rna --callsvs skip --projectid ${prjid} --input $outnf --output $outnf > nextflow_tumoronly.log

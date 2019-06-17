@@ -94,7 +94,7 @@ idxbam
 
 gtxbam
    .groupTuple(by:0)		
-   .into { gatkbam }
+   .set { gatkbam }
 
 process pindel {
   errorStrategy 'ignore'
@@ -163,6 +163,8 @@ process strelka {
   output:
   set subjid,file("${subjid}.strelka2.vcf.gz") into strelkavcf
   set subjid,file("${subjid}.strelka2.ori.vcf.gz") into strelkaori
+  when:
+  params.nuctype == "dna"
   script:
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a strelka2

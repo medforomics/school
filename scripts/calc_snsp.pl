@@ -4,59 +4,51 @@
 my %tp;
 my %fp;
 my %fn;
+
 my $input = shift @ARGV;
-my $fn = $input;
-$fn =~ s/eval.vcf/utswcoding.multiinter.bed.gz/;
+my $fn = 'fn.vcf';
 my $run = $input;
 $run =~ s/\.eval.vcf//;
-my @allcallers = ('strelka2','sam','ssvar','platypus','gatk');
-foreach ((@allcallers,'union','genomeseer')) {
+
+my @allcallers = ('strelka2','fb','platypus','gatk','genomeseer','union');
+foreach ((@allcallers)) {
   $fn{'snp'}{$_} = 0;
   $fn{'indel'}{$_} = 0;
 }
-open FP, ">$run\.fp.vcf" or die $!;
-open GS, ">$run\.genomeseer.vcf" or die $!;
-open FN, "gunzip -c $fn |" or die $!;
+open FN, "<$fn" or die $!;
 while (my $line = <FN>) {
   chomp($line);
-  my ($chr,$pos,$end,$calls) = split(/\t/,$line);
-  next if ($calls =~ m/union/);
-  next unless ($calls =~ m/platinum/ && $calls =~ m/giab/);
+  my ($chr,$pos,$id,$ref,$alt,@others) = split(/\t/,$line);
   $vartype = 'snp';
-  $size = $end-$pos;
-  if ($size > 1) {
+  if (length($ref) > 1 || length($alt) > 1) {
     $vartype = 'indel';
   }
   next if ($chr eq 'chr6' && $pos >= 28510120 && $pos <= 33480577);
-  $fn{$vartype}{'union'} ++;
-  $fn{$vartype}{'genomeseer'} ++;
-  print $line,"\n";
   foreach (@allcallers) {
     $fn{$vartype}{$_} ++;
   }
 }
+
 my %done;
+my %reason;
 open IN, "<$input" or die $!;
 while (my $line = <IN>) {
   chomp($line);
   if ($line =~ m/^#/) {
-    print FP $line,"\n";
-    print GS $line,"\n";
     next;
   }
   my ($chrom, $pos,$id,$ref,$alt,$score,
       $filter,$annot,$format,@gts) = split(/\t/, $line);
   next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
+  next if ($chrom eq 'chr6' && $pos >= 28510120 && $pos <= 33480577);
   my %hash = ();
   foreach $a (split(/;/,$annot)) {
     my ($key,$val) = split(/=/,$a);
     $hash{$key} = $val unless ($hash{$key});
   }
-  @cosmicct = split(/,/,$hash{CNT}) if $hash{CNT};
   my $cosmicsubj = 0;
-  foreach my $ctcs(@cosmicct) {
-      $cosmicsubj += $ctcs;
-  }
+  @cosmicct = split(/,/,$hash{CNT}) if $hash{CNT};
+  $cosmicsubj = $cosmicct[0];
   my @deschead = split(/:/,$format);
   my $allele_info = shift @gts;
   @ainfo = split(/:/, $allele_info);
@@ -114,61 +106,94 @@ while (my $line = <IN>) {
       @callers = (@callers, split(/\,/, $hash{SomaticCallSet}));
     }
   }
-  next if ($dp < 50 && $vartype ne 'snp');
   $is_gs = 1;
-  $is_gs = 0 if (grep(/hotspot/,@callers) && $maf > 0.1);
-  $is_gs = 0 if ($maf < 0.05);
-  $is_gs = 0 if ($maf < 0.1  && $vartype ne 'snp');
-  $is_gs = 0 if ($hash{CallSetInconsistent} && $vartype ne 'snp');
-  if ($id =~ m/COS/ && ($cosmicsubj >= 5 || $hash{OncoKBHotspot})) {
-    $is_gs = 0 if ($dp < 20 || $altct < 3);
-  }elsif ($id =~ m/rs/){
-      $is_gs = 0 if ($dp < 10 || $maf < 0.15);
-  }else {
-    $is_gs = 0 unless (scalar(@callers) > 1);
-    $is_gs = 0 if ($dp < 20 || $altct < 8);
+  if ($maf < 0.05 || ($maf < 0.10  && $vartype ne 'snp')) {
+      $reason{$chrom}{$pos} = 'LowAF';
+      $is_gs = 0;
+  }elsif ($hash{CallSetInconsistent} && $vartype ne 'snp') {
+      $reason{$chrom}{$pos} = 'Inconsistent';
+      $is_gs = 0;
+  }elsif ($hash{RepeatType} && $hash{RepeatType} =~ m/Simple_repeat/ && $maf < 0.15) {
+      $reason{$chrom}{$pos} = 'InRepeat';
+      $is_gs = 0;
+  } elsif ($hash{strandBias} || (($hash{SAP} && $hash{SAP} > 20) && ((exists $hash{SAF} && $hash{SAF}< 1) || (exists $hash{SAR} && $hash{SAR}< 1)))) {
+      $reason{$chrom}{$pos} = 'StrandBias';
+      $is_gs = 0;
+  } elsif ($id =~ m/COS/ && $cosmicsubj >= 5) {
+      if ($dp < 20 || $altct < 3) {
+	  $reason{$chrom}{$pos} = 'LowCoverage';
+	  $is_gs = 0;
+      }
+  } elsif  (scalar(@callers) < 2) {
+      $reason{$chrom}{$pos} = 'OneCaller';
+      $is_gs = 0;
+  } elsif ($dp < 20 || $altct < 8) {
+      $reason{$chrom}{$pos} = 'LowCoverage';
+      $is_gs = 0;
   }
-  if ($is_gs) {
-      print GS $line,"\n";
-    }
+  my %sinfo;
   %chash = map {$_=>1} @callers;
+  if ($is_gs) {
+    $chash{'genomeseer'} = 1;
+  }
+  $chash{'union'} = 1;
   $vartype{$chrom}{$pos} = $vartype;
-  if ($hash{PlatRef} =~ m/giab|platinum/) {
-    if ($is_gs){
-      $status{$chrom}{$pos}{'genomeseer'} = 'tp';
-    }elsif($hash{PlatRef} =~ m/giab/ && $hash{PlatRef} =~ m/platinum/) {
-      $status{$chrom}{$pos}{'genomeseer'} = 'fn' unless ($status{$chrom}{$pos}{'genomeseer'});
+  $refpos = 0;
+  if ($hash{platforms}) {
+      $refpos ++;
+  }if ($hash{MTD}) {
+      $refpos ++;
+  }
+  my $chrompos= join(":",$chrom,$pos);
+  my $callers = join(":",keys %chash);
+  $status{$chrompos}{$callers} = $refpos;
+}
+my %cat;
+foreach $loci (keys %status) {
+  my @csets = keys %{$status{$loci}};
+  my ($chrom,$pos) = split(/:/,$loci);
+  my $trueset = 0;
+  my $genomeseer = 0;
+  my %callers;
+  foreach $cset (@csets) {
+    $repos = $status{$loci}{$cset};
+    @callers = split(/:/,$cset);
+    if ($trueset) {	
+      $trueset = $repos if ($repos > $trueset); 
+    }else {
+      $trueset = $repos;
     }
-    $status{$chrom}{$pos}{'union'} = 'tp';
+    foreach (@callers) {
+      $callers{$_} = 1;
+    }
+  }
+  if ($trueset > 0) {
     foreach (@allcallers) {
-      if ($chash{$_}){
-	$status{$chrom}{$pos}{$_} = 'tp';
-      }elsif($hash{PlatRef} =~ m/giab/ && $hash{PlatRef} =~ m/platinum/) {
-	$status{$chrom}{$pos}{$_} = 'fn' unless ($status{$chrom}{$pos}{'genomeseer'});
+      if ($callers{$_}){
+	$cat{$chrom}{$pos}{$_} = 'tp';
+      } else {
+	$cat{$chrom}{$pos}{$_} = 'fn' unless ($trueset < 2);
+	print join(":","FN",$chrom,$pos,$reason{$chrom}{$pos}),"\n" if ($_ eq 'genomeseer');
       }
     }
   }else {
-    if ($is_gs){
-      $status{$chrom}{$pos}{'genomeseer'} = 'fp';
-      print FP $line,"\n";
-    }
-    $status{$chrom}{$pos}{'union'} = 'fp';
-    foreach $caller (keys %chash) {
-      $status{$chrom}{$pos}{$caller} = 'fp';
+    foreach (@allcallers) {
+      if ($callers{$_}){
+	$cat{$chrom}{$pos}{$_} = 'fp';
+	print join(":","FP",$chrom,$pos,$vartype{$chrom}{$pos}),"\n" if ($_ eq 'genomeseer');
+      }
     }
   }
 }
-close FP;
-close GS;
-foreach $chrom (keys %status) {
-  foreach $pos (keys %{$status{$chrom}}) {
+foreach $chrom (keys %cat) {
+  foreach $pos (keys %{$cat{$chrom}}) {
     my $vartype = $vartype{$chrom}{$pos};
-    foreach $call (keys %{$status{$chrom}{$pos}}) {
-      if ($status{$chrom}{$pos}{$call} eq 'tp') {
+    foreach $call (keys %{$cat{$chrom}{$pos}}) {
+      if ($cat{$chrom}{$pos}{$call} eq 'tp') {
 	$tp{$vartype}{$call} ++;
-      }elsif ($status{$chrom}{$pos}{$call} eq 'fp') {
+      }elsif ($cat{$chrom}{$pos}{$call} eq 'fp') {
 	$fp{$vartype}{$call} ++;
-      }elsif ($status{$chrom}{$pos}{$call} eq 'fn') {
+      }elsif ($cat{$chrom}{$pos}{$call} eq 'fn') {
 	$fn{$vartype}{$call} ++;
       }
     }
@@ -179,7 +204,7 @@ open OUT, ">$run\.snsp.txt" or die $!;
 print OUT join("\t",'SampleID','Method','SNV TP','SNV FP','SNV FN','InDel TP','InDel FP','InDel FN',
 	       'SNV SN','InDel SN','Combined SN','SNV PPV','InDel PPV','Combined PPV'),"\n";
 
-foreach ((@allcallers,'genomeseer','union')) {
+foreach (@allcallers) {
   $fp{'snp'}{$_} = 0 unless $fp{'snp'}{$_};
   $fp{'indel'}{$_} = 0 unless $fp{'indel'}{$_};
   $fn{'indel'}{$_} = 0 unless $fn{'indel'}{$_};

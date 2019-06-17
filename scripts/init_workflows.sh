@@ -32,8 +32,8 @@ prodir="/project/PHG/PHG_Clinical/processing";
 fi
 
 seqdatadir="${fqout}/${prjid}"
-oriss="${fqout}/sample_sheets/$prjid\.csv"
-newss="${seqdatadir}/$prjid\.csv"
+oriss="${fqout}/sample_sheets/$prjid.csv"
+newss="${seqdatadir}/$prjid.csv"
 
 mkdir ${fqout}/${prjid}
 ln -s ${illumina}/${prjid}/* $fqout/${prjid}
@@ -74,29 +74,27 @@ then
 fi
 rsync -avz ${seqdatadir}/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid
 rsync -avz ${seqdatadir}/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid
-
+cd ${prodir}/${prjid}
+codedir="/project/PHG/PHG_Clinical/devel/clinseq_workflows"
 for i in */design.txt; do
     dtype=`dirname $i`
     cd ${prodir}/${prjid}/${dtype}
-    awk '{print "mkdir $outnf/"$2}' design.txt | grep -v FamilyID | uniq |sh
-    awk '{print "mkdir $outnf/"$2"/fastq"}' design.txt | grep -v FamilyID | uniq |sh
+    awk -v DIR="$outnf" '{print "mkdir -p",DIR"/"$2}' design.txt | grep -v FamilyID | uniq |sh
+    awk -v DIR="$outnf" '{print "mkdir -p",DIR"/"$2"/fastq"}' design.txt | grep -v FamilyID | uniq |sh
     bash lnfq.sh
     shscript=runworkflow.sh
-    codedir=$baseDir
     if [[ $dtype == 'panelrnaseq' ]]
     then
-	sbatch -p 32GB ${codedir}/scripts/rnaworkflow.sh -r $hisat_index_path -e $codedir -a "$prodir/$prjid" -p $projid 
+	bash ${codedir}/scripts/rnaworkflow.sh -r $hisat_index_path -e $codedir -a "$prodir/$prjid" -p $projid &> log.txt &
     elif [[ $dtype == 'wholernaseq' ]]
 	then
-	 sbatch -p 32GB ${codedir}/scripts/rnaworkflow.sh -r $hisat_index_path -e $codedir -a "$prodir/$prjid" -p $projid -c
+	    bash ${codedir}/scripts/rnaworkflow.sh -r $hisat_index_path -e $codedir -a "$prodir/$prjid" -p $projid -c &> log.txt &
     else
-	if [[ $dtype == "idthemev2" ]]
-	then
-	    codedir="/archive/PHG/PHG_Clinical/devel/idt_heme_panel/clinseq_workflows"
-	fi
 	capture="${clinref}/${panelbed[${dtype}]}"
-	sbatch -p 32GB ${codedir}/scripts/dnaworkflow.sh -r $index_path -e $codedir -a "$prodir/$prjid" -p $projid -d $mdup 
+	bash ${codedir}/scripts/dnaworkflow.sh -r $index_path -e $codedir -b $capture -a "$prodir/$prjid" -p $projid -d $mdup &> log.txt &
+    fi
 done
+wait
 cd $outnf
 
 #foreach my $case(keys %stype){
