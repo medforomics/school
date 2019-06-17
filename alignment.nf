@@ -18,10 +18,10 @@ dbsnp="$params.genome/dbSnp.vcf.gz"
 indel="$params.genome/GoldIndels.vcf.gz"
 
 fastqs=file(params.fastqs)
-design_file = file(params.design)
+design_file=file(params.design)
 dbsnp=file(dbsnp)
 knownindel=file(indel)
-index_path = file(params.genome)
+index_path=file(params.genome)
 capture_bed = file(params.capture)
 
 alignopts = ''
@@ -141,6 +141,7 @@ process qc_consensus {
 }
 
 process markdups_picard {
+  errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   queue '128GB,256GB,256GBv1'
 

@@ -19,7 +19,7 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:n:a:p:t:n:v:s:i:x:c:d:a:b:f:h opt
+while getopts :r:n:a:p:t:n:v:s:i:x:c:d:e:b:f:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -35,7 +35,7 @@ do
         x) rnaseq_vcf=$OPTARG;;
         c) rnaseq_ntct=$OPTARG;;
 	f) rnaseq_fpkm=$OPTARG;;
-	a) rnaseq_bam=$OPTARG;;
+	e) rnaseq_bam=$OPTARG;;
  	b) targetbed=$OPTARG;;
 	h) usage;;
     esac
@@ -56,7 +56,7 @@ vepdir='/project/shared/bicf_workflow_ref/vcf2maf'
 
 module load bedtools/2.26.0 samtools/gcc/1.8 htslib/gcc/1.8 vcftools/0.1.14 snpeff/4.3q
 
-if [[ -a ${caseID} ]]
+if [[ -n ${caseID} ]]
 then
     if [[ ! -f ${caseID}.json ]]
     then

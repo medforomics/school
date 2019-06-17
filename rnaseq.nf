@@ -127,8 +127,9 @@ process align {
   set subjid,pair_id, file("${pair_id}.bam") into aligned
   set subjid,pair_id, file("${pair_id}.bam") into ctbams
   set subjid,pair_id, file("${pair_id}.bam"),file("${pair_id}.alignerout.txt") into aligned2
-  set subjid,pair_id, file("${pair_id}.dedup.bam") into deduped1
-  set subjid,pair_id, file("${pair_id}.dedup.bam") into deduped2
+  set subjid,pair_id, file("${pair_id}.bam") into deduped1
+  set subjid,pair_id, file("${pair_id}.bam") into deduped2
+
   script:
   """
   bash $baseDir/process_scripts/alignment/rnaseqalign.sh -a $params.align -p $pair_id -r $index_path -x $f1 -y $f2 $alignopts
@@ -176,8 +177,7 @@ process alignqc {
 // Identify duplicate reads with Picard
 
 // process markdups {
-//   //publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
-
+//  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 //   input:
 //   set subjid,pair_id, file(sbam) from aligned
 //   output:
@@ -216,7 +216,7 @@ process gatkbam {
   output:
   set file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
   when:
-  params.gatk='detect'
+  params.gatk=='detect'
   script:
   """
   bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam_rna -b $rbam -r ${index_path}/hisat_index -p $pair_id

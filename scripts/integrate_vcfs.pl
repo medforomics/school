@@ -156,7 +156,7 @@ W1:while (my $line = <IN>) {
   }
   next if ($exacaf && $exacaf > 0.05);
   $fail{'COMMON'} = 1 if ($exacaf && $exacaf > 0.01);
-  $fail{'StrandBias'} = 1 if (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i);
+  $fail{'StrandBias'} = 1 if (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i || $hash{strandBias} || (($hash{SAP} && $hash{SAP} > 20) && ((exists $hash{SAF} && $hash{SAF}< 1) || (exists $hash{SAR} && $hash{SAR}< 1))));
   my $cosmicsubj = 0;
   if ($hash{CNT}) {
     my @cosmicct = split(/,/,$hash{CNT}); 
@@ -246,6 +246,12 @@ W1:while (my $line = <IN>) {
     $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 8);
     $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.05);
     $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.10 && $hash{TYPE} ne 'snp');
+  }
+  if ($hash{CallSetInconsistent} && $hash{TYPE} ne 'snp') {
+       $fail{'InDelInconsistentCall'} = 1;
+  }
+  if ($hash{RepeatType} && $hash{RepeatType} =~ m/Simple_repeat/ && $tumormaf[0] < 0.15) {
+      $fail{'InRepeat'} = 1
   }
   delete $hash{SOMATIC};
   $hash{SS} = 5  unless ($hash{SS});
