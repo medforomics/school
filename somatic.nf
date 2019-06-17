@@ -235,7 +235,7 @@ Channel
 process integrate {
   executor 'local'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid", mode: 'copy'
   input:
   set pid,file(vcf) from vcflist
   file 'design.txt' from design_file

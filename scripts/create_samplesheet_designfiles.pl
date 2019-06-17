@@ -76,7 +76,7 @@ while (my $line = <SS>){
       }
       $hash{Sample_ID} = $hash{Sample_Name};
       $stype{$hash{SubjectID}} = $hash{Case};
-      $spairs{$hash{Assay}}{$hash{SubjectID}}{lc($hash{Class})}{$hash{MergeName}} = 1;
+      $spairs{$hash{Assay}}{$hash{SubjectID}}{lc($hash{Class})}{$hash{MergeName}} = 1 unless ($hash{Assay} =~ m/rna/);
       $sampleinfo{$hash{Sample_Name}} = \%hash;
       push @{$samples{$hash{Assay}}{$hash{SubjectID}}}, $hash{Sample_Name};
       
@@ -91,7 +91,7 @@ while (my $line = <SS>){
   }
 }
 close SSOUT;
-
+my %inpair;
 foreach $dtype (keys %spairs ){#%stype) {
     open TNPAIR, ">$opt{dout}/$dtype/design_tumor_normal.txt" or die $!;
     if ($dtype =~ /idt/) {
@@ -108,7 +108,9 @@ foreach $dtype (keys %spairs ){#%stype) {
 	    my @norms = keys %{$spairs{$dtype}{$subjid}{normal}};
 	    my $pct = 0;
 	    foreach $tid (@tumors) {
+		$inpair{$tid} = 1;
 		foreach $nid (@norms) {
+		    $inpair{$nid} = 1;
 		    my $pair_id = $subjid;
 		    if ($pct > 0) {
 			$pair_id .= ".$pct";
@@ -116,7 +118,6 @@ foreach $dtype (keys %spairs ){#%stype) {
 		    print TNPAIR join("\t",$pair_id,$pair_id."_".$prjid,$tid,$nid,$tid.".bam",
 				      $nid.".bam",$tid.".final.bam",$nid.".final.bam"),"\n";
 		    $pct ++;
-		    $tnpairs ++;
 		}
 	    }
 	}
@@ -128,28 +129,23 @@ foreach $dtype (keys %samples) {
   print CAS "#!/bin/bash\n";
   open SSOUT, ">$opt{dout}\/$dtype\/design.txt" or die $!;
   open TONLY, ">$opt{dout}\/$dtype\/design_tumor_only.txt" or die $!;
-  if ($dtype =~ /idt/) {
-    print SSOUT join("\t","SampleID",'FamilyID','FqR1','FqR2'),"\n";
-    print TONLY join("\t","SampleID",'VcfID','FamilyID','BAM','GATKBAM'),"\n";
-  }else {
-    print SSOUT join("\t","SampleID",'FamilyID','FqR1','FqR2'),"\n";
-    print TONLY join("\t","SampleID",'VcfID','FamilyID','BAM','FinalBAM'),"\n";
-  }
+  print SSOUT join("\t","SampleID",'FamilyID','FqR1','FqR2'),"\n";
+  print TONLY join("\t","SampleID",'VcfID','FamilyID','BAM','GATKBAM'),"\n";
   my %thash;
   foreach $project (keys %{$samples{$dtype}}) {
-    my $datadir =  "/project/PHG/PHG_Clinical/illumina/$prjid/$project/";
-    foreach $samp (@{$samples{$dtype}{$project}}) {
-      my %info = %{$sampleinfo{$samp}};
-      print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outdir\/$samp\.R1.fastq.gz\n";
-      print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outdir\/$samp\.R2.fastq.gz\n";
-      print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outnf\/$info{SubjectID}/fastq\/$samp\.R1.fastq.gz\n";
-      print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outnf\/$info{SubjectID}/fastq\/$samp\.R2.fastq.gz\n";
-      print SSOUT join("\t",$info{MergeName},$info{SubjectID},
-		       "$samp\.R1.fastq.gz","$samp\.R2.fastq.gz"),"\n"; 
-      
-      print TONLY join("\t",$info{MergeName},$info{VcfID},$info{SubjectID},
-		       $info{MergeName}.".bam",$info{MergeName}.".final.bam"),"\n";
-    }
+      my $datadir =  "/project/PHG/PHG_Clinical/illumina/$prjid/$project/";
+      foreach $samp (@{$samples{$dtype}{$project}}) {
+	  my %info = %{$sampleinfo{$samp}};
+	  print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outdir\/$samp\.R1.fastq.gz\n";
+	  print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outdir\/$samp\.R2.fastq.gz\n";
+	  print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outnf\/$info{SubjectID}/fastq\/$samp\.R1.fastq.gz\n";
+	  print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outnf\/$info{SubjectID}/fastq\/$samp\.R2.fastq.gz\n";
+	  print SSOUT join("\t",$info{MergeName},$info{SubjectID},
+			   "$samp\.R1.fastq.gz","$samp\.R2.fastq.gz"),"\n"; 
+	  next if ($inpair{$info{MergeName}});
+	  print TONLY join("\t",$info{MergeName},$info{VcfID},$info{SubjectID},
+			   $info{MergeName}.".bam",$info{MergeName}.".final.bam"),"\n";
+      }
   }
   close SSOUT;
   close TONLY;
