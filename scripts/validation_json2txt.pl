@@ -17,12 +17,12 @@ foreach my $vtype (@vtypes) {
 	%hash = %{$tref};
 	next unless ($hash{selected});
 	if ($vtype eq 'variants') {
-	    print OUT join("\t",$prefix,$hash{'caseId'},$hash{chrom},$hash{pos},$hash{reference},$hash{alt},$hash{'tumorAltDepth'},sprintf("%.2f",$hash{'tumorAltFrequency'}),
-			   $hash{'normalAltDepth'},sprintf("%.2f",$hash{'normalAltFrequency'}),$hash{'geneName'},$hash{'notation'}),"\n";
+	    print OUT join("\t",$prefix,$hash{'caseId'},$hash{chrom},$hash{pos},$hash{reference},$hash{alt},$hash{'tumorTotalDepth'},sprintf("%.2f",$hash{'tumorAltFrequency'}),
+			   $hash{'normalTotalDepth'},sprintf("%.2f",$hash{'normalAltFrequency'}),$hash{'geneName'},$hash{'notation'}),"\n";
 	}elsif ($vtype eq 'cnvs') {
 	    my @genes = @{$hash{genes}};
 	    foreach my $gid (@genes) {
-		print OUT join("\t",$prefix,$hash{'caseId'},$gid,$hash{'copyNumber'},$hash{'aberrationType'}),"\n";
+		print OUT join("\t",$prefix,$hash{'caseId'},$gid,$hash{'copyNumber'},$hash{'aberrationType'},$hash{cytoband},$hash{score}),"\n";
 	    }
 	}else {
 	    print OUT join("\t",$prefix,$hash{'caseId'},$hash{"fusionName"},$hash{"rnaReads"}),"\n";
@@ -30,3 +30,4 @@ foreach my $vtype (@vtypes) {
     }
     close OUT;
 }
+

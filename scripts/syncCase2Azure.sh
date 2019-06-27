@@ -57,10 +57,12 @@ then
     fi
     if [[ -f /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.consensus.bam ]]
     then
-	samtools index -@ 4 /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.consensus.bam
-	cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.consensus.bam* /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[5]}
+	cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.consensus.bam* /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
+	samtools index -@ 4 /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
+
     else
-	cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.final.ba* /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[5]}
+	cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.final.bam* /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
+	samtools index -@ 4 /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
     fi	   
 fi
     
@@ -70,8 +72,8 @@ then
     then
 	mkdir /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[7]}
     fi
-    samtools index -@ 4 /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.bam
-    cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.bam* /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[7]}
+    cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.bam /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[7]}
+    samtools index -@ 4 /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[7]}/${myarray[7]}.bam
     cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.cts /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[7]}
     cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.fpkm.txt /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[7]}
     cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.translocations.answer.txt /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[7]}

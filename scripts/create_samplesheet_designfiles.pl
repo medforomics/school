@@ -64,6 +64,12 @@ while (my $line = <SS>){
 	  $hash{MergeName} = join("_",@samplename);
 	}
       }
+      if ($hash{MergeName} =~ m/T_RNA_panelrnaseq-\d+-\d+/) {
+	  $hash{MergeName} =~ s/T_RNA_panelrnaseq-\d+-\d+/T_RNA_panelrnaseq/;
+      }
+      if ($hash{Sample_Name} =~ m/T_RNA_panelrnaseq-\d+-\d+/) {
+	  $hash{Sample_Name} =~ s/T_RNA_panelrnaseq(-\d+-\d+)/T_RNA_panelrnaseq_Lib.$1/e;
+      } 
       my $clinres = 'cases';
       $hash{VcfID} = $hash{SubjectID}."_".$prjid;
       if (($hash{Description} && $hash{Description} =~ m/research/i) ||
@@ -94,13 +100,8 @@ close SSOUT;
 my %inpair;
 foreach $dtype (keys %spairs ){#%stype) {
     open TNPAIR, ">$opt{dout}/$dtype/design_tumor_normal.txt" or die $!;
-    if ($dtype =~ /idt/) {
-	print TNPAIR join("\t",'PairID','VcfID','TumorID','NormalID','TumorBAM','NormalBAM',
-			  'TumorGATKBAM','NormalGATKBAM'),"\n";
-    }else {
-	print TNPAIR join("\t",'PairID','VcfID','TumorID','NormalID','TumorBAM','NormalBAM',
-			  'TumorFinalBAM','NormalFinalBAM'),"\n";
-    }
+    print TNPAIR join("\t",'PairID','VcfID','TumorID','NormalID','TumorBAM','NormalBAM',
+		      'TumorGATKBAM','NormalGATKBAM'),"\n";
     foreach my $subjid (keys %{$spairs{$dtype}}) {
 	my @ctypes = keys %{$spairs{$dtype}{$subjid}};
 	if ($spairs{$dtype}{$subjid}{tumor} && $spairs{$dtype}{$subjid}{normal}) {
@@ -115,15 +116,15 @@ foreach $dtype (keys %spairs ){#%stype) {
 		    if ($pct > 0) {
 			$pair_id .= ".$pct";
 		    }
-		    print TNPAIR join("\t",$pair_id,$pair_id."_".$prjid,$tid,$nid,$tid.".bam",
-				      $nid.".bam",$tid.".final.bam",$nid.".final.bam"),"\n";
+		    print TNPAIR join("\t",$pair_id,$pair_id."_".$prjid,$tid,$nid,$tid.".consensus.bam",
+				      $nid.".consensus.bam",$tid.".final.bam",$nid.".final.bam"),"\n";
 		    $pct ++;
 		}
 	    }
 	}
     }
     close TNPAIR;
-}
+  }
 foreach $dtype (keys %samples) {
   open CAS, ">$opt{dout}\/$dtype\/lnfq.sh" or die $!;
   print CAS "#!/bin/bash\n";
@@ -143,10 +144,15 @@ foreach $dtype (keys %samples) {
 	  print SSOUT join("\t",$info{MergeName},$info{SubjectID},
 			   "$samp\.R1.fastq.gz","$samp\.R2.fastq.gz"),"\n"; 
 	  next if ($inpair{$info{MergeName}});
-	  print TONLY join("\t",$info{MergeName},$info{VcfID},$info{SubjectID},
-			   $info{MergeName}.".bam",$info{MergeName}.".final.bam"),"\n";
-      }
-  }
+	  if ($dtype =~ m/rna/) {
+	    print TONLY join("\t",$info{MergeName},$info{VcfID},$info{SubjectID},
+			     $info{MergeName}.".bam",$info{MergeName}.".bam"),"\n";
+	  }else {
+	    print TONLY join("\t",$info{MergeName},$info{VcfID},$info{SubjectID},
+			     $info{MergeName}.".consensus.bam",$info{MergeName}.".final.bam"),"\n";
+	  }
+	}
+    }
   close SSOUT;
   close TONLY;
   close CAS;
