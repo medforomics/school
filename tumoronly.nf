@@ -148,6 +148,8 @@ process gatk {
   set subjid,file("${subjid}.gatk.vcf.gz") into gatkvcf
   set subjid,file("${subjid}.gatk.ori.vcf.gz") into gatkori
   script:
+  when:
+  params.nuctype == "dna"
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a gatk
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${subjid}.gatk -v ${subjid}.gatk.vcf.gz
@@ -211,18 +213,18 @@ process integrate {
   input:
   set subjid,file(vcf) from vcflist
   output:
-  file("${subjid}${params.projectid}.germline*vcf.gz") into annotvcf
+  file("${subjid}${params.projectid}*na.vcf.gz") into annotvcf
   script:
   if (params.nuctype == "dna")
   """
   source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
-  mv ${subjid}.union.vcf.gz ${subjid}${params.projectid}.germline.vcf.gz
+  mv ${subjid}.union.vcf.gz ${subjid}${params.projectid}.dna.vcf.gz
   """
   else
   """
   source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
-  mv ${subjid}.union.vcf.gz ${subjid}${params.projectid}.germline.rna.vcf.gz
+  mv ${subjid}.union.vcf.gz ${subjid}${params.projectid}.rna.vcf.gz
   """
 }

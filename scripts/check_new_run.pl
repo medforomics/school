@@ -9,8 +9,10 @@ foreach my $ss (@samplesheets) {
   my $prjid = (split(/\./,$fname))[0];
   unless (-e "/project/PHG/PHG_Clinical/illumina/sample_sheets/$fname") {
       system("cp $ss /project/PHG/PHG_Clinical/illumina/sample_sheets/$fname");
-      system("perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/init_workflows.pl -p $prjid");
       system("source /etc/profile.d/modules.sh");
-      system("sbatch -p PHG,super /project/PHG/PHG_Clinical/illumina/$prjid/run_$prjid\.sh");
+      open OUT, ">run_$prjid.sh" or die $!;
+      print OUT qq{#!/bin/bash\n/project/PHG/PHG_Clinical/devel/clinseq_workflows/scripts/init_workflows.sh -p $prjid -r /project/shared/bicf_workflow_ref/human/GRCh38\n};
+      close OUT;
+      system("sbatch -p 32GB run_$prjid.sh");
   }
 }

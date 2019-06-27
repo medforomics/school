@@ -240,17 +240,17 @@ process integrate {
   set pid,file(vcf) from vcflist
   file 'design.txt' from design_file
   output:
-  file("${pid}${params.projectid}.somatic.vcf.gz") into annotvcf
-  file("${pid}${params.projectid}.somaticunion.vcf.gz") into unionvcf
+//  file("${pid}${params.projectid}.somatic.vcf.gz") into annotvcf
+  file("${pid}${params.projectid}.dna.vcf.gz") into unionvcf
   script:
   """
   source /etc/profile.d/modules.sh
   module load htslib/gcc/1.8
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $pid
-  cp ${pid}.union.vcf.gz ${pid}${params.projectid}.somaticunion.vcf.gz
+  cp ${pid}.union.vcf.gz ${pid}${params.projectid}.dna.vcf.gz
   ln -s  ${pid}.union.vcf.gz ${pid}.annot.vcf.gz
-  perl $baseDir/scripts/somatic_filter.pl ${pid}.annot.vcf.gz
-  bgzip ${pid}.somatic.vcf
-  mv ${pid}.somatic.vcf.gz ${pid}${params.projectid}.somatic.vcf.gz
+//  perl $baseDir/scripts/somatic_filter.pl ${pid}.annot.vcf.gz
+//  bgzip ${pid}.somatic.vcf
+//  mv ${pid}.somatic.vcf.gz ${pid}${params.projectid}.somatic.vcf.gz
   """
 }
