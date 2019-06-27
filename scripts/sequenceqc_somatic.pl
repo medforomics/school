@@ -32,8 +32,8 @@ chomp $gittag;
 while (my $line = <MATE>) {
     chomp($line);
     my ($sam1,$pf,$sam2,$corr,$depth) = split(/\t/,$line);
-    $sam1 =~ s/\.vcf//g;
-    $sam2 =~ s/\.vcf//g;
+    $sam1 = (split(/\./,$sam1))[0];
+    $sam2 = (split(/\./,$sam2))[0];
     open OUT, ">$opt{output}" or die $!;
     my $status= 'PASS';	
     $status='FAIL' if($pf eq 'unmatched');
@@ -43,6 +43,3 @@ while (my $line = <MATE>) {
 		   "Cosmic_Reference\t".$cosmic_ref,"dbSnp_Reference\t".$dbsnp_ref,
 		   "Genome_Reference\t".$gen_ref),"\n";
 }
-
-
-

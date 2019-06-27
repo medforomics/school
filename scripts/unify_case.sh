@@ -19,7 +19,7 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:n:a:p:t:n:v:s:i:x:c:d:e:b:f:h opt
+while getopts :r:n:a:p:t:m:n:v:s:i:x:c:d:e:b:f:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -30,6 +30,7 @@ do
         n) normal_id=$OPTARG;;
         v) tumor_vcf=$OPTARG;;
         s) somatic_vcf=$OPTARG;;
+	m) merged_vcf=$OPTARG;;
 	i) itd_vcf=$OPTARG;;
 	d) cnv_answer=$OPTARG;;
         x) rnaseq_vcf=$OPTARG;;
@@ -70,25 +71,44 @@ then
     rna_runid=${myarray[6]}
     normal_id=${myarray[5]}
     rnaseq_id=${myarray[7]}
-    if [[ "somatic_${dna_runid}/${subject}_${dna_runid}.somatic.vcf.gz" ]]
+    if [[ -f "somatic_${dna_runid}/${subject}_${dna_runid}.somatic.vcf.gz" ]]
     then
 	somaticvcf="somatic_${dna_runid}/${subject}_${dna_runid}.somatic.vcf.gz"
-    else
+    fi
+    if [[ -f "${subject}_${dna_runid}.germline.vcf.gz" ]] 
+    then
 	tumor_vcf="${subject}_${dna_runid}.germline.vcf.gz"
     fi
-    itd_vcf="${subject}.pindel_tandemdup.pass.vcf.gz"
-    cnv_answer="$tumor_id/$tumor_id.cnv.answer.txt"
-    if [[ "${subject}_${rna_runid}.germline.rna.vcf.gz" ]]
+    if [[ -d  "${subject}_${dna_runid}.dna.vcf.gz" ]]
     then
-	rnaseq_vcf="${subject}_${rna_runid}.germline.rna.vcf.gz"
-	rnaseq_ntct="${subject}/${rna_runid}/${rna_runid}.bamreadct.txt"
-	rnaseq_ntct="${subject}/${rna_runid}/${rna_runid}.fpkm.txt"
-	rnaseq_bam="${subject}/${rna_runid}/${rna_runid}.bam"
+	merged_vcf="${subject}_${dna_runid}.dna.vcf.gz"
+    fi
+    if [[ -f "${subject}.pindel_tandemdup.pass.vcf.gz" ]]
+    then
+	itd_vcf="${subject}.pindel_tandemdup.pass.vcf.gz"
+    elif [[ -f "dna_${dna_runid}/${subject}.pindel_tandemdup.pass.vcf.gz" ]]
+    then
+	itd_vcf="dna_${dna_runid}/${subject}.pindel_tandemdup.pass.vcf.gz"
+    fi
+    cnv_answer="$tumor_id/$tumor_id.cnv.answer.txt"
+    
+    if [[ -f "${subject}_${rna_runid}*rna.vcf.gz" ]]
+    then
+	if [[ -f "${subject}_${rna_runid}.germline.rna.vcf.gz" ]]
+	then
+	    rnaseq_vcf="${subject}_${rna_runid}.germline.rna.vcf.gz"
+	elif [[ -f "${subject}_${rna_runid}.rna.vcf.gz" ]]
+	then
+	    rnaseq_vcf="${subject}_${rna_runid}.rna.vcf.gz"
+	fi
+	rnaseq_ntct="${rnaseq_id}/${rnaseq_id}.bamreadct.txt"
+	rnaseq_fpkm="${rnaseq_id}/${rnaseq_id}.fpkm.txt"
+	rnaseq_bam="${rnaseq_id}/${rnaseq_id}.bam"
     fi
 fi
 
-#Merge VCFs if there are 2
-if [[ -a $somatic_vcf && -a $tumor_vcf ]]
+    #Merge VCFs if there are 2
+if [[ -f $somatic_vcf && -f $tumor_vcf ]]
 then
     tabix -f $somatic_vcf
     tabix -f $tumor_vcf
@@ -96,7 +116,10 @@ then
     vcf-shuffle-cols -t somatic.only.vcf $tumor_vcf |bgzip > tumor.vcf.gz
     bgzip -f somatic.only.vcf
     vcf-concat somatic.only.vcf.gz tumor.vcf.gz |vcf-sort |uniq | bgzip > somatic_germline.vcf.gz
-elif [[ -a $tumor_vcf ]]
+elif [[ -f $merged_vcf ]]
+then
+    cp $merged_vcf somatic_germline.vcf.gz
+elif [[ -f $tumor_vcf ]]
 then   
     cp $tumor_vcf somatic_germline.vcf.gz
 else
@@ -106,7 +129,7 @@ tabix -f somatic_germline.vcf.gz
 
 #Merge ITD with CNV File
 
-if [[ -a $itd_vcf ]]
+if [[ -f $itd_vcf ]]
 then
     perl $baseDir/itdvcf2cnv.pl $tumor_id $itd_vcf
     cat dupcnv.txt >> $cnv_answer
@@ -118,7 +141,7 @@ if [[ -n $normal_id ]]
 then 
     icommand+=" -n $normal_id"
 fi
-if [[ -a $rnaseq_vcf ]]
+if [[ -f $rnaseq_vcf ]]
 then
     icommand+=" -v $rnaseq_vcf -c $rnaseq_ntct"
 fi
@@ -129,7 +152,11 @@ tabix -f ${subject}.vcf.gz
 tabix -f ${subject}.pass.vcf.gz
 
 #Identify functional splice sites
-/project/shared/bicf_workflow_ref/seqprg/bin/regtools cis-splice-effects identify ${subject}.vcf.gz ${rnaseq_bam} ${index_path}/genome.fa ${index_path}/gencode.gtf -o ${subject}.splicevariants.txt -v ${subject}.splicevariants.vcf -s 0 -e 5 -i 5
+if [[ -f ${rnaseq_bam} ]]
+then
+    samtools index -@ 4 ${rnaseq_bam}
+    /project/shared/bicf_workflow_ref/seqprg/bin/regtools cis-splice-effects identify ${subject}.vcf.gz ${rnaseq_bam} ${index_path}/genome.fa ${index_path}/gencode.gtf -o ${subject}.splicevariants.txt -v ${subject}.splicevariants.vcf -s 0 -e 5 -i 5
+fi
 
 #Makes TumorMutationBurenFile
 
@@ -141,11 +168,10 @@ if [[ -n $normal_id ]]
 then
 zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz > ${subject}.utswpass.somatic.vcf
 zgrep -c -v "#" ${subject}.utswpass.somatic.vcf.gz | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
+perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
 else
     echo -e "Class,TMB\n,0.00" > ${subject}.TMB.csv
 fi
-perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
-python $baseDir/../IntellispaceDemographics/gatherdemographics.py -i $subject -u phg_workflow -p $password -o ${subject}.xml
 
 if [[ -a $archive ]]
 then

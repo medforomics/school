@@ -9,12 +9,13 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:p:t:n:v:s:i:x:c:d:a:b:f:h opt
+while getopts :r:p:c::xh opt
 do
     case $opt in
         r) index_path=$OPTARG;;
         p) prjid=$OPTARG;;
         c) prodir=$OPTARG;;
+	x) checkxml=1;;
 	h) usage;;
     esac
 done
@@ -79,8 +80,26 @@ codedir="/project/PHG/PHG_Clinical/devel/clinseq_workflows"
 for i in */design.txt; do
     dtype=`dirname $i`
     cd ${prodir}/${prjid}/${dtype}
-    awk -v DIR="$outnf" '{print "mkdir -p",DIR"/"$2}' design.txt | grep -v FamilyID | uniq |sh
-    awk -v DIR="$outnf" '{print "mkdir -p",DIR"/"$2"/fastq"}' design.txt | grep -v FamilyID | uniq |sh
+    subjs=`cut -f 2 design.txt |grep -v FamilyID |uniq`
+    for i in $subjs; do
+	mkdir -p $outnf/$i
+	mkdir -p $outnf/$i/fastq
+	if [[ -a $checkxml ]]
+	then
+	    if [[ ! -f $i.xml ]]
+	    then
+		python $codedir/../IntellispaceDemographics/gatherdemographics.py -i $i -u phg_workflow -p $password -o ${i}.xml
+		missing=`grep '><\|D64.9\|N\/A' ${i}.xml`
+		if [[ -a $missing ]]
+		then
+		    SUBJECT="SECUREMAIL: Case Missing Data"
+		    TO="erika.villa@utsouthwestern.edu,Hui.Zheng@UTSouthwestern.edu,Yan.Xu@UTSouthwestern.edu"
+		    email=$codedir"/bioinformatics_email.txt"
+		    cat $email | sed 's/Unspecified/'$i'/' | /bin/mail -s "$SUBJECT" "$TO"
+		fi
+	    fi
+	fi
+    done
     bash lnfq.sh
     shscript=runworkflow.sh
     if [[ $dtype == 'panelrnaseq' ]]
@@ -96,12 +115,6 @@ for i in */design.txt; do
 done
 wait
 cd $outnf
-
-#foreach my $case(keys %stype){
-#	if($stype{$case} eq 'true'){
-#		print CAS "rsync -avz $case /archive/PHG/PHG_Clinical/cases\n";
-#	}
-#}
 
 cd $prodir\/$prjid
 rsync -rlptgoD --exclude="*fastq.gz*" --exclude "*work*" --exclude="*bam*" ${prodir}/${prjid} /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/
