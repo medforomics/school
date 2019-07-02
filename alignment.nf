@@ -64,7 +64,7 @@ new File(params.design).withReader { reader ->
 }
 if( ! read) { error "Didn't match any input files with entries in the design file" }
 
-process trim {
+process dtrim {
   queue '32GB,128GB,256GB,256GBv1'
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
@@ -80,7 +80,7 @@ process trim {
   """
 }
 
-process align {
+process dalign {
   queue '32GB,128GB,256GB,256GBv1'
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
@@ -199,7 +199,7 @@ process gatkbam {
   """
 }
 
-process parse_stat {
+process concatstat {
   queue '32GB,128GB,256GB,256GBv1'
   errorStrategy 'ignore'
   publishDir "$params.output", mode: 'copy'
