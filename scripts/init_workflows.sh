@@ -55,7 +55,7 @@ fi
 declare -A panelbed
 panelbed=(["panel1385"]="UTSWV2.bed" ["panel1385v2"]="UTSWV2_2.panelplus.bed" ["idthemev1"]="heme_panel_probes.bed" ["idthemev2"]="hemepanelV3.bed" ["idtcellfreev1"]="panelcf73_idt.100plus.bed" ["medexomeplus"]="MedExome_Plus.bed")
 
-if [[ -a $umi ]]
+if [[ -n $umi ]]
 then
     mv ${seqdatadir}/RunInfo.xml ${seqdatadir}/RunInfo.xml.ori
     perl $baseDir/fix_runinfo_xml.pl $seqdatadir
@@ -67,7 +67,7 @@ else
 fi
 
 source /etc/profile.d/modules.sh
-module load bcl2fastq/2.17.1.14 nextflow/0.31.0 vcftools/0.1.14 samtools/gcc/1.8
+module load bcl2fastq/2.19.1 nextflow/0.31.0 vcftools/0.1.14 samtools/gcc/1.8
 bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${newss} &> ${seqdatadir}/bcl2fastq_${prjid}.log
 if [[ ! -d /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/${prjid} ]]
 then
@@ -90,7 +90,7 @@ for i in */design.txt; do
 	    then
 		python $codedir/../IntellispaceDemographics/gatherdemographics.py -i $i -u phg_workflow -p $password -o ${i}.xml
 		missing=`grep '><\|D64.9\|N\/A' ${i}.xml`
-		if [[ -a $missing ]]
+		if [[ -n $missing ]]
 		then
 		    SUBJECT="SECUREMAIL: Case Missing Data"
 		    TO="erika.villa@utsouthwestern.edu,Hui.Zheng@UTSouthwestern.edu,Yan.Xu@UTSouthwestern.edu"
@@ -101,16 +101,15 @@ for i in */design.txt; do
 	fi
     done
     bash lnfq.sh
-    shscript=runworkflow.sh
     if [[ $dtype == 'panelrnaseq' ]]
     then
-	bash ${codedir}/scripts/rnaworkflow.sh -r $hisat_index_path -e $codedir -a "$prodir/$prjid" -p $projid &> log.txt &
+	bash ${codedir}/scripts/rnaworkflow.sh -r $hisat_index_path -e $codedir -a "$prodir/$prjid" -p $prjid &> log.txt &
     elif [[ $dtype == 'wholernaseq' ]]
 	then
-	    bash ${codedir}/scripts/rnaworkflow.sh -r $hisat_index_path -e $codedir -a "$prodir/$prjid" -p $projid -c &> log.txt &
+	    bash ${codedir}/scripts/rnaworkflow.sh -r $hisat_index_path -e $codedir -a "$prodir/$prjid" -p $prjid -c &> log.txt &
     else
 	capture="${clinref}/${panelbed[${dtype}]}"
-	bash ${codedir}/scripts/dnaworkflow.sh -r $index_path -e $codedir -b $capture -a "$prodir/$prjid" -p $projid -d $mdup &> log.txt &
+	bash ${codedir}/scripts/dnaworkflow.sh -r $index_path -e $codedir -b $capture -a "$prodir/$prjid" -p $prjid -d $mdup &> log.txt &
     fi
 done
 wait

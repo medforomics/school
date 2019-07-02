@@ -40,14 +40,17 @@ outdir="$prodir/fastq"
 outnf="$prodir/analysis"
 workdir="$prodir/work"
 
+source /etc/profile.d/modules.sh
 module load nextflow/0.31.0
 
 nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/alignment.nf --design design.txt --capture $capture --input $outdir --output $outnf --markdups $mdup > nextflow_alignment.log
 
-mv ${outnf}/*/*/*.bam $outnf
-awk '{print "mv ${outnf}/"$1".* ${outnf}/"$1"_* ${outnf}/"$2"/"$1}' design.txt | grep -v SampleID |sh
+awk '{print "mv '${outnf}'/"$1".* '${outnf}'/"$1"_* '${outnf}'/"$2"/"$1}' design.txt | grep -v SampleID |sh
+
+ln -s ${outnf}/*/*/*.bam $outnf
+
 numsamps=`wc -l design_tumor_only.txt|cut -f 1 -d ' '`
-thresh=2
+thresh=1
 if [[ -f design.txt && "$numsamps" -gt "$thresh" ]]
 then
     nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/tumoronly.nf --design design_tumor_only.txt --projectid ${prjid} --input $outnf --targetpanel $capture --output $outnf > nextflow_tumoronly.log &

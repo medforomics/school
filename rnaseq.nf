@@ -90,7 +90,7 @@ if( ! read) { error "Didn't match any input files with entries in the design fil
 //
 // Trim raw reads using trimgalore
 //
-process trim {
+process rtrim {
   executor 'local'
   errorStrategy 'ignore'
   input:
@@ -117,7 +117,7 @@ process starfusion {
   bash $baseDir/process_scripts/alignment/starfusion.sh -p ${pair_id} -r ${index_path} -a ${fq1} -b ${fq2} -m trinity -f
   """
 }
-process align {
+process ralign {
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
