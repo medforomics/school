@@ -131,7 +131,7 @@ process qc_consensus {
   script:
   """
   bash $baseDir/process_scripts/alignment/bam2tdf.sh -r $index_path -b ${sbam} -p ${pair_id}.uniq
-  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${sbam} -p $pair_id
+  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${sbam} -p $pair_id -s 1
   mv ${pair_id}.genomecov.txt ${pair_id}.dedupcov.txt
   mv ${pair_id}.covhist.txt ${pair_id}.covuniqhist.txt
   mv ${pair_id}.hist.txt ${pair_id}.umihist.txt
