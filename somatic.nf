@@ -247,7 +247,7 @@ process integrate {
   source /etc/profile.d/modules.sh
   module load htslib/gcc/1.8
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $pid
-  cp ${pid}.union.vcf.gz ${pid}${params.projectid}.dna.vcf.gz
+  cp ${pid}.union.vcf.gz ${pid}_${params.projectid}.dna.vcf.gz
   #ln -s  ${pid}.union.vcf.gz ${pid}.annot.vcf.gz
   #perl $baseDir/scripts/somatic_filter.pl ${pid}.annot.vcf.gz
   #bgzip ${pid}.somatic.vcf
