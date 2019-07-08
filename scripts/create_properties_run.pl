@@ -23,11 +23,20 @@ $rinfo{'dmux.conversion.stats'} = "/project/PHG/PHG_BarTender/bioinformatics/dem
 $rinfo{'run.name'} = $opt{prjid};
 
 my @designfiles = `ls $opt{dir}/$opt{prjid}/fastq/*.design.txt`;
+unless (@designfiles) {
+    @designfiles = `ls $opt{dir}/$opt{prjid}/*/design.txt`;
+}
+
 chomp(@designfiles);
 foreach my $dfile (@designfiles) {
     open IN, "<$dfile" or die $!;
     my $d = (split(/\//,$dfile))[-1];
-    my $baitpool = (split(/\./,$d))[0];
+    my $baitpool;
+    if ($d eq 'design.txt') {
+	$baitpool = (split(/\//,$dfile))[-2];
+    }else {
+	$baitpool = (split(/\./,$d))[0];
+    }
     next if ($baitpool eq 'wholernaseq');
     my $header = <IN>;
     chomp($header);

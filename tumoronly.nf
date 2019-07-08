@@ -219,12 +219,12 @@ process integrate {
   """
   source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
-  mv ${subjid}.union.vcf.gz ${subjid}${params.projectid}.dna.vcf.gz
+  mv ${subjid}.union.vcf.gz ${subjid}_${params.projectid}.dna.vcf.gz
   """
   else
   """
   source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $subjid
-  mv ${subjid}.union.vcf.gz ${subjid}${params.projectid}.rna.vcf.gz
+  mv ${subjid}.union.vcf.gz ${subjid}_${params.projectid}.rna.vcf.gz
   """
 }
