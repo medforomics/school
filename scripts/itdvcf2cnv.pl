@@ -41,6 +41,7 @@ while (my $line = <VCF>) {
   next unless ($impact && $impact =~ m/HIGH|MODERATE/);
   next unless ($gene);
   next unless ($rank);
+  next if ($gene eq 'FCGBP');
   print DUP join("\t",$gene,$chrom,$pos,$hash{END},'ITD',3,$hash{AF},$rank),"\n";
 }
 close VCF;

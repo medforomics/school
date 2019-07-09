@@ -4,7 +4,8 @@
 #module load vcftools/0.1.14 samtools/1.6 bedtools/2.26.0 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
-my $results = GetOptions (\%opt,'subject|s=s','tumor|t=s','normal|n=s','refdata|r=s','rnaseqvcf|v=s','rnaseqntct|c=s','help|h');
+my $results = GetOptions (\%opt,'subject|s=s','tumor|t=s','normal|n=s','refdata|r=s',
+			  'rnaseqvcf|v=s','rnaseqntct|c=s','regtools|g=s','help|h');
 
 open OM, "<$opt{refdata}\/clinseq_prj/cancer.genelist.txt" or die $!;
 while (my $line = <OM>) {
@@ -80,7 +81,31 @@ if ($opt{rnaseqntct} && -e $opt{rnaseqntct}) {
     $rnaval{$chrom}{$pos} = [\%allct,$gtinfo{DP}];
   }
 }
-
+my %regtools;
+if ($opt{regtools}) {
+    open REGTOOLS, "<$opt{regtools}" or die $!;
+    while (my $line = <REGTOOLS>) {
+	chomp($line);
+	if ($line =~ m/^#/) {
+	    next;
+	}
+	my ($chrom, $pos,$id,$ref,$alt,$score,
+	    $filter,$annot,$format,@gts) = split(/\t/, $line);
+	next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
+	$chrom = 'chr'.$chrom if ($chrom !~ m/^chr/);
+	my %hash = ();
+	foreach $a (split(/;/,$annot)) {
+	    my ($key,$val) = split(/=/,$a);
+	    $hash{$key} = $val unless ($hash{$key});
+	}
+	my $key = join(":",$chrom, $pos,$ref,$alt);
+	my @trans = split(/,/,$hash{transcripts});
+	my @ans = split(/,/,$hash{annotations});
+	foreach my $j (0..$#trans) {
+	    $regtools{$key}{$trans[$j]} = $ans[$j];
+	}
+    }
+}
 open OUT, ">$opt{subject}\.all.vcf" or die $!;
 open PASS, ">$opt{subject}\.pass.vcf" or die $!;
 
@@ -313,16 +338,27 @@ W1:while (my $line = <IN>) {
   next unless ($hash{ANN});
   my $cancergene = 0;
   my $keepforvcf;
+  my @newsnpeff;
+  my $regkey = join(":",$chrom, $pos,$ref,$alt);
   foreach $trx (split(/,/,$hash{ANN})) {
     my ($allele,$effect,$impact,$gene,$geneid,$feature,
-	$featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
-	$cds_pos,$cds_len,$aapos,$aalen,$distance,$err) = split(/\|/,$trx);
+	$featureid,$biotype,$rank,$codon,$aa,$cdna_pos,$len_cdna,
+	$aapos,$distance,$err) = split(/\|/,$trx);
+    if ($regtools{$regkey}{$featureid}) {
+	$impact = 'HIGH';
+	$effect .= '&'.$regtools{$regkey}{$featureid};
+    }
+    push @newsnpeff, join("|",$allele,$effect,$impact,$gene,$geneid,
+			  $feature,$featureid,$biotype,$rank,$codon,
+			  $aa,$cdna_pos,$len_cdna,$aapos,$distance,$err);
+    
     next unless ($impact =~ m/HIGH|MODERATE/ || $effect =~ /splice/i);
     next if($effect eq 'sequence_feature');
     $keepforvcf = $gene;
     $cancergene = 1 if ($cgenelist{$gene});
   }
   next unless $keepforvcf;
+  $hash{ANN} = join(",",@newsnpeff);
   my @fail = sort {$a cmp $b} keys %fail;
   if (scalar(@fail) == 0) {
     $filter = 'PASS';

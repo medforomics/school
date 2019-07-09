@@ -19,7 +19,7 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:n:a:p:t:m:n:v:s:i:x:c:d:e:b:f:h opt
+while getopts :r:n:a:p:t:m:n:v:s:k:i:x:c:d:e:b:f:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -38,15 +38,13 @@ do
 	f) rnaseq_fpkm=$OPTARG;;
 	e) rnaseq_bam=$OPTARG;;
  	b) targetbed=$OPTARG;;
+	k) nucliatoken=$OPTARG;;
 	h) usage;;
     esac
 done
 
 shift $(($OPTIND -1))
 
-if [[ -z $tumor_vcf ]] || [[ -z $subject ]] || [[ -z $index_path ]]; then
-    usage
-fi 
 if [[ -z $targetbed ]]
 then
 targetbed="${index_path}/clinseq_prj/UTSWV2_2.panelplus.bed"
@@ -92,7 +90,7 @@ then
     fi
     cnv_answer="$tumor_id/$tumor_id.cnv.answer.txt"
     
-    if [[ -f "${subject}_${rna_runid}*rna.vcf.gz" ]]
+    if [[ -n `ls ${subject}_${rna_runid}*rna.vcf.gz` ]]
     then
 	if [[ -f "${subject}_${rna_runid}.germline.rna.vcf.gz" ]]
 	then
@@ -106,6 +104,10 @@ then
 	rnaseq_bam="${rnaseq_id}/${rnaseq_id}.bam"
     fi
 fi
+if [[ -z $subject ]] || [[ -z $index_path ]]; then
+    echo $subject $tumor_id $tumor_vcf $somatic_vcf $merged_vcf
+    usage
+fi 
 
     #Merge VCFs if there are 2
 if [[ -f $somatic_vcf && -f $tumor_vcf ]]
@@ -135,6 +137,14 @@ then
     cat dupcnv.txt >> $cnv_answer
 fi
 
+#Identify functional splice sites
+
+if [[ -f ${rnaseq_bam} ]]
+then
+    samtools index -@ 4 ${rnaseq_bam}
+    /project/shared/bicf_workflow_ref/seqprg/bin/regtools cis-splice-effects identify somatic_germline.vcf.gz ${rnaseq_bam} ${index_path}/genome.fa ${index_path}/gencode.gtf -o ${subject}.splicevariants.txt -v ${subject}.splicevariants.vcf -s 0 -e 5 -i 5
+fi
+
 #Filter VCF File
 icommand="perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -r $index_path"
 if [[ -n $normal_id ]]
@@ -143,7 +153,7 @@ then
 fi
 if [[ -f $rnaseq_vcf ]]
 then
-    icommand+=" -v $rnaseq_vcf -c $rnaseq_ntct"
+    icommand+=" -v $rnaseq_vcf -c $rnaseq_ntct -g ${subject}.splicevariants.vcf"
 fi
 $icommand
 vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
@@ -151,29 +161,22 @@ bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
 tabix -f ${subject}.pass.vcf.gz
 
-#Identify functional splice sites
-if [[ -f ${rnaseq_bam} ]]
-then
-    samtools index -@ 4 ${rnaseq_bam}
-    /project/shared/bicf_workflow_ref/seqprg/bin/regtools cis-splice-effects identify ${subject}.vcf.gz ${rnaseq_bam} ${index_path}/genome.fa ${index_path}/gencode.gtf -o ${subject}.splicevariants.txt -v ${subject}.splicevariants.vcf -s 0 -e 5 -i 5
-fi
-
 #Makes TumorMutationBurenFile
 
 bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed |uniq |bgzip > ${subject}.utswpass.vcf.gz
 
 #Calculate TMB
 targetsize=`awk '{sum+=$3-$2} END {print sum/1000000}' $targetbed`
-if [[ -n $normal_id ]]
+if [[ -n $normal_id ]] && [[ $normal_id != 'NA' ]]
 then
 zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz > ${subject}.utswpass.somatic.vcf
-zgrep -c -v "#" ${subject}.utswpass.somatic.vcf.gz | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
+grep -c -v "#" ${subject}.utswpass.somatic.vcf | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
 perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
 else
     echo -e "Class,TMB\n,0.00" > ${subject}.TMB.csv
 fi
 
-if [[ -a $archive ]]
+if [[ -n $archive ]]
 then
     bash $baseDir/syncCase2Azure.sh ${subject}
 fi
