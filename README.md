@@ -44,7 +44,7 @@ GATK BAMS are produced by GATK's recalibration tool and are used for variant cal
 ## Somatic Variant Calling
 
 ```
-nextflow -C nextflow.config run -w $workdir somatic.nf --design design.txt --input dir_with_bams --output results_output
+nextflow -C nextflow.config run -w workdir somatic.nf --design design.txt --input dir_with_bams --output results_output
 ```
 ### Somatic Design File
 
@@ -55,3 +55,11 @@ nextflow -C nextflow.config run -w $workdir somatic.nf --design design.txt --inp
 
 Dedup BAMs are used for variants calling using the programs: pindel, freebayes, strelka, shimmer and virmid
 GATK BAMS are produced by GATK's recalibration tool and are used for variant calling using MuTect2.
+
+## RNASeq Workflow
+
+```
+nextflow -C nextflow.config run -w workdir rnaseq.nf --design design.txt --input dir_with_fastqs --output results_output --markdups markdup_method
+```
+
+markdup_methd = picard, samtools, fgbio_umi, picard_umi and none
