@@ -2,6 +2,7 @@
 
 set -e
 caseID=$1
+nucliatoken=$2
 baseDir="`dirname \"$0\"`"
 
 module load samtools/gcc/1.8
@@ -41,12 +42,12 @@ fi
 
 cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}*answer* /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[3]}
 cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[1]}.vcf.gz /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}
-cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[1]}.TMB.csv /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}
 
 if [[ -d /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]} ]]
 then
     cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[1]}.concordance.txt /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}
     cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[1]}.utswpass.somatic.vcf* /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}
+    cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[1]}.TMB.csv /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}
     if [[ -f /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[1]}.utswpass.somatic.vcf.gz ]]
     then
 	gunzip /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[1]}.utswpass.somatic.vcf.gz
