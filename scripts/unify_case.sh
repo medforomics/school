@@ -104,8 +104,8 @@ then
 	rnaseq_bam="${rnaseq_id}/${rnaseq_id}.bam"
     fi
 fi
+echo $subject $tumor_id $tumor_vcf $somatic_vcf $merged_vcf 
 if [[ -z $subject ]] || [[ -z $index_path ]]; then
-    echo $subject $tumor_id $tumor_vcf $somatic_vcf $merged_vcf
     usage
 fi 
 
@@ -178,5 +178,5 @@ fi
 
 if [[ -n $archive ]]
 then
-    bash $baseDir/syncCase2Azure.sh ${subject}
+    bash $baseDir/syncCase2Azure.sh ${subject} $nucliatoken
 fi
