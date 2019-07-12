@@ -241,7 +241,7 @@ process integrate {
   file 'design.txt' from design_file
   output:
 //  file("${pid}${params.projectid}.somatic.vcf.gz") into annotvcf
-  file("${pid}${params.projectid}.dna.vcf.gz") into unionvcf
+  file("${pid}_${params.projectid}.dna.vcf.gz") into unionvcf
   script:
   """
   source /etc/profile.d/modules.sh

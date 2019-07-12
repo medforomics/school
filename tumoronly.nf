@@ -213,7 +213,7 @@ process integrate {
   input:
   set subjid,file(vcf) from vcflist
   output:
-  file("${subjid}${params.projectid}*na.vcf.gz") into annotvcf
+  file("${subjid}_${params.projectid}*na.vcf.gz") into annotvcf
   script:
   if (params.nuctype == "dna")
   """
