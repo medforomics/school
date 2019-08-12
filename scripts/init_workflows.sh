@@ -29,7 +29,7 @@ shift $(($OPTIND -1))
 
 if [[ -z $baseDir ]]
 then
-    baseDir="/project/PHG/PHG_Clinical/clinseq_workflows/scripts"
+    baseDir="/project/PHG/PHG_Clinical/clinseq_workflows"
 fi
 
 clinref="/project/shared/bicf_workflow_ref/human/GRCh38/clinseq_prj"
@@ -45,7 +45,7 @@ if [[ -z $prodir ]]
 then
     prodir="/project/PHG/PHG_Clinical/processing";
 fi
-procbase="$prodir\/$prjid";
+procbase="$prodir/$prjid";
 outdir="$procbase/fastq"
 outnf="$procbase/analysis"
 workdir="$procbase/work"
@@ -63,17 +63,17 @@ module load bcl2fastq/2.19.1 nextflow/0.31.0 vcftools/0.1.14 samtools/gcc/1.8
 
 if [[ -n $umi ]]
 then
-    perl $baseDir/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${prjid} -p ${prjid} -f ${outdir} -n ${outnf} -u ${seqdatadir}/$prjid.noumi.csv
+    perl ${baseDir}/scripts/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${prjid} -p ${prjid} -f ${outdir} -n ${outnf} -u ${seqdatadir}/$prjid.noumi.csv
     lastline=`tail -n 1 ${seqdatadir}/$prjid.noumi.csv |grep Sample_ID`
     if [[ -z $lastline ]]
     then
 	bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${seqdatadir}/$prjid.noumi.csv --use-bases-mask Y76,I6N8,Y76 &> ${seqdatadir}/bcl2fastq_noumi_${prjid}.log
     fi
     mv ${seqdatadir}/RunInfo.xml ${seqdatadir}/RunInfo.xml.ori
-    perl $baseDir/fix_runinfo_xml.pl $seqdatadir
+    perl  ${baseDir}/scripts/fix_runinfo_xml.pl $seqdatadir
     mdup='fgbio_umi'
 else
-    perl $baseDir/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${prjid} -p ${prjid} -f ${outdir} -n ${outnf}
+    perl  ${baseDir}/scripts/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${prjid} -p ${prjid} -f ${outdir} -n ${outnf}
     mdup='picard'
 fi
 
@@ -97,13 +97,13 @@ for i in */design.txt; do
 	then
 	    if [[ ! -f $i.xml ]]
 	    then
-		python $baseDir/../IntellispaceDemographics/gatherdemographics.py -i $i -u phg_workflow -p $password -o ${i}.xml
+		python ${baseDir}/IntellispaceDemographics/gatherdemographics.py -i $i -u phg_workflow -p $password -o ${i}.xml
 		missing=`grep '><\|D64.9\|N\/A' ${i}.xml`
 		if [[ -n $missing ]]
 		then
 		    SUBJECT="SECUREMAIL: Case Missing Data"
 		    TO="erika.villa@utsouthwestern.edu,Hui.Zheng@UTSouthwestern.edu,Yan.Xu@UTSouthwestern.edu"
-		    email=$baseDir"/bioinformatics_email.txt"
+		    email=$baseDir"/scripts/bioinformatics_email.txt"
 		    cat $email | sed 's/Unspecified/'$i'/' | /bin/mail -s "$SUBJECT" "$TO"
 		fi
 	    fi
@@ -121,7 +121,7 @@ for i in */design.txt; do
     else
 	capture="${clinref}/${panelbed[${dtype}]}"
 	cp ${baseDir}/scripts/dnaworkflow.sh ${procbase}
-	bash $${procbase}/dnaworkflow.sh -r $index_path -e $baseDir -b $capture -a $procbase -p $prjid -d $mdup &> log.txt &
+	bash ${procbase}/dnaworkflow.sh -r $index_path -e $baseDir -b $capture -a $procbase -p $prjid -d $mdup &> log.txt &
     fi
 done
 wait
