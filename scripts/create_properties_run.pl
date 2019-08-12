@@ -72,7 +72,7 @@ foreach my $dfile (@designfiles) {
 	chomp(@somstats);
 	$sinfo{$hash{SampleID}}{'somatic.seq.stats'}=$somstats[0];
 	if ($hash{FamilyID} =~ m/ROS1/) {
-	    $sinfo{$hash{SampleID}}{'somatic.translocation'} = "$opt{dir}\/$opt{'prjid'}/analysis/$hash{FamilyID}\/$hash{SampleID}\/$hash{SampleID}\.translocations.txt";
+	    $sinfo{$hash{SampleID}}{'somatic.translocation'} = "$opt{dir}\/$opt{'prjid'}/analysis/$hash{FamilyID}\/$hash{SampleID}\/$hash{SampleID}\.translocations.answer.txt";
 	}
 	if ($hash{FamilyID} =~ m/GM12878/) {
 	    my @snsp = `find $opt{dir}\/$opt{prjid}\/ -type f -name "*.snsp.txt"`;

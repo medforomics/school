@@ -19,7 +19,7 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:n:a:p:t:m:n:v:s:k:i:x:c:d:e:b:f:h opt
+while getopts :r:n:a:p:t:m:g:v:s:k:i:x:c:d:e:b:f:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -27,7 +27,7 @@ do
 	a) archive=$OPTARG;;
         p) subject=$OPTARG;;
         t) tumor_id=$OPTARG;;
-        n) normal_id=$OPTARG;;
+        g) normal_id=$OPTARG;;
         v) tumor_vcf=$OPTARG;;
         s) somatic_vcf=$OPTARG;;
 	m) merged_vcf=$OPTARG;;
@@ -53,7 +53,7 @@ fi
 baseDir="`dirname \"$0\"`"
 vepdir='/project/shared/bicf_workflow_ref/vcf2maf'
 
-module load bedtools/2.26.0 samtools/gcc/1.8 htslib/gcc/1.8 vcftools/0.1.14 snpeff/4.3q
+module load bedtools/2.26.0 samtools/gcc/1.8 bcftools/gcc/1.8 htslib/gcc/1.8 vcftools/0.1.14 snpeff/4.3q
 
 if [[ -n ${caseID} ]]
 then
