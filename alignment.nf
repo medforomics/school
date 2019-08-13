@@ -181,7 +181,7 @@ process cnv {
   file("${pair_id}.cnv*pdf") into cnvpdf
   script:
   """
-  bash $baseDir/process_scripts/variants/cnvkit.sh -u -c $capture_bed -b $sbam -p $pair_id
+  bash $baseDir/scripts/determine_pon.sh -b $sbam -r $index_path -c $capture_bed -p $pair_id
   """
 }
 
