@@ -113,7 +113,7 @@ for i in */design.txt; do
     if [[ $dtype == 'panelrnaseq' ]]
     then
 	cp ${baseDir}/scripts/rnaworkflow.sh ${procbase}
-	bash ${procbase}/rnaworkflow.sh -r $hisat_index_path -e $baseDir -a $procbase -p $prjid &> log.txt &
+	bash ${procbase}/rnaworkflow.sh -r $hisat_index_path -e $baseDir -a $procbase -p $prjid -l /project/shared/bicf_workflow_ref/human/GRCh38/clinseq_prj/panel1385.genelist.txt &> log.txt &
     elif [[ $dtype == 'wholernaseq' ]]
     then
 	cp ${baseDir}/scripts/rnaworkflow.sh ${procbase}
