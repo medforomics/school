@@ -39,7 +39,7 @@ fi
 outdir="$analdir/fastq"
 outnf="$analdir/analysis"
 workdir="$analdir/work"
-
+source /etc/profile.d/modules.sh
 module load nextflow/0.31.0
 nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/rnaseq.nf --design design.txt --input $outdir --output $outnf $bamct --markdups skip > nextflow.log
 ln -fs ${outnf}/*/*/*.bam $outnf
@@ -48,6 +48,9 @@ nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/tumoronly.nf -
 if [[ -a $genelist ]]
 then
     for i in ${outnf}/*/*/*.fpkm.txt; do
+	prefix="${i%.fpkm.txt}"
+	mv $i ${prefix}.fpkm.ori.txt
 	${codedir}/scripts/fpkm_subset_panel.pl -f $i -g $genelist
+	mv ${prefix}.fpkm.capture.txt $i
     done
 fi
