@@ -60,6 +60,10 @@ panelbed=(["panel1385"]="UTSWV2.bed" ["panel1385v2"]="UTSWV2_2.panelplus.bed" ["
 
 source /etc/profile.d/modules.sh
 module load bcl2fastq/2.19.1 nextflow/0.31.0 vcftools/0.1.14 samtools/gcc/1.8
+if [[ ! -d /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/${prjid} ]]
+then
+   mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n
+fi
 
 if [[ -n $umi ]]
 then
@@ -67,7 +71,13 @@ then
     lastline=`tail -n 1 ${seqdatadir}/$prjid.noumi.csv |grep Sample_ID`
     if [[ -z $lastline ]]
     then
+	if [[ ! -d /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/${prjid} ]]
+	then
+	    mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi\n
+	fi
 	bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${seqdatadir}/$prjid.noumi.csv --use-bases-mask Y76,I6N8,Y76 &> ${seqdatadir}/bcl2fastq_noumi_${prjid}.log
+	rsync -avz ${seqdatadir}/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi
+	rsync -avz ${seqdatadir}/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi
     fi
     mv ${seqdatadir}/RunInfo.xml ${seqdatadir}/RunInfo.xml.ori
     perl  ${baseDir}/scripts/fix_runinfo_xml.pl $seqdatadir
@@ -78,10 +88,6 @@ else
 fi
 
 bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${newss} &> ${seqdatadir}/bcl2fastq_${prjid}.log
-if [[ ! -d /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/${prjid} ]]
-then
-   mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n
-fi
 rsync -avz ${seqdatadir}/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid
 rsync -avz ${seqdatadir}/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid
 cd ${prodir}/${prjid}
@@ -129,7 +135,12 @@ cd $outnf
 
 cd $prodir\/$prjid
 rsync -rlptgoD --exclude="*fastq.gz*" --exclude "*work*" --exclude="*bam*" ${prodir}/${prjid} /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/
-perl ${baseDir}/scripts/create_properties_run.pl -p $prjid -d /project/PHG/PHG_BarTender/bioinformatics/seqanalysis
+if [[ -n $umi ]]
+then
+    perl ${baseDir}/scripts/create_properties_run.pl -p $prjid -d /project/PHG/PHG_BarTender/bioinformatics/seqanalysis -u 1
+else
+    perl ${baseDir}/scripts/create_properties_run.pl -p $prjid -d /project/PHG/PHG_BarTender/bioinformatics/seqanalysis
+fi
 
 for i in /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/${prjid}/*.properties; do
     curl "http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResultsWithProp?token=${nucliatoken}&propFilePath=${i}"

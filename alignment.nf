@@ -179,9 +179,11 @@ process cnv {
   file("${pair_id}.answerplot*") into cnvansplot
   file("${pair_id}.*txt") into cnvtxt
   file("${pair_id}.cnv*pdf") into cnvpdf
+  file("${pair_id}.idtseek_tandemdup.vcf.gz") into itdseekvcf
   script:
   """
   bash $baseDir/scripts/determine_pon.sh -b $sbam -r $index_path -c $capture_bed -p $pair_id
+  bash $baseDir/process_scripts/variants/itdseek.sh -b $sbam -r $index_path -p $pair_id -l ${$index_path}/clinseq_prj/itd_genes.bed
   """
 }
 
