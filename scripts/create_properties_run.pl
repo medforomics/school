@@ -4,7 +4,7 @@
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
 my %opt = ();
-my $results = GetOptions (\%opt,'help|h','prjid|p=s','dir|d=s');
+my $results = GetOptions (\%opt,'help|h','prjid|p=s','dir|d=s','umi|u=s');
 
 if (!defined $opt{prjid} || $opt{help}) {
   $usage = <<EOF;
@@ -19,7 +19,7 @@ EOF
 my %rinfo;
 my %sinfo;
 
-$rinfo{'dmux.conversion.stats'} = "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$opt{prjid}/Stats/ConversionStats.xml";
+
 $rinfo{'run.name'} = $opt{prjid};
 
 my @designfiles = `ls $opt{dir}/$opt{prjid}/fastq/*.design.txt`;
@@ -47,6 +47,11 @@ foreach my $dfile (@designfiles) {
 	my %hash;
 	foreach my $i (0..$#row) {
 	    $hash{$colnames[$i]} = $row[$i];
+	}
+	if ($opt{umi} && $hash{Index_Name} !~ m/UMI/) {
+	    $sinfo{$hash{SampleID}}{'dmux.conversion.stats'} = "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$opt{prjid}/noumi/Stats/ConversionStats.xml";
+	}else {
+	    $sinfo{$hash{SampleID}}{'dmux.conversion.stats'} = "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$opt{prjid}/Stats/ConversionStats.xml";
 	}
 	$sinfo{$hash{SampleID}}{'bait.pool'} = $baitpool;
 	$sinfo{$hash{SampleID}}{'project.name'}=$hash{FamilyID};
@@ -84,14 +89,15 @@ foreach my $dfile (@designfiles) {
 }
 open SH, ">$opt{dir}\/$opt{prjid}.curlcommand.sh" or die $!;
 print SH "nucliatoken=\$1\n";
-my @prop = ('bait.pool','project.name','sample.alignment','sample.coverage.raw','sample.coverage.uniq',
+my @prop = ('dmux.conversion.stats','bait.pool','project.name','sample.alignment','sample.coverage.raw','sample.coverage.uniq',
 	    'sample.name','somatic.seq.stats','tdf.raw','tdf.uniq','giab.snsp',
 	    'somatic.translocation');
 
 foreach $sid (sort {$a cmp $b} keys %sinfo) {
     open OUT, ">$opt{dir}\/$opt{prjid}/$sid\.properties" or die $!;
-    print OUT join("=",'dmux.conversion.stats',$rinfo{'dmux.conversion.stats'}),"\n";
-    print OUT join("=",'run.name',$rinfo{'run.name'}),"\n";
+    foreach $rprop (keys %rinfo) {
+	print OUT join("=",$rprop,$rinfo{$rprop}),"\n";
+    }
     foreach $prop (@prop) {
 	$sinfo{$sid}{$prop} = '' unless ($sinfo{$sid}{$prop});
 	print OUT join("=",$prop,$sinfo{$sid}{$prop}),"\n";

@@ -110,7 +110,7 @@ process checkmates {
   """
 }
 process pindel {
-  queue '32GB,128GB,256GB,256GBv1'
+  queue '128GB,256GB,256GBv1'
   errorStrategy 'ignore'
   publishDir "$params.output/$pid", mode: 'copy'
   input:

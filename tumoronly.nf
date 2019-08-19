@@ -98,7 +98,7 @@ gtxbam
 
 process pindel {
   errorStrategy 'ignore'
-  queue '32GB,128GB,256GB,256GBv1'
+  queue '128GB,256GB,256GBv1'
   publishDir "$params.output/$subjid", mode: 'copy'
   input:
   set subjid,file(ssbam),file(ssidx) from pindelbam

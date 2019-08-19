@@ -11,7 +11,7 @@ GetOptions( 'g|genes=s' => \$genelist,
             'f|fpkm=s' => \$fpkm_file);
 
 my $fpkm_out = $fpkm_file;
-$fpkm_out =~ s/\.fpkm.txt/\.fpkm.capture.txt/;
+$fpkm_out =~ s/\.fpkm.+txt/\.fpkm.capture.txt/;
 open OUT, ">$fpkm_out" or die $!;
 
 #gene_info.human.txt file is required for gene alias information
@@ -46,6 +46,9 @@ my $genelist_size = keys %genes;
 open FPKM, "<$fpkm_file" or die $!;
 my %fpkmdata;
 my %found;
+my $header = <FPKM>;
+chomp $header;
+print OUT $header."\n";
 while(my $line = <FPKM>){
 	chomp $line;
 	my ($gid,$gname,$ref,$strand,$start,$end,$cov,$fpkm,$tpm) = split("\t",$line);
