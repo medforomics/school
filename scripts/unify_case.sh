@@ -77,7 +77,7 @@ then
     then
 	tumor_vcf="${subject}_${dna_runid}.germline.vcf.gz"
     fi
-    if [[ -d  "${subject}_${dna_runid}.dna.vcf.gz" ]]
+    if [[ -f  "${subject}_${dna_runid}.dna.vcf.gz" ]]
     then
 	merged_vcf="${subject}_${dna_runid}.dna.vcf.gz"
     fi

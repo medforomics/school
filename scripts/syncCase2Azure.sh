@@ -14,35 +14,37 @@ fi
 
 jsonout=$(perl ${baseDir}/parse_getsampleJson.pl ${caseID}.json 2>&1)
 myarray=($jsonout)
-runid=${myarray[2]}
+if [[ ${myarray[2]} != "NA" ]]
+then
+    runid=${myarray[2]}
+elif [[ ${myarray[6]} != "NA" ]]
+then
+    runid=${myarray[6]}
+fi
 monyear="20${runid:0:4}"
 
-if [[ ! -f  /archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${myarray[1]}.tar.gz ]]
-then
-    tar cf /archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${myarray[1]}.tar /archive/PHG/PHG_Clinical/cases/${myarray[1]}
-    gzip /archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${myarray[1]}.tar 
-fi 
 if [[ ! -d /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]} ]]
 then
     mkdir /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}
 fi
-if [[ ! -d /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[3]} ]]
+if [[ -d /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[3]} ]]
 then
-    mkdir /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[3]}
+    if [[ ! -d /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[3]} ]]
+    then
+	mkdir /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[3]}
+    fi
+    cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}*answer* /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[3]}
+    cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[1]}.vcf.gz /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}
 fi
-
 if [[ -f /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.consensus.bam ]]
 then
     cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.consensus.bam /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[3]}/${myarray[3]}.bam
     samtools index -@ 4 /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[3]}/${myarray[3]}.bam
-else
+elif [[ -f /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.final.bam ]]
+then
     cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.final.bam /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[3]}/${myarray[3]}.bam
     cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.final.bai /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[3]}/${myarray[3]}.bam.bai
 fi
-
-cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}*answer* /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[3]}
-cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[1]}.vcf.gz /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}
-
 if [[ -d /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]} ]]
 then
     cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[1]}.concordance.txt /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}
@@ -58,11 +60,10 @@ then
     fi
     if [[ -f /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.consensus.bam ]]
     then
-	cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.consensus.bam* /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
+	cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.consensus.bam /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
 	samtools index -@ 4 /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
-
     else
-	cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.final.bam* /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
+	cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.final.bam /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
 	samtools index -@ 4 /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
     fi	   
 fi
@@ -73,6 +74,10 @@ then
     then
 	mkdir /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[7]}
     fi
+    if [[ -f /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.bamreadct.txt ]]
+    then
+	gzip /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.bamreadct.txt
+    fi
     cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.bam /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[7]}
     samtools index -@ 4 /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[7]}/${myarray[7]}.bam
     cp /archive/PHG/PHG_Clinical/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.cts /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]}/${myarray[7]}
@@ -82,3 +87,11 @@ fi
 
 mv /archive/PHG/PHG_Clinical/cases/${myarray[1]} /archive/PHG/PHG_Clinical/toarchive/caseDirs/${myarray[1]}
 mv /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]} /archive/PHG/PHG_Clinical/cases
+rsync -avz /archive/PHG/PHG_Clinical/cases/${myarray[1]} answerbe@198.215.54.71:/swnas/cases
+
+if [[ ! -f  /archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${myarray[1]}.tar.gz ]]
+then
+    tar cf /archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${myarray[1]}.tar /archive/PHG/PHG_Clinical/toarchive/caseDirs/${myarray[1]}
+    gzip /archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${myarray[1]}.tar 
+fi 
+

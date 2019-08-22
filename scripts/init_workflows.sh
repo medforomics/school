@@ -62,7 +62,7 @@ source /etc/profile.d/modules.sh
 module load bcl2fastq/2.19.1 nextflow/0.31.0 vcftools/0.1.14 samtools/gcc/1.8
 if [[ ! -d /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/${prjid} ]]
 then
-   mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid\n
+   mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid
 fi
 
 if [[ -n $umi ]]
@@ -73,7 +73,7 @@ then
     then
 	if [[ ! -d /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/${prjid} ]]
 	then
-	    mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi\n
+	    mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi
 	fi
 	bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${seqdatadir}/$prjid.noumi.csv --use-bases-mask Y76,I6N8,Y76 &> ${seqdatadir}/bcl2fastq_noumi_${prjid}.log
 	rsync -avz ${seqdatadir}/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi
@@ -151,4 +151,5 @@ then
     mkdir /archive/PHG/PHG_Clinical/toarchive/backups/${monyear}
 fi
 
-tar cf /work/archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${prjid}.tar.gz $seqdatadir
+tar cf /work/archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${prjid}.tar $seqdatadir
+gzip /work/archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${prjid}.tar
