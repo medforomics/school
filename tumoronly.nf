@@ -124,7 +124,7 @@ process pindel {
 process freebayes {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$params.nuctype$params.projectid", mode: 'copy'
+  publishDir "$params.output/$subjid/$params.nuctype_$params.projectid", mode: 'copy'
 
   input:
   set subjid,file(gbam),file(gidx) from fbbam
@@ -140,7 +140,7 @@ process freebayes {
 process gatk {
   queue '128GB,256GB,256GBv1'
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$params.nuctype$params.projectid", mode: 'copy'
+  publishDir "$params.output/$subjid/$params.nuctype_$params.projectid", mode: 'copy'
 
   input:
   set subjid,file(gbam),file(gidx) from gatkbam
@@ -158,7 +158,7 @@ process gatk {
 process strelka {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$params.nuctype$params.projectid", mode: 'copy'
+  publishDir "$params.output/$subjid/$params.nuctype_$params.projectid", mode: 'copy'
 
   input:
   set subjid,file(gbam),file(gidx) from strelkabam
@@ -176,7 +176,7 @@ process strelka {
 process platypus {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$params.nuctype$params.projectid", mode: 'copy'
+  publishDir "$params.output/$subjid/$params.nuctype_$params.projectid", mode: 'copy'
 
   input:
   set subjid,file(gbam),file(gidx) from platbam

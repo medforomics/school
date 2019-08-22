@@ -94,7 +94,7 @@ process indextarbams {
 }
 process checkmates {
   executor 'local'
-  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
   errorStrategy 'ignore'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from checkbams
@@ -106,7 +106,7 @@ process checkmates {
   source /etc/profile.d/modules.sh
   module load python/2.7.x-anaconda git/v2.5.3
   python /project/shared/bicf_workflow_ref/seqprg/NGSCheckMate/ncm.py -B -d ./ -bed ${index_path}/NGSCheckMate.bed -O ./ -N ${pid}
-  perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${pid}_all.txt -o ${pid}${params.projectid}.sequence.stats.txt
+  perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${pid}_all.txt -o ${pid}_${params.projectid}.sequence.stats.txt
   """
 }
 process pindel {
@@ -134,7 +134,7 @@ process pindel {
 process freebayes {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
 
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from fbbam
@@ -150,7 +150,7 @@ process freebayes {
 process platypus {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
 
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from platbam
@@ -167,7 +167,7 @@ process platypus {
 process mutect {
   queue '128GB,256GB,256GBv1'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from mutectbam
   output:
@@ -182,7 +182,7 @@ process mutect {
 process strelka {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from strelkabam
   output:
@@ -197,7 +197,7 @@ process strelka {
 process shimmer {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from shimmerbam
   output:
@@ -213,7 +213,7 @@ process shimmer {
 process virmid {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from virmidbam
   output:
