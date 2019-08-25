@@ -183,7 +183,7 @@ process cnv {
   script:
   """
   bash $baseDir/scripts/determine_pon.sh -b $sbam -r $index_path -c $capture_bed -p $pair_id
-  bash $baseDir/process_scripts/variants/itdseek.sh -b $sbam -r $index_path -p $pair_id -l ${$index_path}/clinseq_prj/itd_genes.bed
+  bash $baseDir/process_scripts/variants/itdseek.sh -b $sbam -r $index_path -p $pair_id -l ${index_path}/clinseq_prj/itd_genes.bed
   """
 }
 
