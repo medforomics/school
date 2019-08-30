@@ -122,9 +122,9 @@ process pindel {
   script:
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/variants/pindel.sh -r ${index_path} -p ${pid}
-  perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${pid}.pindel_tandemdup.vcf.gz -s ${pid}.pindel_sv.vcf.gz -i ${pid}.pindel_indel.vcf.gz
   module load htslib/gcc/1.8 snpeff/4.3q
+  bash $baseDir/process_scripts/variants/pindel.sh -r ${index_path} -p ${pid} -l ${index_path}/clinseq_prj/itd_genes.bed
+  perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${pid}.pindel_tandemdup.vcf.gz -s ${pid}.pindel_sv.vcf.gz -i ${pid}.pindel_indel.vcf.gz
   bgzip ${pid}.pindel_indel.pass.vcf
   bgzip ${pid}.pindel_tandemdup.pass.vcf
   grep '#CHROM' ${pid}.pindel_sv.pass.vcf > ${pid}.dna.genefusion.txt
