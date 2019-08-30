@@ -179,11 +179,15 @@ process cnv {
   file("${pair_id}.answerplot*") into cnvansplot
   file("${pair_id}.*txt") into cnvtxt
   file("${pair_id}.cnv*pdf") into cnvpdf
-  file("${pair_id}.idtseek_tandemdup.vcf.gz") into itdseekvcf
+  file("${pair_id}.itdseek_tandemdup.pass.vcf.gz") into itdseekvcf
   script:
   """
+  source /etc/profile.d/modules.sh
+  module load htslib/gcc/1.8 
   bash $baseDir/scripts/determine_pon.sh -b $sbam -r $index_path -c $capture_bed -p $pair_id
   bash $baseDir/process_scripts/variants/itdseek.sh -b $sbam -r $index_path -p $pair_id -l ${index_path}/clinseq_prj/itd_genes.bed
+  perl $baseDir/process_scripts/variants/filter_itdseeker.pl -t ${pair_id} -d ${pair_id}.itdseek_tandemdup.vcf.gz
+  bgzip ${pair_id}.itdseek_tandemdup.pass.vcf
   """
 }
 

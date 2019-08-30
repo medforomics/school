@@ -83,10 +83,14 @@ then
     fi
     if [[ -f "${subject}.pindel_tandemdup.pass.vcf.gz" ]]
     then
-	itd_vcf="${subject}.pindel_tandemdup.pass.vcf.gz"
+	itdpindel_vcf="${subject}.pindel_tandemdup.pass.vcf.gz"
     elif [[ -f "dna_${dna_runid}/${subject}.pindel_tandemdup.pass.vcf.gz" ]]
     then
-	itd_vcf="dna_${dna_runid}/${subject}.pindel_tandemdup.pass.vcf.gz"
+	itdpindel_vcf="dna_${dna_runid}/${subject}.pindel_tandemdup.pass.vcf.gz"
+    fi
+    if [[ -f "${tumor_id}/${tumor_id}.idtseek_tandemdup.pass.vcf.gz" ]]
+    then
+	itdseeker_vcf="${tumor_id}/${tumor_id}.idtseek_tandemdup.pass.vcf.gz"
     fi
     cnv_answer="$tumor_id/$tumor_id.cnv.answer.txt"
     
@@ -131,9 +135,23 @@ tabix -f somatic_germline.vcf.gz
 
 #Merge ITD with CNV File
 
-if [[ -f $itd_vcf ]]
+if [[ -f $itdpindel_vcf ]] && [[ -f $itdseeker_vcf ]]
 then
-    perl $baseDir/itdvcf2cnv.pl $tumor_id $itd_vcf
+    tabix -f $itdpindel_vcf
+    tabix -f $itdseeker_vcf
+    bcftools view -Oz -o itdpindel.vcf.gz -s $tumor_id $itdpindel_vcf
+    tabix itdpindel.vcf.gz
+    bcftools concat -Oz -o idt.vcf.gz itdpindel.vcf.gz  $itdseeker_vcf
+    perl $baseDir/itdvcf2cnv.pl $tumor_id idt.vcf.gz
+    cat ${tumor_id}.dupcnv.txt >> $cnv_answer
+elif [[ -f $itdpindel_vcf ]]
+then
+    perl $baseDir/itdvcf2cnv.pl $tumor_id $itdpindel_vcf
+    cat dupcnv.txt >> $cnv_answer
+fi
+elif [[ -f $itdseeker_vcf ]]
+then
+    perl $baseDir/itdvcf2cnv.pl $tumor_id $itdseeker_vcf
     cat dupcnv.txt >> $cnv_answer
 fi
 

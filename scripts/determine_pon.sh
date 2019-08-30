@@ -51,18 +51,20 @@ then
     then
 	normals="${index_path}/clinseq_prj/panelofnormals.panel1385V2_2.lowcov.cnn"
     fi
-elif [[ $capture == "${index_path}/UTSWV2.bed" ]]
+elif [[ $capture == "${index_path}/clinseq_prj/UTSWV2.bed" ]]
 then 
-    normals="${index_path}/UTSWV2.normals.cnn"
-    targets="${index_path}/UTSWV2.cnvkit_"
+    normals="${index_path}/clinseq_prj/UTSWV2.normals.cnn"
+    targets="${index_path}/clinseq_prj/UTSWV2.cnvkit_"
     if [[ $umi == 'umi' ]]
     then
-	normals="${index_path}/UTSWV2.uminormals.cnn"
+	normals="${index_path}/clinseq_prj/UTSWV2.uminormals.cnn"
     fi
-elif [[ $capture == "${index_path}/hemepanelV3.bed" ]]
+elif [[ $capture == "${index_path}/clinseq_prj/hemepanelV3.bed" ]]
 then
-    normals="${index_path}/hemepanelV3.panelofnormals.cnn"
-    targets="${index_path}/hemepanelV3.cnvkit_"
+    normals="${index_path}/clinseq_prj/hemepanelV3.panelofnormals.cnn"
+    targets="${index_path}/clinseq_prj/hemepanelV3.cnvkit_"
 fi	
+
+#echo "$baseDir/../process_scripts/variants/cnvkit.sh -c $capture -b $sbam -p $pair_id -n $normals -t $targets"
 
 bash $baseDir/../process_scripts/variants/cnvkit.sh -c $capture -b $sbam -p $pair_id -n $normals -t $targets
