@@ -4,7 +4,7 @@
 my $tumorid = shift @ARGV;
 my $vcf = shift @ARGV;
 
-open DUP, ">dupcnv.txt" or die $!;
+open DUP, ">$tumorid\.dupcnv.txt" or die $!;
 
 open VCF, "gunzip -c $vcf|" or die $!;
 while (my $line = <VCF>) {
@@ -24,8 +24,13 @@ while (my $line = <VCF>) {
     my ($key,$val) = split(/=/,$a);
     $hash{$key} = $val;
   }
+  if ($hash{LEN}) {
+      $hash{SVLEN} = $hash{LEN};
+  }
   my @deschead = split(/:/,$format);
-  $hash{'END'} = $pos+1 unless $hash{'END'};
+  unless ($hash{'END'}) {
+      $hash{'END'} = $pos + $hash{'LEN'};
+  }
   my ($allele,$effect,$impact,$gene,$geneid,$feature,
       $featureid,$biotype,$rank,$codon,$aa,$pos_dna,$len_cdna,
       $cds_pos,$cds_len,$aapos,$aalen,$distance,$err);
@@ -42,6 +47,6 @@ while (my $line = <VCF>) {
   next unless ($gene);
   next unless ($rank);
   next if ($gene eq 'FCGBP');
-  print DUP join("\t",$gene,$chrom,$pos,$hash{END},'ITD',3,$hash{AF},$rank),"\n";
+  print DUP join("\t",$gene,$chrom,$pos,$hash{'END'},'ITD',3,$hash{AF},$rank),"\n";
 }
 close VCF;
