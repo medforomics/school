@@ -26,6 +26,10 @@ my @designfiles = `ls $opt{dir}/$opt{prjid}/fastq/*.design.txt`;
 unless (@designfiles) {
     @designfiles = `ls $opt{dir}/$opt{prjid}/*/design.txt`;
 }
+my $rnaseqnoumi;
+if (-e "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$opt{prjid}/noumi/Stats/ConversionStats.xml") {
+    $rnaseqnoumi = 1;
+}
 
 chomp(@designfiles);
 foreach my $dfile (@designfiles) {
@@ -48,7 +52,7 @@ foreach my $dfile (@designfiles) {
 	foreach my $i (0..$#row) {
 	    $hash{$colnames[$i]} = $row[$i];
 	}
-	if ($opt{umi} && $hash{Index_Name} !~ m/UMI/) {
+	if ($rnaseqnoumi && $baitpool =~ m/rnaseq/) {
 	    $sinfo{$hash{SampleID}}{'dmux.conversion.stats'} = "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$opt{prjid}/noumi/Stats/ConversionStats.xml";
 	}else {
 	    $sinfo{$hash{SampleID}}{'dmux.conversion.stats'} = "/project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$opt{prjid}/Stats/ConversionStats.xml";
