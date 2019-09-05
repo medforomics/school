@@ -59,7 +59,7 @@ declare -A panelbed
 panelbed=(["panel1385"]="UTSWV2.bed" ["panel1385v2"]="UTSWV2_2.panelplus.bed" ["idthemev1"]="heme_panel_probes.bed" ["idthemev2"]="hemepanelV3.bed" ["idtcellfreev1"]="panelcf73_idt.100plus.bed" ["medexomeplus"]="MedExome_Plus.bed")
 
 source /etc/profile.d/modules.sh
-module load bcl2fastq/2.19.1 nextflow/0.31.0 vcftools/0.1.14 samtools/gcc/1.8
+module load bcl2fastq/2.19.1
 if [[ ! -d /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/${prjid} ]]
 then
    mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid
@@ -71,7 +71,7 @@ then
     lastline=`tail -n 1 ${seqdatadir}/$prjid.noumi.csv |grep Sample_ID`
     if [[ -z $lastline ]]
     then
-	if [[ ! -d /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/${prjid} ]]
+	if [[ ! -d /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/${prjid}/noumi ]]
 	then
 	    mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi
 	fi

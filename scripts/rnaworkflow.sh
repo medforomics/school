@@ -50,7 +50,7 @@ then
     for i in ${outnf}/*/*/*.fpkm.txt; do
 	prefix="${i%.fpkm.txt}"
 	mv $i ${prefix}.fpkm.ori.txt
-	${codedir}/scripts/fpkm_subset_panel.pl -f $i -g $genelist
+	${codedir}/scripts/fpkm_subset_panel.pl -f ${prefix}.fpkm.ori.txt -g $genelist
 	mv ${prefix}.fpkm.capture.txt $i
     done
 fi
