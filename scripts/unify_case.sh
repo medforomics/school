@@ -147,12 +147,12 @@ then
 elif [[ -f $itdpindel_vcf ]]
 then
     perl $baseDir/itdvcf2cnv.pl $tumor_id $itdpindel_vcf
-    cat dupcnv.txt >> $cnv_answer
-fi
+    cat ${tumor_id}.dupcnv.txt >> $cnv_answer
+#fi
 elif [[ -f $itdseeker_vcf ]]
 then
     perl $baseDir/itdvcf2cnv.pl $tumor_id $itdseeker_vcf
-    cat dupcnv.txt >> $cnv_answer
+    cat ${tumor_id}.dupcnv.txt >> $cnv_answer
 fi
 
 #Identify functional splice sites

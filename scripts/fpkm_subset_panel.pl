@@ -42,7 +42,7 @@ if($genelist ne ""){
 my $genelist_size = keys %genes;
 
 
-#FPKM data 
+#FPKM data
 open FPKM, "<$fpkm_file" or die $!;
 my %fpkmdata;
 my %found;
