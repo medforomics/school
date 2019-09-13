@@ -21,7 +21,7 @@ foreach my $ss (@samplesheets) {
       system(qq{$execdir\/scripts/create_directories.sh -p $prjid -c $prodir});
       system(qq{cp $execdir\/scripts/init_workflows.sh $procbase});
       open OUT, ">$procbase\/run_$prjid.sh" or die $!;
-      print OUT qq{#!/bin/bash\n$procbase\/init_workflows.sh -p $prjid -b $execdir -c $prodir -r $refdir -x\n};
+      print OUT qq{#!/bin/bash\n$procbase\/init_workflows.sh -p $prjid -b $execdir -c $prodir -r $refdir\n};
       close OUT;
       system("sbatch -p 32GB $procbase\/run_$prjid.sh");
   }
