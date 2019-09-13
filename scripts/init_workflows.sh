@@ -12,14 +12,14 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:p:b:c::xh opt
+while getopts :r:p:b:c:x:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
         p) prjid=$OPTARG;;
         c) prodir=$OPTARG;;
 	b) baseDir=$OPTARG;;
-	x) checkxml=1;;
+	x) skipxml=1;;
 	h) usage;;
     esac
 done
@@ -100,7 +100,7 @@ for i in */design.txt; do
     for i in $subjs; do
 	mkdir -p $outnf/$i
 	mkdir -p $outnf/$i/fastq
-	if [[ -a $checkxml ]]
+	if [[ -z $checkxml ]]
 	then
 	    if [[ ! -f $i.xml ]]
 	    then
