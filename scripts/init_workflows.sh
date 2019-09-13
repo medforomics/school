@@ -56,7 +56,8 @@ ln -s ${illumina}/${prjid}/* $fqout/${prjid}
 umi=`grep "<Read Number=\"2\" NumCycles=\"14\" IsIndexedRead=\"Y\" />" ${illumina}/${prjid}/RunInfo.xml`
 
 declare -A panelbed
-panelbed=(["panel1385"]="UTSWV2.bed" ["panel1385v2"]="UTSWV2_2.panelplus.bed" ["idthemev1"]="heme_panel_probes.bed" ["idthemev2"]="hemepanelV3.bed" ["idtcellfreev1"]="panelcf73_idt.100plus.bed" ["medexomeplus"]="MedExome_Plus.bed")
+panelbed=(["panel1385"]="UTSWV2.bed" ["panel1385v2"]="UTSWV2_2.panelplus.bed" ["idthemev1"]="heme_panel_probes.bed" ["idthemev2"]="hemepanelV3.bed" ["idtcellfreev1"]="panelcf73_idt.100plus.bed" ["medexomeplus"]="MedExome_Plus.bed" ["heme183"]="UTSW_V4_heme183.bed" ["pancancer1505"]="UTSW_V4_pancancer1505.bed" ["panelrnaseq1527"]="UTSW_V4_rnaseq1527.bed" ["solid477"]="UTSW_V4_solid477.bed")
+
 
 source /etc/profile.d/modules.sh
 module load bcl2fastq/2.19.1

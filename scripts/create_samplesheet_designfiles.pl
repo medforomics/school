@@ -53,11 +53,17 @@ while (my $line = <SS>){
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
       $hash{Assay} = lc($hash{Assay});
+ 
       $hash{Assay} = 'panel1385' if ($hash{Assay} eq 'dnaseqdevelopment');
       $hash{Assay} = 'panel1385v2' if ($hash{MergeName} =~ m/panel1385v2/);
       $hash{Assay} = 'idthemev2' if ($hash{MergeName} =~ m/IDTHemev2/);
       $hash{Assay} = 'panelrnaseq' if ($hash{MergeName} =~ m/panelrnaseq/);
       $hash{Assay} = 'wholernaseq' if ($hash{MergeName} =~ m/wholernaseq/);
+      $hash{Assay} = 'solid477' if ($hash{MergeName} =~ m/solid477/i);
+      $hash{Assay} = 'pancancer1505' if ($hash{MergeName} =~ m/pancancer1505/i);
+      $hash{Assay} = 'panelrnaseq1527' if ($hash{MergeName} =~ m/panelrnaseq1527/i);
+      $hash{Assay} = 'heme183' if ($hash{MergeName} =~ m/heme183/i);
+
       unless (-e "$opt{dout}/$hash{Assay}") {
 	system(qq{mkdir $opt{dout}/$hash{Assay}});
       }
