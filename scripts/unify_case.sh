@@ -185,9 +185,12 @@ bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed |uniq |bgzip 
 
 #Calculate TMB
 targetsize=`awk '{sum+=$3-$2} END {print sum/1000000}' $targetbed`
+
 if [[ -n $normal_id ]] && [[ $normal_id != 'NA' ]]
 then
 zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz > ${subject}.utswpass.somatic.vcf
+
+perl ${vepdir}/vcf2maf.pl --input ${i} --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
 grep -c -v "#" ${subject}.utswpass.somatic.vcf | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
 perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
 else
