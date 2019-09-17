@@ -53,12 +53,18 @@ numsamps=`wc -l design_tumor_only.txt|cut -f 1 -d ' '`
 thresh=1
 if [[ -f design.txt && "$numsamps" -gt "$thresh" ]]
 then
-    nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/tumoronly.nf --design design_tumor_only.txt --projectid ${prjid} --input $outnf --targetpanel $capture --output $outnf > nextflow_tumoronly.log &
+    mkdir tonly
+    cd tonly
+    nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/tumoronly.nf --design ../design_tumor_only.txt --projectid ${prjid} --input $outnf --targetpanel $capture --output $outnf > nextflow_tumoronly.log &
+    cd ..
 fi
-
+sleep 20
 if [[ -f design_tumor_normal.txt ]]
 then
-    nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/somatic.nf --design design_tumor_normal.txt --projectid ${prjid} --input $outnf --output $outnf > nextflow_somatic.log &
+    mkdir somatic
+    cd somatic
+    nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/somatic.nf --design ../design_tumor_normal.txt --projectid ${prjid} --input $outnf --output $outnf > nextflow_somatic.log &
+    cd ..
 fi
 wait
 if [[ -f "${outnf}/GM12878/GM12878_dna_${prjid}.germline.vcf.gz" ]]
