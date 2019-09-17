@@ -149,7 +149,7 @@ foreach my $vfile (@vcflist) {
     }
     $newannot = join(";",@nannot);
     $info{$chrom}{$pos}{$vfile} = [$freqtype,$hash{TYPE},$cancergene,$id,$ref,$alt,$newannot,$newformat,
-				   @newgt] if ($filter eq 'PASS' && $id =~ /COSM/);
+				   @newgt] if ($filter eq 'PASS' && $id =~ /COS/);
  }
   close IN;
 }

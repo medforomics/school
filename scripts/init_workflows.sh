@@ -154,3 +154,11 @@ fi
 
 tar cf /work/archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${prjid}.tar $seqdatadir
 gzip /work/archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${prjid}.tar
+
+
+module load azure/2.0.72 
+
+export AZURE_STORAGE_ACCOUNT=swazrstrseq
+export AZURE_STORAGE_KEY=SxfAj0wkNDyQVKcP5ChoTDEd7J8bZm2zAqh0vNE2YRAQxFGrTLc1wvlWv0IYrS1p6thpBCvBLGHbVQmiu1/XqQ==
+
+az storage blob upload -d archive${monyear} -f /work/archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${prjid}.tar.gz -n ${prjid}.tar.gz

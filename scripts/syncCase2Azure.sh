@@ -5,7 +5,13 @@ caseID=$1
 nucliatoken=$2
 baseDir="`dirname \"$0\"`"
 
-module load samtools/gcc/1.8
+module load samtools/gcc/1.8 azure/2.0.72 
+export HTTP_PROXY="http://proxy.swmed.edu:3128"
+export HTTPS_PROXY="http://proxy.swmed.edu:3128"
+export http_proxy="http://proxy.swmed.edu:3128"
+export https_proxy="https://proxy.swmed.edu:3128"
+export AZURE_STORAGE_ACCOUNT=swazrstrseq
+export AZURE_STORAGE_KEY=SxfAj0wkNDyQVKcP5ChoTDEd7J8bZm2zAqh0vNE2YRAQxFGrTLc1wvlWv0IYrS1p6thpBCvBLGHbVQmiu1/XqQ==
 
 if [[ ! -f ${caseID}.json ]]
 then
@@ -95,3 +101,10 @@ then
     gzip /archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${myarray[1]}.tar 
 fi 
 
+isfalse=`az storage container exists -n archive${monyear} | grep false`
+if [[ -n $isfalse ]]
+then
+    az storage container create -n archive${monyear} --fail-on-exist
+fi
+
+az storage blob upload -d archive${monyear} -f /archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${myarray[1]}.tar.gz
