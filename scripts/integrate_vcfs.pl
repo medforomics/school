@@ -273,10 +273,10 @@ W1:while (my $line = <IN>) {
     $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.10 && $hash{TYPE} ne 'snp');
   }
   if ($hash{CallSetInconsistent} && $hash{TYPE} ne 'snp') {
-       #$fail{'InDelInconsistentCall'} = 1;
+       $fail{'InDelInconsistentCall'} = 1;
   }
   if ($hash{RepeatType} && $hash{RepeatType} =~ m/Simple_repeat/ && $tumormaf[0] < 0.15) {
-      #$fail{'InRepeat'} = 1
+      $fail{'InRepeat'} = 1;
   }
   delete $hash{SOMATIC};
   $hash{SS} = 5  unless ($hash{SS});
@@ -287,7 +287,7 @@ W1:while (my $line = <IN>) {
     if ($normalmaf[0] >= 0.25) {
       $hash{SS} = 1;
     }elsif ($tumormaf[0] < 0.05 && ($normalmaf[0] > 0.01 || $normalmaf[0]*5 > $tumormaf[0])) {
-      next;
+      $fail{'HighFreqNormalAF'} = 1;
     }elsif ($normalmaf[0] >= 0.05 || $normalmaf[0]*5 > $tumormaf[0]) {
       $hash{'HighFreqNormalAF'} = 1;
     }else {
