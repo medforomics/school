@@ -88,9 +88,9 @@ then
     then
 	itdpindel_vcf="dna_${dna_runid}/${subject}.pindel_tandemdup.pass.vcf.gz"
     fi
-    if [[ -f "${tumor_id}/${tumor_id}.idtseek_tandemdup.pass.vcf.gz" ]]
+    if [[ -f "${tumor_id}/${tumor_id}.itdseek_tandemdup.pass.vcf.gz" ]]
     then
-	itdseeker_vcf="${tumor_id}/${tumor_id}.idtseek_tandemdup.pass.vcf.gz"
+	itdseeker_vcf="${tumor_id}/${tumor_id}.itdseek_tandemdup.pass.vcf.gz"
     fi
     cnv_answer="$tumor_id/$tumor_id.cnv.answer.txt"
     
@@ -141,8 +141,8 @@ then
     tabix -f $itdseeker_vcf
     bcftools view -Oz -o itdpindel.vcf.gz -s $tumor_id $itdpindel_vcf
     tabix itdpindel.vcf.gz
-    bcftools concat -Oz -o idt.vcf.gz itdpindel.vcf.gz  $itdseeker_vcf
-    perl $baseDir/itdvcf2cnv.pl $tumor_id idt.vcf.gz
+    bcftools concat -Oz -o itd.vcf.gz itdpindel.vcf.gz  $itdseeker_vcf
+    perl $baseDir/itdvcf2cnv.pl $tumor_id itd.vcf.gz
     cat ${tumor_id}.dupcnv.txt >> $cnv_answer
 elif [[ -f $itdpindel_vcf ]]
 then
@@ -180,6 +180,7 @@ tabix -f ${subject}.vcf.gz
 tabix -f ${subject}.pass.vcf.gz
 
 #Makes TumorMutationBurenFile
+perl ${vepdir}/vcf2maf.pl --input ${subject}.all.vcf --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
 
 bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed |uniq |bgzip > ${subject}.utswpass.vcf.gz
 
@@ -190,7 +191,7 @@ if [[ -n $normal_id ]] && [[ $normal_id != 'NA' ]]
 then
 zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz > ${subject}.utswpass.somatic.vcf
 
-perl ${vepdir}/vcf2maf.pl --input ${i} --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
+perl ${vepdir}/vcf2maf.pl --input ${subject}.utswpass.somatic.vcf --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
 grep -c -v "#" ${subject}.utswpass.somatic.vcf | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
 perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
 else
