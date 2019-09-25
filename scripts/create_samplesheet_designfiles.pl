@@ -25,7 +25,7 @@ while (my $line = <SS>){
   $line =~ s/,+$//g;
   if ($line =~ m/^\[Data\]/) {
     if ($opt{umi}) {
-      print SSOUT join("\n","[Settings]","ReverseComplement,0","Read2UMILength,8"),"\n";
+      print SSOUT join("\n","[Settings]","ReverseComplement,0","Read2UMILength,8","TrimUMI,1"),"\n";
     }
     if ($opt{umi}) {
       print RNASS $line,"\n";
