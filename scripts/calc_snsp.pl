@@ -108,27 +108,27 @@ while (my $line = <IN>) {
   }
   $is_gs = 1;
   if ($maf < 0.05 || ($maf < 0.10  && $vartype ne 'snp')) {
-      $reason{$chrom}{$pos} = 'LowAF';
+      $reason{$chrom}{$pos}{$ref}{$alt} = 'LowAF';
       $is_gs = 0;
   }elsif ($hash{CallSetInconsistent} && $vartype ne 'snp') {
-      $reason{$chrom}{$pos} = 'Inconsistent';
+      $reason{$chrom}{$pos}{$ref}{$alt} = 'Inconsistent';
       $is_gs = 0;
   }elsif ($hash{RepeatType} && $hash{RepeatType} =~ m/Simple_repeat/ && $maf < 0.15) {
-      $reason{$chrom}{$pos} = 'InRepeat';
+      $reason{$chrom}{$pos}{$ref}{$alt} = 'InRepeat';
       $is_gs = 0;
   } elsif ($hash{strandBias} || (($hash{SAP} && $hash{SAP} > 20) && ((exists $hash{SAF} && $hash{SAF}< 1) || (exists $hash{SAR} && $hash{SAR}< 1)))) {
-      $reason{$chrom}{$pos} = 'StrandBias';
+      $reason{$chrom}{$pos}{$ref}{$alt} = 'StrandBias';
       $is_gs = 0;
   } elsif ($id =~ m/COS/ && $cosmicsubj >= 5) {
       if ($dp < 20 || $altct < 3) {
-	  $reason{$chrom}{$pos} = 'LowCoverage';
+	  $reason{$chrom}{$pos}{$ref}{$alt} = 'LowCoverage';
 	  $is_gs = 0;
       }
   } elsif  (scalar(@callers) < 2) {
-      $reason{$chrom}{$pos} = 'OneCaller';
+      $reason{$chrom}{$pos}{$ref}{$alt} = 'OneCaller';
       $is_gs = 0;
   } elsif ($dp < 20 || $altct < 8) {
-      $reason{$chrom}{$pos} = 'LowCoverage';
+      $reason{$chrom}{$pos}{$ref}{$alt} = 'LowCoverage';
       $is_gs = 0;
   }
   my %sinfo;
@@ -137,21 +137,21 @@ while (my $line = <IN>) {
     $chash{'genomeseer'} = 1;
   }
   $chash{'union'} = 1;
-  $vartype{$chrom}{$pos} = $vartype;
+  $vartype{$chrom}{$pos}{$ref}{$alt} = $vartype;
   $refpos = 0;
   if ($hash{platforms}) {
       $refpos ++;
   }if ($hash{MTD}) {
       $refpos ++;
   }
-  my $chrompos= join(":",$chrom,$pos);
+  my $chrompos= join(":",$chrom,$pos,$ref,$alt);
   my $callers = join(":",keys %chash);
   $status{$chrompos}{$callers} = $refpos;
 }
 my %cat;
 foreach $loci (keys %status) {
   my @csets = keys %{$status{$loci}};
-  my ($chrom,$pos) = split(/:/,$loci);
+  my ($chrom,$pos,$ref,$alt) = split(/:/,$loci);
   my $trueset = 0;
   my $genomeseer = 0;
   my %callers;
@@ -170,32 +170,36 @@ foreach $loci (keys %status) {
   if ($trueset > 0) {
     foreach (@allcallers) {
       if ($callers{$_}){
-	$cat{$chrom}{$pos}{$_} = 'tp';
+	$cat{$chrom}{$pos}{$ref}{$alt}{$_} = 'tp';
       } else {
-	$cat{$chrom}{$pos}{$_} = 'fn' unless ($trueset < 2);
-	print join(":","FN",$chrom,$pos,$reason{$chrom}{$pos}),"\n" if ($_ eq 'genomeseer');
+	$cat{$chrom}{$pos}{$ref}{$alt}{$_} = 'fn' unless ($trueset < 2);
+	print join(":","FN",$chrom,$pos,$ref,$alt,$reason{$chrom}{$pos}{$ref}{$alt}),"\n" if ($_ eq 'genomeseer');
       }
     }
   }else {
     foreach (@allcallers) {
       if ($callers{$_}){
-	$cat{$chrom}{$pos}{$_} = 'fp';
-	print join(":","FP",$chrom,$pos,$vartype{$chrom}{$pos}),"\n" if ($_ eq 'genomeseer');
+	$cat{$chrom}{$pos}{$ref}{$alt}{$_} = 'fp';
+	print join(":","FP",$chrom,$pos,$ref,$alt,$vartype{$chrom}{$pos}{$ref}{$alt}),"\n" if ($_ eq 'genomeseer');
       }
     }
   }
 }
 foreach $chrom (keys %cat) {
   foreach $pos (keys %{$cat{$chrom}}) {
-    my $vartype = $vartype{$chrom}{$pos};
-    foreach $call (keys %{$cat{$chrom}{$pos}}) {
-      if ($cat{$chrom}{$pos}{$call} eq 'tp') {
-	$tp{$vartype}{$call} ++;
-      }elsif ($cat{$chrom}{$pos}{$call} eq 'fp') {
-	$fp{$vartype}{$call} ++;
-      }elsif ($cat{$chrom}{$pos}{$call} eq 'fn') {
-	$fn{$vartype}{$call} ++;
-      }
+	foreach $ref (keys %{$cat{$chrom}{$pos}}){
+		foreach $alt (keys %{$cat{$chrom}{$pos}{$ref}}){
+		    my $vartype = $vartype{$chrom}{$pos}{$ref}{$alt};
+		    foreach $call (keys %{$cat{$chrom}{$pos}{$ref}{$alt}}) {
+  			    if ($cat{$chrom}{$pos}{$ref}{$alt}{$call} eq 'tp') {
+					$tp{$vartype}{$call} ++;
+	      		}elsif ($cat{$chrom}{$pos}{$ref}{$alt}{$call} eq 'fp') {
+					$fp{$vartype}{$call} ++;
+				}elsif ($cat{$chrom}{$pos}{$ref}{$alt}{$call} eq 'fn') {
+					$fn{$vartype}{$call} ++;
+				}
+			}
+    	}
     }
   }
 }

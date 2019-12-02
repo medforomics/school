@@ -11,6 +11,7 @@ params.cancer="detect"
 params.callsvs="detect"
 params.nuctype='dna'
 params.projectid=''
+params.pon = "$params.genome/clinseq_prj/UTSW_V4_heme.pon.vcf.gz"
 
 dbsnp_file="$params.genome/dbSnp.vcf.gz"
 indel="$params.genome/GoldIndels.vcf.gz"
@@ -19,6 +20,7 @@ reffa=file("$params.genome/genome.fa")
 design_file = file(params.design)
 bams=file(params.bams)
 
+pon=file(params.pon)
 dbsnp=file(dbsnp_file)
 knownindel=file(indel)
 index_path = file(params.genome)
@@ -137,7 +139,7 @@ process freebayes {
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${subjid}.fb -v ${subjid}.freebayes.vcf.gz 
   """
 }
-process gatk {
+process mutect2 {
   queue '128GB,256GB,256GBv1'
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/${params.nuctype}_${params.projectid}", mode: 'copy'
@@ -151,7 +153,7 @@ process gatk {
   when:
   params.nuctype == "dna"
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a gatk
+  bash $baseDir/process_scripts/variants/germline_vc.sh -q $pon -r $index_path -p $subjid -a mutect2
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${subjid}.gatk -v ${subjid}.gatk.vcf.gz
   """
 }
@@ -202,7 +204,7 @@ process platypus {
 
 Channel
   .empty()
-  .mix(fbvcf,platvcf,strelkavcf)
+  .mix(fbvcf,platvcf,strelkavcf,gatkvcf)
   .groupTuple(by:0)
   .set { vcflist}
 

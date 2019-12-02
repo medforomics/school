@@ -56,6 +56,6 @@ tabix ${id}.utswcoding.vcf.gz
 bcftools annotate -Oz -a giab3.utswcoding.vcf.gz --columns CHROM,POS,REF,ALT,platforms -o ${id}.g.vcf.gz ${id}.utswcoding.vcf.gz
 tabix ${id}.g.vcf.gz
 bcftools annotate -Ov -a platinum_v2.utswcoding.vcf.gz --columns CHROM,POS,REF,ALT,MTD -o ${id}.eval.vcf ${id}.g.vcf.gz
-bedtools genomecov -bga -split -ibam ${bam} -g ${index_path}/genomefile.txt |awk '$4 > 19' | cut -f 1,2,3 | bedtools merge -i stdin > enoughcov.bed
+bedtools genomecov -bga -split -ibam ${bam} -g ${index_path}/../genomefile.txt |awk '$4 > 19' | cut -f 1,2,3 | bedtools merge -i stdin > enoughcov.bed
 bedtools intersect -header -a giab3.utswcoding.vcf.gz -b platinum_v2.utswcoding.vcf.gz |bedtools intersect -header -v -a stdin -b ${id}.utswcoding.vcf.gz | bedtools intersect -a stdin -b enoughcov.bed > fn.vcf
 perl $baseDir/calc_snsp.pl ${id}.eval.vcf
