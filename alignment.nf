@@ -7,7 +7,7 @@ params.fastqs="$params.input/*.fastq.gz"
 params.design="$params.input/design.txt"
 
 params.genome="/project/shared/bicf_workflow_ref/human/GRCh38"
-params.capture="$params.genome/clinseq_prj/hemepanelV3.bed"
+params.capture="$params.genome/clinseq_prj/UTSW_V4_heme.bed"
 params.pairs="pe"
 params.markdups='fgbio_umi'
 params.aligner='bwa'
@@ -108,6 +108,7 @@ process markdups_consensus {
   output:
   set subjid, pair_id, file("${pair_id}.consensus.bam"),file("${pair_id}.consensus.bam.bai") into qcbam
   set subjid, pair_id, file("${pair_id}.consensus.bam"),file("${pair_id}.consensus.bam.bai") into togatkbam
+  file("*.txt") into statfile
   script:
   """
   bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id
@@ -123,7 +124,7 @@ process qc_consensus {
   input:
   set subjid, pair_id, file(sbam),file(idx) from qcbam
   output:
-  file("${pair_id}.umihist.txt") into umihist
+  file("${pair_id}.uniqhist.txt") into umihist
   file("${pair_id}.dedupcov.txt") into dedupcov
   file("${pair_id}.covuniqhist.txt") into covuniqhist
   file("*coverageuniq.txt") into covuniqstat
@@ -134,7 +135,7 @@ process qc_consensus {
   bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${sbam} -p $pair_id -s 1
   mv ${pair_id}.genomecov.txt ${pair_id}.dedupcov.txt
   mv ${pair_id}.covhist.txt ${pair_id}.covuniqhist.txt
-  mv ${pair_id}.hist.txt ${pair_id}.umihist.txt
+  mv ${pair_id}.hist.txt ${pair_id}.uniqhist.txt
   mv ${pair_id}_lowcoverage.txt ${pair_id}_lowcoverageuniq.txt
   mv ${pair_id}_exoncoverage.txt ${pair_id}_exoncoverageuniq.txt
   """
