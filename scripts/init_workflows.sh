@@ -53,10 +53,10 @@ workdir="$procbase/work"
 mkdir ${fqout}/${prjid}
 ln -s ${illumina}/${prjid}/* $fqout/${prjid}
 
-umi=`grep "<Read Number=\"2\" NumCycles=\"14\" IsIndexedRead=\"Y\" />" ${illumina}/${prjid}/RunInfo.xml`
+umi=`grep UMI $oriss`
 
 declare -A panelbed
-panelbed=(["panel1385"]="UTSWV2.bed" ["panel1385v2"]="UTSWV2_2.panelplus.bed" ["idthemev1"]="heme_panel_probes.bed" ["idthemev2"]="hemepanelV3.bed" ["idtcellfreev1"]="panelcf73_idt.100plus.bed" ["medexomeplus"]="MedExome_Plus.bed" ["heme183"]="UTSW_V4_heme183.bed" ["pancancer1505"]="UTSW_V4_pancancer1505.bed" ["panelrnaseq1527"]="UTSW_V4_rnaseq1527.bed" ["solid477"]="UTSW_V4_solid477.bed")
+panelbed=(["panel1385"]="UTSWV2.bed" ["panel1385v2"]="UTSWV2_2.panelplus.bed" ["idthemev1"]="heme_panel_probes.bed" ["idthemev2"]="hemepanelV3.bed" ["idtcellfreev1"]="panelcf73_idt.100plus.bed" ["medexomeplus"]="MedExome_Plus.bed" ["heme183"]="UTSW_V4_heme.bed" ["pancancer1517"]="UTSW_V4_pancancer.bed" ["panelrnaseq1539"]="UTSW_V4_rnaseq.bed" ["solid476"]="UTSW_V4_solid.bed")
 
 
 source /etc/profile.d/modules.sh
@@ -79,6 +79,8 @@ then
 	bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${seqdatadir}/$prjid.noumi.csv --use-bases-mask Y76,I6N8,Y76 &> ${seqdatadir}/bcl2fastq_noumi_${prjid}.log
 	rsync -avz ${seqdatadir}/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi
 	rsync -avz ${seqdatadir}/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi
+	mkdir ${seqdatadir}/noumi
+	mv ${seqdatadir}/Reports ${seqdatadir}/Stats ${seqdatadir}/noumi
     fi
     mv ${seqdatadir}/RunInfo.xml ${seqdatadir}/RunInfo.xml.ori
     perl  ${baseDir}/scripts/fix_runinfo_xml.pl $seqdatadir
@@ -104,7 +106,7 @@ for i in */design.txt; do
 	then
 	    if [[ ! -f $i.xml ]]
 	    then
-		python ${baseDir}/IntellispaceDemographics/gatherdemographics.py -i $i -u phg_workflow -p $password -o ${i}.xml
+		python ${baseDir}/IntellispaceDemographics/gatherdemographics.py -i $i -u phg_workflow -p ${password} -o ${i}.xml
 		missing=`grep '><\|D64.9\|N\/A' ${i}.xml`
 		if [[ -n $missing ]]
 		then

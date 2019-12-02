@@ -63,8 +63,17 @@ elif [[ $capture == "${index_path}/clinseq_prj/hemepanelV3.bed" ]]
 then
     normals="${index_path}/clinseq_prj/hemepanelV3.panelofnormals.cnn"
     targets="${index_path}/clinseq_prj/hemepanelV3.cnvkit_"
-fi	
+elif [[ $capture == "${index_path}/clinseq_prj/UTSW_V4_heme.bed" ]]
+then
+    normals="${index_path}/clinseq_prj/UTSW_V4_heme.panelofnormals.cnn"
+    targets="${index_path}/clinseq_prj/UTSW_V4_heme.cnvkit_"
+fi
+
+$idtopt = '';
+if [[ $capture == "${index_path}/clinseq_prj/UTSW_V4_heme.bed" ]] | [[ $capture == "${index_path}/clinseq_prj/UTSW_V4_solid.bed" ]] | [[ $capture == "${index_path}/clinseq_prj/UTSW_V4_pancancer.bed" ]]
+then
+    $idtopt='-q'
+fi
 
 #echo "$baseDir/../process_scripts/variants/cnvkit.sh -c $capture -b $sbam -p $pair_id -n $normals -t $targets"
-
-bash $baseDir/../process_scripts/variants/cnvkit.sh -c $capture -b $sbam -p $pair_id -n $normals -t $targets
+bash $baseDir/../process_scripts/variants/cnvkit.sh -c $capture -b $sbam -p $pair_id -n $normals -t $targets $idtopt
