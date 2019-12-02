@@ -59,9 +59,9 @@ while (my $line = <SS>){
       $hash{Assay} = 'idthemev2' if ($hash{MergeName} =~ m/IDTHemev2/);
       $hash{Assay} = 'panelrnaseq' if ($hash{MergeName} =~ m/panelrnaseq/);
       $hash{Assay} = 'wholernaseq' if ($hash{MergeName} =~ m/wholernaseq/);
-      $hash{Assay} = 'solid477' if ($hash{MergeName} =~ m/solid477/i);
-      $hash{Assay} = 'pancancer1505' if ($hash{MergeName} =~ m/pancancer1505/i);
-      $hash{Assay} = 'panelrnaseq1527' if ($hash{MergeName} =~ m/panelrnaseq1527/i);
+      $hash{Assay} = 'solid476' if ($hash{MergeName} =~ m/solid476/i);
+      $hash{Assay} = 'pancancer1517' if ($hash{MergeName} =~ m/pancancer1517/i);
+      $hash{Assay} = 'panelrnaseq1539' if ($hash{MergeName} =~ m/panelrnaseq1539/i);
       $hash{Assay} = 'heme183' if ($hash{MergeName} =~ m/heme183/i);
 
       unless (-e "$opt{dout}/$hash{Assay}") {
