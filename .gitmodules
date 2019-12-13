@@ -1,6 +1,4 @@
 [submodule "process_scripts"]
 	path = process_scripts
 	url = https://git.biohpc.swmed.edu/BICF/Astrocyte/process_scripts.git
-[submodule "IntellispaceDemographics"]
-	path = IntellispaceDemographics
-	url = https://git.biohpc.swmed.edu/bwakel/IntellispaceDemographics.git
+	
