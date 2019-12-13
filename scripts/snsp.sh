@@ -40,7 +40,7 @@ fi
 shift $(($OPTIND -1))
 baseDir="`dirname \"$0\"`"
 source /etc/profile.d/modules.sh
-module load samtools/gcc/1.8 htslib/gcc/1.8 bedtools/2.26.0 vcftools/0.1.14
+module load samtools/gcc/1.8 htslib/gcc/1.8 bedtools/2.26.0 vcftools/0.1.14 bcftools/1.6
 
 cut -f 1,2,3 ${index_path}/../gencode.CDS.bed |grep ^chr > gencode.cds.bed 
 

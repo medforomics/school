@@ -92,7 +92,7 @@ process indextarbams {
 
 idxbam
    .groupTuple(by:0)		
-   .into { fbbam; platbam; strelkabam; pindelbam;}
+   .into { fbbam; platbam; strelkabam; pindelbam; dellybam; svababam;}
 
 gtxbam
    .groupTuple(by:0)		
@@ -120,6 +120,36 @@ process pindel {
   bgzip ${subjid}.pindel_tandemdup.pass.vcf
   grep '#CHROM' ${subjid}.pindel_sv.pass.vcf > ${subjid}.dna.genefusion.txt
   cat ${subjid}.pindel_sv.pass.vcf | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS END ANN[*].EFFECT ANN[*].GENE ANN[*].HGVS_C ANN[*].HGVS_P GEN[*] |grep -E 'CHROM|gene_fusion' |uniq >> ${subjid}.dna.genefusion.txt
+  """
+}
+process delly {
+  queue '32GB'
+  errorStrategy 'ignore'
+  publishDir "$params.output/$subjid/somatic_$params.projectid", mode: 'copy'
+
+  input:
+  set subjid,file(ssbam),file(ssidx) from dellybam
+  output:
+  set subjid,file("${subjid}.delly.vcf.gz") into dellyvcf
+  set subjid,file("${subjid}.delly.ori.vcf.gz") into dellyori
+  script:				       
+  """
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a delly
+  """
+}
+process svaba {
+  queue '32GB'
+  errorStrategy 'ignore'
+  publishDir "$params.output/$subjid/somatic_$params.projectid", mode: 'copy'
+
+  input:
+  set subjid,file(ssbam),file(ssidx) from svababam
+  output:
+  set subjid,file("${subjid}.svaba.vcf.gz") into svabavcf
+  set subjid,file("${subjid}.svaba.ori.vcf.gz") into svabaori
+  script:				       
+  """
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a svaba
   """
 }
 
