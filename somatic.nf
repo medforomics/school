@@ -74,6 +74,8 @@ process indexoribams {
   set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into strelkabam
   set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into shimmerbam
   set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into virmidbam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into dellybam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into svababam
   script:
   """
   bash $baseDir/process_scripts/alignment/indexbams.sh 
@@ -107,6 +109,36 @@ process checkmates {
   module load python/2.7.x-anaconda git/v2.5.3
   python /project/shared/bicf_workflow_ref/seqprg/NGSCheckMate/ncm.py -B -d ./ -bed ${index_path}/NGSCheckMate.bed -O ./ -N ${pid}
   perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${pid}_all.txt -o ${pid}_${params.projectid}.sequence.stats.txt
+  """
+}
+process delly {
+  queue '32GB'
+  errorStrategy 'ignore'
+  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
+
+  input:
+  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from dellybam
+  output:
+  set pid,file("${pid}.delly.vcf.gz") into dellyvcf
+  set pid,file("${pid}.delly.ori.vcf.gz") into dellyori
+  script:				       
+  """
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a delly
+  """
+}
+process svaba {
+  queue '32GB'
+  errorStrategy 'ignore'
+  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
+
+  input:
+  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from svababam
+  output:
+  set pid,file("${pid}.svaba.vcf.gz") into svabavcf
+  set pid,file("${pid}.svaba.ori.vcf.gz") into svabaori
+  script:				       
+  """
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a svaba
   """
 }
 process pindel {
