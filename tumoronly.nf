@@ -4,7 +4,7 @@ params.input = './analysis'
 params.output = './analysis'
 
 params.bams="$params.input/*.bam"
-params.design="$params.input/design.txt"
+params.design="$params.input/design_tumor_only.txt"
 
 params.genome="/project/shared/bicf_workflow_ref/human/GRCh38"
 params.cancer="detect"
@@ -114,7 +114,7 @@ process pindel {
   """
   source /etc/profile.d/modules.sh
   module load samtools/gcc/1.8 snpeff/4.3q htslib/gcc/1.8 
-  bash $baseDir/process_scripts/variants/pindel.sh -r ${index_path} -p ${subjid} -l ${index_path}/clinseq_prj/itd_genes.bed
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -l ${index_path}/clinseq_prj/itd_genes.bed -a pindel
   perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${subjid}.pindel_tandemdup.vcf.gz -s ${subjid}.pindel_sv.vcf.gz -i ${subjid}.pindel_indel.vcf.gz
   bgzip ${subjid}.pindel_indel.pass.vcf
   bgzip ${subjid}.pindel_tandemdup.pass.vcf
@@ -131,7 +131,7 @@ process delly {
   set subjid,file(ssbam),file(ssidx) from dellybam
   output:
   set subjid,file("${subjid}.delly.vcf.gz") into dellyvcf
-  set subjid,file("${subjid}.delly.ori.vcf.gz") into dellyori
+
   script:				       
   """
   bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a delly
@@ -146,7 +146,7 @@ process svaba {
   set subjid,file(ssbam),file(ssidx) from svababam
   output:
   set subjid,file("${subjid}.svaba.vcf.gz") into svabavcf
-  set subjid,file("${subjid}.svaba.ori.vcf.gz") into svabaori
+
   script:				       
   """
   bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a svaba
