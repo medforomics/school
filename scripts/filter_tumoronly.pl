@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #use strict;
 
-open OM, "</project/shared/bicf_workflow_ref/human/GRCh38/panel1385.genelist.txt" or die $!;
+open OM, "</project/shared/bicf_workflow_ref/human/GRCh38/panelgenes.txt" or die $!;
 while (my $line = <OM>) {
   chomp($line);
   $keep{$line} = 1;
