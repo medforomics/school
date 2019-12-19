@@ -55,7 +55,7 @@ if [[ -f design.txt && "$numsamps" -gt "$thresh" ]]
 then
     mkdir tonly
     cd tonly
-    nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/tumoronly.nf --design ../design_tumor_only.txt --projectid ${prjid} --input $outnf --targetpanel $capture --output $outnf > nextflow_tumoronly.log &
+    nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/tumoronly.nf --design ../design_tumor_only.txt --projectid ${prjid} --input $outnf --output $outnf > nextflow_tumoronly.log &
     cd ..
 fi
 sleep 20
