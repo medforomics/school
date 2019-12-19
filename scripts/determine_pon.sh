@@ -10,13 +10,13 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:b:p:n:f:t:c:uh opt
+while getopts :r:b:p:n:f:d:t:c:uh opt
 do
     case $opt in
         b) sbam=$OPTARG;;
         p) pair_id=$OPTARG;;
 	r) index_path=$OPTARG;;
-	c) capture=$OPTARG;;
+	d) paneldir=$OPTARG;;
 	u) umi='umi';;
         h) usage;;
     esac
@@ -37,43 +37,35 @@ if [[ -z $index_path ]]
 then
     index_path='/project/shared/bicf_workflow_ref/human/GRCh38'
 fi
+if [[ -z $paneldir ]] 
+then
+    paneldir="UTSW_V3_pancancer"
+fi
 
-if [[ $capture == "${index_path}/clinseq_prj/UTSWV2_2.panelplus.bed" ]]
+capture="${index_path}/clinseq_prj/$paneldir/targetpanel.bed"
+targets="${index_path}/clinseq_prj/$paneldir/cnvkit."
+normals="${index_path}/clinseq_prj/$paneldir/pon.cnn"
+
+if [[ $paneldir == "UTSW_V3_pancancer" ]]
 then
     bedtools coverage -sorted -g  ${index_path}/genomefile.txt -a ${capture} -b ${sbam} -hist > covhist.txt
     grep ^all covhist.txt > genomecov.txt
     sumdepth=`awk '{ sum+= $2*$3;} END {print sum;}' genomecov.txt`
     total=`head -n 1 genomecov.txt |cut -f 4`
     avgdepth=$((${sumdepth}/${total}))
-    normals="${index_path}/clinseq_prj/panelofnormals.panel1385V2_2.cnn"
-    targets="${index_path}/clinseq_prj/panel1385V2-2.cnvkit_"
     if [[ "$avgdepth" -lt 1000 ]]
     then
-	normals="${index_path}/clinseq_prj/panelofnormals.panel1385V2_2.lowcov.cnn"
+	normals="${index_path}/clinseq_prj/UTSW_V3_pancancer/pon.downsample.cnn"
     fi
-elif [[ $capture == "${index_path}/clinseq_prj/UTSWV2.bed" ]]
-then 
-    normals="${index_path}/clinseq_prj/UTSWV2.normals.cnn"
-    targets="${index_path}/clinseq_prj/UTSWV2.cnvkit_"
-    if [[ $umi == 'umi' ]]
-    then
-	normals="${index_path}/clinseq_prj/UTSWV2.uminormals.cnn"
-    fi
-elif [[ $capture == "${index_path}/clinseq_prj/hemepanelV3.bed" ]]
+elif [[ $paneldir == "UTSW_V2_pancancer" ]] & [[ $umi == 'umi' ]]
 then
-    normals="${index_path}/clinseq_prj/hemepanelV3.panelofnormals.cnn"
-    targets="${index_path}/clinseq_prj/hemepanelV3.cnvkit_"
-elif [[ $capture == "${index_path}/clinseq_prj/UTSW_V4_heme.bed" ]]
-then
-    normals="${index_path}/clinseq_prj/UTSW_V4_heme.panelofnormals.cnn"
-    targets="${index_path}/clinseq_prj/UTSW_V4_heme.cnvkit_"
+    normals="${index_path}/clinseq_prj/UTSW_V2_pancancer/pon.umi.cnn"
 fi
 
-$idtopt = '';
-if [[ $capture == "${index_path}/clinseq_prj/UTSW_V4_heme.bed" ]] | [[ $capture == "${index_path}/clinseq_prj/UTSW_V4_solid.bed" ]] | [[ $capture == "${index_path}/clinseq_prj/UTSW_V4_pancancer.bed" ]]
+idtopt='';
+if [[ $paneldir == UTSW_V4* ]]
 then
-    $idtopt='-q'
+    idtopt='-q'
 fi
 
-#echo "$baseDir/../process_scripts/variants/cnvkit.sh -c $capture -b $sbam -p $pair_id -n $normals -t $targets"
 bash $baseDir/../process_scripts/variants/cnvkit.sh -c $capture -b $sbam -p $pair_id -n $normals -t $targets $idtopt
