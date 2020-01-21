@@ -35,18 +35,18 @@ module load bedtools/2.26.0
 
 if [[ -z $index_path ]] 
 then
-    index_path='/project/shared/bicf_workflow_ref/human/GRCh38'
+    index_path='/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref'
 fi
 if [[ -z $paneldir ]] 
 then
     paneldir="UTSW_V3_pancancer"
 fi
 
-capture="${index_path}/clinseq_prj/$paneldir/targetpanel.bed"
-targets="${index_path}/clinseq_prj/$paneldir/cnvkit."
-normals="${index_path}/clinseq_prj/$paneldir/pon.cnn"
+capture="$paneldir/targetpanel.bed"
+targets="$paneldir/cnvkit."
+normals="$paneldir/pon.cnn"
 
-if [[ $paneldir == "UTSW_V3_pancancer" ]]
+if [[ $paneldir == *UTSW_V3_pancancer* ]]
 then
     bedtools coverage -sorted -g  ${index_path}/genomefile.txt -a ${capture} -b ${sbam} -hist > covhist.txt
     grep ^all covhist.txt > genomecov.txt
@@ -55,11 +55,11 @@ then
     avgdepth=$((${sumdepth}/${total}))
     if [[ "$avgdepth" -lt 1000 ]]
     then
-	normals="${index_path}/clinseq_prj/UTSW_V3_pancancer/pon.downsample.cnn"
+	normals="${paneldir}/pon.downsample.cnn"
     fi
-elif [[ $paneldir == "UTSW_V2_pancancer" ]] & [[ $umi == 'umi' ]]
+elif [[ $paneldir == *UTSW_V2_pancancer* ]] & [[ $umi == 'umi' ]]
 then
-    normals="${index_path}/clinseq_prj/UTSW_V2_pancancer/pon.umi.cnn"
+    normals="${paneldir}/pon.umi.cnn"
 fi
 
 idtopt='';
@@ -68,4 +68,4 @@ then
     idtopt='-q'
 fi
 
-bash $baseDir/../process_scripts/variants/cnvkit.sh -c $capture -b $sbam -p $pair_id -n $normals -t $targets $idtopt
+bash $baseDir/../process_scripts/variants/cnvkit.sh -r $index_path -b $sbam -p $pair_id -n $normals -t $targets $idtopt
