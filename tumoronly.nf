@@ -11,7 +11,7 @@ params.cancer="detect"
 params.callsvs="detect"
 params.nuctype='dna'
 params.projectid=''
-params.pon = "$params.genome/clinseq_prj/UTSW_V4_heme.pon.vcf.gz"
+params.pon = "$params.genome/clinseq_prj/UTSW_V4_heme/pon.vcf.gz"
 
 dbsnp_file="$params.genome/dbSnp.vcf.gz"
 indel="$params.genome/GoldIndels.vcf.gz"
