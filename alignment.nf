@@ -6,8 +6,8 @@ params.output = './analysis'
 params.fastqs="$params.input/*.fastq.gz"
 params.design="$params.input/design.txt"
 
-params.genome="/project/shared/bicf_workflow_ref/human/GRCh38"
-params.capture="$params.genome/clinseq_prj/UTSW_V4_heme.bed"
+params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
+params.capturedir="/project/shared/bicf_workflow_ref/human/grch38_cloud/panels/UTSW_V4_heme"
 params.pairs="pe"
 params.markdups='fgbio_umi'
 params.aligner='bwa'
@@ -22,7 +22,7 @@ design_file=file(params.design)
 dbsnp=file(dbsnp)
 knownindel=file(indel)
 index_path=file(params.genome)
-capture_bed = file(params.capture)
+capture_bed = file("$params.capture/targetpanel.bed")
 
 alignopts = ''
 if (params.markdups == 'fgbio_umi') {
@@ -92,12 +92,35 @@ process dalign {
   set subjid,pair_id, file("${pair_id}.bam") into aligned2
   set subjid,pair_id, file("${pair_id}.bam"), file("${pair_id}.bam.bai") into cnvbam
   file("${pair_id}.bam.bai") into baindex
-  file("${pair_id}*tdf") into tdfraw
   """
   bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -a $params.aligner -p $pair_id -x $fq1 -y $fq2 $alignopts
-  bash $baseDir/process_scripts/alignment/bam2tdf.sh -r $index_path -b ${pair_id}.bam -p ${pair_id}.raw  
   """
  }
+
+process qcbam           {
+  errorStrategy 'ignore'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  queue '128GB,256GB,256GBv1'
+
+  input:
+  set subjid, pair_id, file(sbam) from aligned2
+  output:
+  file("*fastqc*") into fastqc
+  file("${pair_id}.flagstat.txt") into alignstats
+  file("${pair_id}.meanmap.txt") into meanmap
+  file("${pair_id}.libcomplex.txt") into libcomplex
+  file("${pair_id}.hist.txt") into insertsize
+  file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
+  file("${pair_id}.genomecov.txt") into genomecov
+  file("${pair_id}.covhist.txt") into covhist
+  file("*coverage.txt") into capcovstat
+  file("${pair_id}.mapqualcov.txt") into mapqualcov
+
+  script:
+  """
+  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b $sbam -p $pair_id  
+  """
+}
 
 process markdups_consensus {
   queue '32GB,128GB,256GB,256GBv1'
@@ -128,42 +151,14 @@ process qc_consensus {
   file("${pair_id}.dedupcov.txt") into dedupcov
   file("${pair_id}.covuniqhist.txt") into covuniqhist
   file("*coverageuniq.txt") into covuniqstat
-  file("${pair_id}*tdf") into tdfuniq
   script:
   """
-  bash $baseDir/process_scripts/alignment/bam2tdf.sh -r $index_path -b ${sbam} -p ${pair_id}.uniq
   bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${sbam} -p $pair_id -s 1
   mv ${pair_id}.genomecov.txt ${pair_id}.dedupcov.txt
   mv ${pair_id}.covhist.txt ${pair_id}.covuniqhist.txt
   mv ${pair_id}.hist.txt ${pair_id}.uniqhist.txt
   mv ${pair_id}_lowcoverage.txt ${pair_id}_lowcoverageuniq.txt
   mv ${pair_id}_exoncoverage.txt ${pair_id}_exoncoverageuniq.txt
-  """
-}
-
-process markdups_picard {
-  errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
-  queue '128GB,256GB,256GBv1'
-
-  input:
-  set subjid, pair_id, file(sbam) from aligned2
-  output:
-  file("*fastqc*") into fastqc
-  file("${pair_id}.flagstat.txt") into alignstats
-  file("${pair_id}.meanmap.txt") into meanmap
-  file("${pair_id}.libcomplex.txt") into libcomplex
-  file("${pair_id}.hist.txt") into insertsize
-  file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
-  file("${pair_id}.genomecov.txt") into genomecov
-  file("${pair_id}.covhist.txt") into covhist
-  file("*coverage.txt") into capcovstat
-  file("${pair_id}.mapqualcov.txt") into mapqualcov
-
-  script:
-  """
-  bash $baseDir/process_scripts/alignment/markdups.sh -a picard_umi -b $sbam -p $pair_id
-  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${pair_id}.dedup.bam -p $pair_id  
   """
 }
 
@@ -185,8 +180,8 @@ process cnv {
   """
   source /etc/profile.d/modules.sh
   module load htslib/gcc/1.8 
-  bash $baseDir/scripts/determine_pon.sh -b $sbam -r $index_path -c $capture_bed -p $pair_id
-  bash $baseDir/process_scripts/variants/itdseek.sh -b $sbam -r $index_path -p $pair_id -l ${index_path}/clinseq_prj/itd_genes.bed
+  bash $baseDir/scripts/determine_pon.sh -b $sbam -r $index_path -d $params.capturedir -p $pair_id
+  bash $baseDir/process_scripts/variants/itdseek.sh -b $sbam -r $index_path -p $pair_id -l ${index_path}/itd_genes.bed
   perl $baseDir/process_scripts/variants/filter_itdseeker.pl -t ${pair_id} -d ${pair_id}.itdseek_tandemdup.vcf.gz
   bgzip ${pair_id}.itdseek_tandemdup.pass.vcf
   """
