@@ -50,19 +50,27 @@ while (my $line = <SS>){
       foreach my $j (0..$#row) {
 	$hash{$colnames[$j]} = $row[$j];
       }
+      if ($hash{Sample_Name} =~ m/_Lib/) {
+	  $hash{Sample_Name} =~ s/_Lib.+//;
+      }
+      my @splitname = split(/-/,$hash{Sample_Name});
+      if (scalar(@splitname) > 3) {
+	  $hash{MergeName} = join("-",@splitname[0..2]);
+	  $hash{Sample_Name} = join("-",@splitname[0..2]);
+      }
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
       $hash{Assay} = lc($hash{Assay});
  
-      $hash{Assay} = 'panel1385' if ($hash{Assay} eq 'dnaseqdevelopment');
-      $hash{Assay} = 'panel1385v2' if ($hash{MergeName} =~ m/panel1385v2/);
-      $hash{Assay} = 'idthemev2' if ($hash{MergeName} =~ m/IDTHemev2/);
-      $hash{Assay} = 'panelrnaseq' if ($hash{MergeName} =~ m/panelrnaseq/);
-      $hash{Assay} = 'wholernaseq' if ($hash{MergeName} =~ m/wholernaseq/);
-      $hash{Assay} = 'solid476' if ($hash{MergeName} =~ m/solid476/i);
-      $hash{Assay} = 'pancancer1517' if ($hash{MergeName} =~ m/pancancer1517/i);
-      $hash{Assay} = 'panelrnaseq1539' if ($hash{MergeName} =~ m/panelrnaseq1539/i);
-      $hash{Assay} = 'heme183' if ($hash{MergeName} =~ m/heme183/i);
+      #$hash{Assay} = 'panel1385' if ($hash{Assay} eq 'dnaseqdevelopment');
+      $hash{Assay} = 'panel1385v2' if ($hash{Sample_Name} =~ m/panel1385v2/);
+      #$hash{Assay} = 'idthemev2' if ($hash{Sample_Name} =~ m/IDTHemev2/);
+      $hash{Assay} = 'tspcrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq/);
+      $hash{Assay} = 'wholernaseq' if ($hash{Sample_Name} =~ m/wholernaseq/);
+      $hash{Assay} = 'solid' if ($hash{Sample_Name} =~ m/solid\d*/i);
+      $hash{Assay} = 'pancancer' if ($hash{Sample_Name} =~ m/pancancer\d*/i);
+      $hash{Assay} = 'idtrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq\d*/i);
+      $hash{Assay} = 'heme' if ($hash{Sample_Name} =~ m/heme\d*/i);
 
       unless (-e "$opt{dout}/$hash{Assay}") {
 	system(qq{mkdir $opt{dout}/$hash{Assay}});
@@ -80,12 +88,6 @@ while (my $line = <SS>){
 	  $hash{MergeName} = join("_",@samplename);
 	}
       }
-      if ($hash{MergeName} =~ m/T_RNA_panelrnaseq-\d+-\d+/) {
-	$hash{MergeName} =~ s/T_RNA_panelrnaseq-\d+-\d+/T_RNA_panelrnaseq/;
-      }
-      if ($hash{Sample_Name} =~ m/T_RNA_panelrnaseq-\d+-\d+/) {
-	$hash{Sample_Name} =~ s/T_RNA_panelrnaseq(-\d+-\d+)/T_RNA_panelrnaseq_Lib.$1/e;
-      } 
       my $clinres = 'cases';
       $hash{VcfID} = $hash{SubjectID}."_".$prjid;
       if (($hash{Description} && $hash{Description} =~ m/research/i) ||
@@ -98,7 +100,7 @@ while (my $line = <SS>){
       }
       $hash{Sample_ID} = $hash{Sample_Name};
       $stype{$hash{SubjectID}} = $hash{Case};
-      $spairs{$hash{Assay}}{$hash{SubjectID}}{lc($hash{Class})}{$hash{MergeName}} = 1 unless ($hash{Assay} =~ m/rna/);
+      $spairs{$hash{Assay}}{$hash{SubjectID}}{lc($hash{Class})}{$hash{Sample_Name}} = 1 unless ($hash{Assay} =~ m/rna/);
       $sampleinfo{$hash{Sample_Name}} = \%hash;
       push @{$samples{$hash{Assay}}{$hash{SubjectID}}}, $hash{Sample_Name};
       
@@ -164,15 +166,15 @@ foreach $dtype (keys %samples) {
       print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outdir\/$samp\.R2.fastq.gz\n";
       print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outnf\/$info{SubjectID}/fastq\/$samp\.R1.fastq.gz\n";
       print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outnf\/$info{SubjectID}/fastq\/$samp\.R2.fastq.gz\n";
-      print SSOUT join("\t",$info{MergeName},$info{SubjectID},
+      print SSOUT join("\t",$info{Sample_Name},$info{SubjectID},
 		       "$samp\.R1.fastq.gz","$samp\.R2.fastq.gz"),"\n"; 
-      next if ($inpair{$info{MergeName}});
+      next if ($inpair{$info{Sample_Name}});
       if ($dtype =~ m/rna/) {
-	print TONLY join("\t",$info{MergeName},$info{VcfID},$info{SubjectID},
-			 $info{MergeName}.".bam",$info{MergeName}.".bam"),"\n";
+	print TONLY join("\t",$info{Sample_Name},$info{VcfID},$info{SubjectID},
+			 $info{Sample_Name}.".bam",$info{Sample_Name}.".bam"),"\n";
       }else {
-	print TONLY join("\t",$info{MergeName},$info{VcfID},$info{SubjectID},
-			 $info{MergeName}.".consensus.bam",$info{MergeName}.".final.bam"),"\n";
+	print TONLY join("\t",$info{Sample_Name},$info{VcfID},$info{SubjectID},
+			 $info{Sample_Name}.".consensus.bam",$info{Sample_Name}.".final.bam"),"\n";
       }
     }
   }

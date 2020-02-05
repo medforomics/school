@@ -7,7 +7,7 @@ params.fastqs="$params.input/*.fastq.gz"
 params.design="$params.input/design.txt"
 
 params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
-params.capturedir="/project/shared/bicf_workflow_ref/human/grch38_cloud/panels/UTSW_V4_heme"
+
 params.pairs="pe"
 params.markdups='fgbio_umi'
 params.aligner='bwa'
@@ -22,7 +22,15 @@ design_file=file(params.design)
 dbsnp=file(dbsnp)
 knownindel=file(indel)
 index_path=file(params.genome)
-capture_bed = file("$params.capture/targetpanel.bed")
+capture_bed = file("$params.capture")
+capturedir = file("$params.capturedir")
+
+if(capturedir.isEmpty()) {
+  skipCNV = true
+}
+else {
+  skipCNV = false
+}
 
 alignopts = ''
 if (params.markdups == 'fgbio_umi') {
@@ -123,6 +131,7 @@ process qcbam           {
 }
 
 process markdups_consensus {
+  errorStrategy 'ignore'
   queue '32GB,128GB,256GB,256GBv1'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
@@ -134,7 +143,7 @@ process markdups_consensus {
   file("*.txt") into statfile
   script:
   """
-  bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id
+  bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id -r $index_path
   mv ${pair_id}.dedup.bam ${pair_id}.consensus.bam
   mv ${pair_id}.dedup.bam.bai ${pair_id}.consensus.bam.bai
   """
@@ -168,6 +177,7 @@ process cnv {
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   input:
   set subjid,pair_id,file(sbam),file(sidx) from cnvbam
+
   output:
   file("${pair_id}.call.cns") into cns
   file("${pair_id}.cns") into cnsori
@@ -176,11 +186,13 @@ process cnv {
   file("${pair_id}.*txt") into cnvtxt
   file("${pair_id}.cnv*pdf") into cnvpdf
   file("${pair_id}.itdseek_tandemdup.pass.vcf.gz") into itdseekvcf
+  when:
+  skipCNV == false
   script:
   """
   source /etc/profile.d/modules.sh
   module load htslib/gcc/1.8 
-  bash $baseDir/scripts/determine_pon.sh -b $sbam -r $index_path -d $params.capturedir -p $pair_id
+  bash $baseDir/scripts/determine_pon.sh -b $sbam -r $index_path -d $capturedir -p $pair_id
   bash $baseDir/process_scripts/variants/itdseek.sh -b $sbam -r $index_path -p $pair_id -l ${index_path}/itd_genes.bed
   perl $baseDir/process_scripts/variants/filter_itdseeker.pl -t ${pair_id} -d ${pair_id}.itdseek_tandemdup.vcf.gz
   bgzip ${pair_id}.itdseek_tandemdup.pass.vcf

@@ -5,27 +5,22 @@ params.output = './analysis'
 
 params.bams="$params.input/*.bam"
 params.design="$params.input/design_tumor_only.txt"
+params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
 
-params.genome="/project/shared/bicf_workflow_ref/human/GRCh38"
+index_path = file(params.genome)
+design_file = file(params.design)
+bams=file(params.bams)
+
 params.cancer="detect"
 params.callsvs="detect"
 params.nuctype='dna'
 params.projectid=''
-params.pon = "$params.genome/clinseq_prj/UTSW_V4_heme/pon.vcf.gz"
-
-dbsnp_file="$params.genome/dbSnp.vcf.gz"
-indel="$params.genome/GoldIndels.vcf.gz"
-cosmic="$params.genome/cosmic.vcf.gz"
-reffa=file("$params.genome/genome.fa")
-design_file = file(params.design)
-bams=file(params.bams)
-
-pon=file(params.pon)
-dbsnp=file(dbsnp_file)
-knownindel=file(indel)
-index_path = file(params.genome)
-
 snpeff_vers = 'GRCh38.86';
+
+ponopt=''
+if (params.pon) {
+   ponopt="-q $params.pon"
+}
 
 def fileMap = [:]
 
@@ -125,13 +120,14 @@ process pindel {
 process delly {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/somatic_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$subjid/${params.nuctype}_${params.projectid}", mode: 'copy'
 
   input:
   set subjid,file(ssbam),file(ssidx) from dellybam
   output:
   set subjid,file("${subjid}.delly.vcf.gz") into dellyvcf
-
+  when:
+  params.nuctype == "dna"
   script:				       
   """
   bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a delly
@@ -140,13 +136,14 @@ process delly {
 process svaba {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/somatic_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$subjid/${params.nuctype}_${params.projectid}", mode: 'copy'
 
   input:
   set subjid,file(ssbam),file(ssidx) from svababam
   output:
   set subjid,file("${subjid}.svaba.vcf.gz") into svabavcf
-
+  when:
+  params.nuctype == "dna"
   script:				       
   """
   bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a svaba
@@ -166,7 +163,7 @@ process freebayes {
   script:
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a freebayes
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${subjid}.fb -v ${subjid}.freebayes.vcf.gz 
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.fb -v ${subjid}.freebayes.vcf.gz 
   """
 }
 process mutect2 {
@@ -177,14 +174,14 @@ process mutect2 {
   input:
   set subjid,file(gbam),file(gidx) from gatkbam
   output:
-  set subjid,file("${subjid}.gatk.vcf.gz") into gatkvcf
-  set subjid,file("${subjid}.gatk.ori.vcf.gz") into gatkori
+  set subjid,file("${subjid}.mutect.vcf.gz") into gatkvcf
+  set subjid,file("${subjid}.mutect.ori.vcf.gz") into gatkori
   script:
   when:
   params.nuctype == "dna"
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -q $pon -r $index_path -p $subjid -a mutect2
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${subjid}.gatk -v ${subjid}.gatk.vcf.gz
+  bash $baseDir/process_scripts/variants/germline_vc.sh $ponopt -r $index_path -p $subjid -a mutect2
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.mutect -v ${subjid}.mutect.vcf.gz
   """
 }
 process strelka {
@@ -202,7 +199,7 @@ process strelka {
   script:
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a strelka2
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${subjid}.strelka2 -v ${subjid}.strelka2.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.strelka2 -v ${subjid}.strelka2.vcf.gz
   """
 }
 process platypus {
@@ -220,7 +217,7 @@ process platypus {
   if (params.nuctype == "dna")
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a platypus
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${subjid}.platypus -v ${subjid}.platypus.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.platypus -v ${subjid}.platypus.vcf.gz
   """
   else
   """
