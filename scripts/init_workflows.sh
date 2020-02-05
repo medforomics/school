@@ -29,11 +29,17 @@ shift $(($OPTIND -1))
 
 if [[ -z $baseDir ]]
 then
-    baseDir="/project/PHG/PHG_Clinical/clinseq_workflows"
+    baseDir="/project/PHG/PHG_Clinical/devel/clinseq_workflows"
+fi
+if [[ -z $index_path ]]
+then
+    index_path="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
 fi
 
-clinref="/project/shared/bicf_workflow_ref/human/GRCh38/clinseq_prj"
-hisat_index_path='/project/shared/bicf_workflow_ref/human/GRCh38/hisat_index'
+dna_ref_path=$index_path
+rna_ref_path="/project/shared/bicf_workflow_ref/human/grch38_cloud/rnaref"
+
+panelsdir="/project/shared/bicf_workflow_ref/human/grch38_cloud/panels"
 illumina="/project/PHG/PHG_Illumina/BioCenter"
 fqout="/project/PHG/PHG_Clinical/illumina"
 
@@ -56,8 +62,7 @@ ln -s ${illumina}/${prjid}/* $fqout/${prjid}
 umi=`grep UMI $oriss`
 
 declare -A panelbed
-panelbed=(["panel1385"]="UTSWV2.bed" ["panel1385v2"]="UTSWV2_2.panelplus.bed" ["idthemev1"]="heme_panel_probes.bed" ["idthemev2"]="hemepanelV3.bed" ["idtcellfreev1"]="panelcf73_idt.100plus.bed" ["medexomeplus"]="MedExome_Plus.bed" ["heme183"]="UTSW_V4_heme.bed" ["pancancer1517"]="UTSW_V4_pancancer.bed" ["panelrnaseq1539"]="UTSW_V4_rnaseq.bed" ["solid476"]="UTSW_V4_solid.bed")
-
+panelbed=(["panel1385"]="UTSW_V2_pancancer" ["panel1385v2"]="UTSW_V3_pancancer" ["medexomeplus"]="UTSW_medexomeplus" ["heme"]="UTSW_V4_heme" ["pancancer"]="UTSW_V4_pancancer" ["idtrnaseq"]="UTSW_V4_rnaseq" ["solid"]="UTSW_V4_solid")
 
 source /etc/profile.d/modules.sh
 module load bcl2fastq/2.19.1
@@ -69,8 +74,8 @@ fi
 if [[ -n $umi ]]
 then
     perl ${baseDir}/scripts/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${prjid} -p ${prjid} -f ${outdir} -n ${outnf} -u ${seqdatadir}/$prjid.noumi.csv
-    lastline=`tail -n 1 ${seqdatadir}/$prjid.noumi.csv |grep Sample_ID`
-    if [[ -z $lastline ]]
+    lastline=`tail -n 1 ${seqdatadir}/$prjid.noumi.csv |grep -v Sample_ID`
+    if [[ ${#lastline} > 0 ]]
     then
 	if [[ ! -d /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/${prjid}/noumi ]]
 	then
@@ -102,7 +107,7 @@ for i in */design.txt; do
     for i in $subjs; do
 	mkdir -p $outnf/$i
 	mkdir -p $outnf/$i/fastq
-	if [[ -z $checkxml ]]
+	if [[ -z $skipxml ]]
 	then
 	    if [[ ! -f $i.xml ]]
 	    then
@@ -118,19 +123,25 @@ for i in */design.txt; do
 	    fi
 	fi
     done
-    bash lnfq.sh
-    if [[ $dtype == 'panelrnaseq' ]]
+    bash lnfq.sh 
+    if [[ $dtype == 'wholernaseq' ]]
     then
 	cp ${baseDir}/scripts/rnaworkflow.sh ${procbase}
-	bash ${procbase}/rnaworkflow.sh -r $hisat_index_path -e $baseDir -a $procbase -p $prjid -l /project/shared/bicf_workflow_ref/human/GRCh38/clinseq_prj/panel1385.genelist.txt &> log.txt &
-    elif [[ $dtype == 'wholernaseq' ]]
+	bash ${procbase}/rnaworkflow.sh -r $rna_ref_path -e $baseDir -a $procbase -p $prjid -c &> log.txt &
+    elif [[ $dtype =~ 'rnaseq' ]]
     then
+	genelist="${panelsdir}/${panelbed[${dtype}]}/genelist.txt"
 	cp ${baseDir}/scripts/rnaworkflow.sh ${procbase}
-	bash ${procbase}/rnaworkflow.sh -r $hisat_index_path -e $baseDir -a $procbase -p $prjid -c &> log.txt &
+	bash ${procbase}/rnaworkflow.sh -r $rna_ref_path -e $baseDir -a $procbase -p $prjid -l $genelist &> log.txt &
     else
-	capture="${clinref}/${panelbed[${dtype}]}"
+	$pon_opt = ''
+	if [[ -f "${panelsdir}/${panelbed[${dtype}]}/mutect2.pon.vcf.gz" ]]
+	then
+	    pon_opt="-m ${panelsdir}/${panelbed[${dtype}]}/mutect2.pon.vcf.gz"
+	fi
+	capture="${panelsdir}/${panelbed[${dtype}]}"
 	cp ${baseDir}/scripts/dnaworkflow.sh ${procbase}
-	bash ${procbase}/dnaworkflow.sh -r $index_path -e $baseDir -b $capture -a $procbase -p $prjid -d $mdup &> log.txt &
+	bash ${procbase}/dnaworkflow.sh -r $dna_ref_path -e $baseDir -b $capture -a $procbase -p $prjid -d $mdup $pon_opt &> log.txt &
     fi
 done
 wait
