@@ -14,15 +14,16 @@ usage() {
     exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:e:a:p:b:d:w:c:h opt
+while getopts :r:e:a:p:b:d:m:w:c:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
 	e) codedir=$OPTARG;;
 	a) prodir=$OPTARG;;
         p) prjid=$OPTARG;;
-	b) capture=$OPTARG;;
+	b) capturedir=$OPTARG;;
 	d) mdup=$OPTARG;;
+	m) mutectpon=$OPTARG;;
 	h) usage;;
     esac
 done
@@ -32,10 +33,9 @@ baseDir="`dirname \"$0\"`"
 
 if [[ -z $index_path ]]
 then
-    index_path="/project/shared/bicf_workflow_ref/human/GRCh38"
+    index_path="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
 fi
-capturedir="${index_path}/clinseq_prj"
-   
+
 outdir="$prodir/fastq"
 outnf="$prodir/analysis"
 workdir="$prodir/work"
@@ -43,7 +43,14 @@ workdir="$prodir/work"
 source /etc/profile.d/modules.sh
 module load nextflow/0.31.0
 
-nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/alignment.nf --design design.txt --capture $capture --input $outdir --output $outnf --markdups $mdup > nextflow_alignment.log
+pon_opt=''
+if [[ -f $mutectpon ]]
+then
+    pon_opt="--pon $mutectpon"
+fi
+capture="${capturedir}/targetpanel.bed"
+
+nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/alignment.nf --design design.txt --capturedir $capturedir --capture $capture --input $outdir --output $outnf --markdups $mdup $pon_opt > nextflow_alignment.log
 
 awk '{print "mv '${outnf}'/"$1".* '${outnf}'/"$1"_* '${outnf}'/"$2"/"$1}' design.txt | grep -v SampleID |sh
 
@@ -69,8 +76,8 @@ fi
 wait
 if [[ -f "${outnf}/GM12878/GM12878_${prjid}.dna.vcf.gz" ]]
 then
-    cd ${outnf}/GM12878
     bamfile=`grep GM12878 design_tumor_only.txt |awk '{print ${outnf}/GM12878/"$1"/"$4}'`
 	sampid=`grep GM12878 design_tumor_only.txt |awk '{print $1}'`
+	cd ${outnf}/GM12878
     bash $codeir\/scripts/snsp.sh -p $sampid -r $capturedir -t $capture -b $bamfile -v ${outnf}/GM12878/GM12878_${prjid}.dna.vcf.gz
 fi

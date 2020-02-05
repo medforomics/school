@@ -10,15 +10,16 @@ params.callsvs="skip"
 params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
 params.projectid=''
 
-dbsnp="$params.genome/dbSnp.vcf.gz"
-cosmic="$params.genome/cosmic.vcf.gz"
-
 design_file = file(params.design)
 bams=file(params.bams)
 
 index_path = file(params.genome)
 ncmconf = file("$params.genome/ncm.conf")
-dbsnp=file(dbsnp)
+
+ponopt=''
+if (params.pon) {
+   ponopt="-q $params.pon"
+}
 
 snpeff_vers = 'GRCh38.86';
 
@@ -120,7 +121,6 @@ process delly {
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from dellybam
   output:
   set pid,file("${pid}.delly.vcf.gz") into dellyvcf
-  set pid,file("${pid}.delly.ori.vcf.gz") into dellyori
   script:				       
   """
   bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a delly
@@ -135,7 +135,6 @@ process svaba {
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from svababam
   output:
   set pid,file("${pid}.svaba.vcf.gz") into svabavcf
-  set pid,file("${pid}.svaba.ori.vcf.gz") into svabaori
   script:				       
   """
   bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a svaba
@@ -154,8 +153,8 @@ process pindel {
   script:
   """
   source /etc/profile.d/modules.sh
-  module load htslib/gcc/1.8 snpeff/4.3q
-  bash $baseDir/process_scripts/variants/pindel.sh -r ${index_path} -p ${pid} -l ${index_path}/clinseq_prj/itd_genes.bed
+  module load samtools/gcc/1.8 snpeff/4.3q htslib/gcc/1.8 
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -p $pid -l ${index_path}/clinseq_prj/itd_genes.bed -a pindel
   perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${pid}.pindel_tandemdup.vcf.gz -s ${pid}.pindel_sv.vcf.gz -i ${pid}.pindel_indel.vcf.gz
   bgzip ${pid}.pindel_indel.pass.vcf
   bgzip ${pid}.pindel_tandemdup.pass.vcf
@@ -176,7 +175,7 @@ process freebayes {
   script:
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $pid -a freebayes
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${pid}.fb -v ${pid}.freebayes.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.fb -v ${pid}.freebayes.vcf.gz
   """
 }
 process platypus {
@@ -192,7 +191,7 @@ process platypus {
   script:				       
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $pid -a platypus
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${pid}.platypus -v ${pid}.platypus.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.platypus -v ${pid}.platypus.vcf.gz
   """
 }
 
@@ -207,8 +206,8 @@ process mutect {
   set pid,file("${pid}.mutect.ori.vcf.gz") into mutectori
   script:
   """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a mutect2
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${pid}.mutect -v ${pid}.mutect.vcf.gz
+  bash $baseDir/process_scripts/variants/somatic_vc.sh $ponopt -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a mutect2
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.mutect -v ${pid}.mutect.vcf.gz
   """
 }
 process strelka {
@@ -223,7 +222,7 @@ process strelka {
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a strelka2
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${pid}.strelka2 -v ${pid}.strelka2.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.strelka2 -v ${pid}.strelka2.vcf.gz
   """
 }
 process shimmer {
@@ -238,7 +237,7 @@ process shimmer {
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a shimmer
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${pid}.shimmer -v ${pid}.shimmer.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.shimmer -v ${pid}.shimmer.vcf.gz
   """
 }
 
@@ -254,7 +253,7 @@ process virmid {
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a virmid
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -r $index_path -p ${pid}.virmid -v ${pid}.virmid.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.virmid -v ${pid}.virmid.vcf.gz
   """
 }
 
@@ -272,7 +271,6 @@ process integrate {
   set pid,file(vcf) from vcflist
   file 'design.txt' from design_file
   output:
-//  file("${pid}${params.projectid}.somatic.vcf.gz") into annotvcf
   file("${pid}_${params.projectid}.dna.vcf.gz") into unionvcf
   script:
   """
@@ -280,9 +278,5 @@ process integrate {
   module load htslib/gcc/1.8
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $pid
   cp ${pid}.union.vcf.gz ${pid}_${params.projectid}.dna.vcf.gz
-  #ln -s  ${pid}.union.vcf.gz ${pid}.annot.vcf.gz
-  #perl $baseDir/scripts/somatic_filter.pl ${pid}.annot.vcf.gz
-  #bgzip ${pid}.somatic.vcf
-  #mv ${pid}.somatic.vcf.gz ${pid}${params.projectid}.somatic.vcf.gz
   """
 }
