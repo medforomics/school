@@ -7,11 +7,10 @@ params.output = './'
 params.fastqs="$params.input/*.fastq.gz"
 params.design="$params.input/design.txt"
 
-params.genome="/project/shared/bicf_workflow_ref/human/GRCh38/"
+params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/rnaref/"
 params.markdups="skip"
 params.stranded="0"
 params.pairs="pe"
-params.geneset = 'h.all.v5.1.symbols.gmt'
 params.align = 'hisat'
 params.fusion = 'detect'
 params.dea = 'skip'
@@ -24,9 +23,7 @@ design_file = file(params.design)
 fastqs=file(params.fastqs)
 design_file = file(params.design)
 gtf_file = file("$params.genome/gencode.gtf")
-stringtie_gtf=file("$params.genome/gencode.hisat.gtf")
 genenames = file("$params.genome/genenames.txt")
-geneset = file("$params.genome/gsea_gmt/$params.geneset")
 dbsnp="$params.genome/dbSnp.vcf.gz"
 indel="$params.genome/GoldIndels.vcf.gz"
 knownindel=file(indel)
@@ -199,11 +196,9 @@ process geneabund {
   file("${pair_id}.cts")  into counts
   file("${pair_id}_stringtie") into strcts
   file("${pair_id}.fpkm.txt") into fpkm
-  file('*cbioportal.txt')
   """
   source /etc/profile.d/modules.sh
   bash $baseDir/process_scripts/diff_exp/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam}
-  perl $baseDir/process_scripts/genect_rnaseq/cBioPortal_documents.pl -p $pair_id -l ${pair_id}.cts -f ${pair_id}.fpkm.txt
   """
 }
 process gatkbam {
@@ -219,6 +214,6 @@ process gatkbam {
   params.gatk=='detect'
   script:
   """
-  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam_rna -b $rbam -r ${index_path}/hisat_index -p $pair_id
+  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam_rna -b $rbam -r ${index_path} -p $pair_id
   """
 }
