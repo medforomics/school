@@ -105,7 +105,7 @@ process dalign {
   """
  }
 
-process qcbam           {
+process qcbam_markdup           {
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
   queue '128GB,256GB,256GBv1'
@@ -126,7 +126,8 @@ process qcbam           {
 
   script:
   """
-  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b $sbam -p $pair_id  
+  bash $baseDir/process_scripts/alignment/markdups.sh -a picard_umi -b $sbam -p $pair_id
+  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${pair_id}.dedup.bam -p $pair_id  
   """
 }
 
@@ -192,10 +193,23 @@ process cnv {
   """
   source /etc/profile.d/modules.sh
   module load htslib/gcc/1.8 
-  bash $baseDir/scripts/determine_pon.sh -b $sbam -r $index_path -d $capturedir -p $pair_id
-  bash $baseDir/process_scripts/variants/itdseek.sh -b $sbam -r $index_path -p $pair_id -l ${index_path}/itd_genes.bed
-  perl $baseDir/process_scripts/variants/filter_itdseeker.pl -t ${pair_id} -d ${pair_id}.itdseek_tandemdup.vcf.gz
-  bgzip ${pair_id}.itdseek_tandemdup.pass.vcf
+  bash $baseDir/process_scripts/variants/cnvkit.sh -r $index_path -b $sbam -p $pair_id -d $capturedir
+  """
+}
+
+process itdseek {
+  queue '32GB,128GB,256GB,256GBv1'
+  errorStrategy 'ignore'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+  input:
+  set subjid,pair_id,file(sbam),file(sidx) from itdbam
+
+  output:
+  file("${pair_id}.itdseek_tandemdup.vcf.gz") into itdseekvcf
+
+  script:
+  """
+  bash $baseDir/process_scripts/variants/itdseek.sh -b $sbam -r $index_path -p $pair_id -l ${index_path}/itd_genes.bed -f
   """
 }
 
@@ -238,6 +252,5 @@ process concatstat {
   source /etc/profile.d/modules.sh
   module load R/3.2.1-intel git/gcc/v2.12.2
   perl $baseDir/scripts/sequenceqc_alignment_withumi.pl -r ${index_path} *.genomecov.txt
-  Rscript $baseDir/scripts/plot_hist_genocov.R
   """
 }
