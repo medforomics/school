@@ -9,16 +9,6 @@ my @files = @ARGV;
 chomp(@files);
 
 #### Begin Version Information ######
-my $source = `zgrep '#' $opt{refdir}\/cosmic.vcf.gz |grep source`;
-my $cosmic_ref = (split(/=/, $source))[1];
-chomp($cosmic_ref);
-my $dbsnp_source = `zgrep '#' $opt{refdir}\/dbSnp.vcf.gz |grep dbSNP_BUILD_ID`;
-my $dbsnp_ref = (split(/=/, $dbsnp_source))[1];
-chomp($dbsnp_ref);
-my $gencode_ref = `head -n 10 $opt{refdir}\/gencode.gtf|grep version`;
-$gencode_ref =~ s/.*(version\s[\d]+).*/$1/;
-chomp($gencode_ref);
-my $gen_ref = (split(/\//,$opt{refdir}))[-1];
 my $gittag = `cd /project/PHG/PHG_Clinical/clinseq_workflows;git describe --abbrev=0 --tags`;
 chomp $gittag;
 #### End Version Information ######
@@ -81,6 +71,6 @@ foreach my $file (@files) {
   
   print OUT join("\n","Sample\t".$sample,"Total_Raw_Count\t".$total, "Read1_Map\t".$pairs,"Read2_Map\t".$read2ct,
     "Map_Rate\t".$maprate,"Concordant_Rate\t".$concorrate,"Alignment_Status\t".$status,"Alignment_Date\t".$date,
-    "File_Owner\t".$fileowner,"Workflow_Version\t".$gittag,"Cosmic_Reference\t".$cosmic_ref,
-    "dbSnp_Reference\t".$dbsnp_ref,"Gencode_Reference\t".$gencode_ref,"Genome_Reference\t".$gen_ref),"\n";
+    "File_Owner\t".$fileowner,"Workflow_Version\t".$gittag),"\n";
+  system(qq{cat $opt{refdir}\/reference_info.txt >> $prefix\.sequence.stats.txt});
 }
