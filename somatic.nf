@@ -154,7 +154,7 @@ process pindel {
   """
   source /etc/profile.d/modules.sh
   module load samtools/gcc/1.8 snpeff/4.3q htslib/gcc/1.8 
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -p $pid -l ${index_path}/clinseq_prj/itd_genes.bed -a pindel
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -p $pid -l ${index_path}/itd_genes.bed -a pindel
   perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${pid}.pindel_tandemdup.vcf.gz -s ${pid}.pindel_sv.vcf.gz -i ${pid}.pindel_indel.vcf.gz
   bgzip ${pid}.pindel_indel.pass.vcf
   bgzip ${pid}.pindel_tandemdup.pass.vcf

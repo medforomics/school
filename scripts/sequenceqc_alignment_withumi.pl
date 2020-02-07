@@ -8,16 +8,6 @@ my $results = GetOptions (\%opt,'refdir|r=s','help|h');
 my @statfiles = @ARGV;
 
 #### Begin Version Information ######
-my $source = `zgrep '#' $opt{refdir}\/cosmic.vcf.gz |grep source`;
-my $cosmic_ref = (split(/=/, $source))[1];
-chomp($cosmic_ref);
-my $dbsnp_source = `zgrep '#' $opt{refdir}\/dbSnp.vcf.gz |grep dbSNP_BUILD_ID`;
-my $dbsnp_ref = (split(/=/, $dbsnp_source))[1];
-chomp($dbsnp_ref);
-my $gencode_ref = `head -n 10 $opt{refdir}\/gencode.gtf|grep version`;
-$gencode_ref =~ s/.*(version\s[\d]+).*/$1/;
-chomp($gencode_ref);
-my $gen_ref = (split(/\//,$opt{refdir}))[-1];
 my $gittag = `cd /project/PHG/PHG_Clinical/clinseq_workflows;git describe --abbrev=0 --tags`;
 chomp $gittag;
 #### End Version Information ######
@@ -202,11 +192,12 @@ foreach $sfile (@statfiles) {
 		 "Dedup_Average_Depth\t".$dedup_avgdepth, "Dedup_Median_Depth\t".$dedup_median,
 		 "Dedup_Percent_over_100x\t".$hash{'dedup.perc100x'},"Dedup_Percent_over_200x\t".$hash{'dedup.perc200x'},
 		 "Dedup_Percent_over_500x\t".$hash{'dedup.perc500x'},"Alignment_Status\t".$hash{status},"Alignment_Date\t".$hash{date},
-		 "File_Owner\t".$hash{fileowner},"Workflow_Version\t".$gittag,"Cosmic_Reference\t".$cosmic_ref,
-    		 "dbSnp_Reference\t".$dbsnp_ref,"Gencode_Reference\t".$gencode_ref,"Genome_Reference\t".$gen_ref),"\n";
+		 "File_Owner\t".$hash{fileowner},"Workflow_Version\t".$gittag),"\n";
   close OUT;
+  system(qq{cat $opt{refdir}\/reference_info.txt >> $prefix\.sequence.stats.txt});
   ##### END separateFilesPerSample ######
 }
+
 
 sub cumsum {
   my @nums = @_;
