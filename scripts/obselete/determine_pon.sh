@@ -16,7 +16,6 @@ do
         b) sbam=$OPTARG;;
         p) pair_id=$OPTARG;;
 	r) index_path=$OPTARG;;
-	d) paneldir=$OPTARG;;
 	u) umi='umi';;
         h) usage;;
     esac
@@ -68,4 +67,4 @@ then
     idtopt='-q'
 fi
 
-bash $baseDir/../process_scripts/variants/cnvkit.sh -r $index_path -b $sbam -p $pair_id -n $normals -t $targets $idtopt
+bash $baseDir/../process_scripts/variants/cnvkit.sh -r $index_path -b $sbam -p $pair_id -d $paneldir
