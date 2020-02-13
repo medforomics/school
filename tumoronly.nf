@@ -109,7 +109,7 @@ process pindel {
   """
   source /etc/profile.d/modules.sh
   module load samtools/gcc/1.8 snpeff/4.3q htslib/gcc/1.8 
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -l ${index_path}/clinseq_prj/itd_genes.bed -a pindel
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -l ${index_path}/itd_genes.bed -a pindel
   perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${subjid}.pindel_tandemdup.vcf.gz -s ${subjid}.pindel_sv.vcf.gz -i ${subjid}.pindel_indel.vcf.gz
   bgzip ${subjid}.pindel_indel.pass.vcf
   bgzip ${subjid}.pindel_tandemdup.pass.vcf

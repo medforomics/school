@@ -241,22 +241,6 @@ process shimmer {
   """
 }
 
-process virmid {
-  queue '32GB'
-  errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
-  input:
-  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from virmidbam
-  output:
-  set pid, file("${pid}.virmid.vcf.gz") into virmidvcf
-  set pid, file("${pid}.virmid.ori.vcf.gz") into virmidori
-  script:
-  """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a virmid
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.virmid -v ${pid}.virmid.vcf.gz
-  """
-}
-
 Channel
   .empty()
   .mix(mutectvcf,platvcf,fbvcf,shimmervcf,strelkavcf)
