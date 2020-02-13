@@ -107,4 +107,4 @@ then
     az storage container create -n archive${monyear} --fail-on-exist
 fi
 
-az storage blob upload -d archive${monyear} -f /archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${myarray[1]}.tar.gz
+az storage blob upload -c archive${monyear} -f /archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${myarray[1]}.tar.gz -n ${myarray[1]}.tar.gz
