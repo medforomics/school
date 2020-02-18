@@ -185,7 +185,6 @@ process cnv {
   file("${pair_id}.answerplot*") into cnvansplot
   file("${pair_id}.*txt") into cnvtxt
   file("${pair_id}.cnv*pdf") into cnvpdf
-  file("${pair_id}.itdseek_tandemdup.pass.vcf.gz") into itdseekvcf
   when:
   skipCNV == false
   script:
