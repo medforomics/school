@@ -135,6 +135,7 @@ process svaba {
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from svababam
   output:
   set pid,file("${pid}.svaba.vcf.gz") into svabavcf
+  set pid,file("${pid}.svaba.sv.vcf.gz") into svabasv
   script:				       
   """
   bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a svaba
@@ -148,7 +149,8 @@ process pindel {
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from pindelbam
   output:
   file("${pid}.pindel_tandemdup.pass.vcf.gz") into tdvcf
-  file("${pid}.pindel_indel.pass.vcf.gz") into pindelvcf
+  set pid,file("${pid}.pindel.vcf.gz") into pindelvcf
+  file("${pid}.pindel_sv.pass.vcf.gz") into pindelsv
   file("${pid}.dna.genefusion.txt") into gf
   script:
   """
@@ -158,8 +160,10 @@ process pindel {
   perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${pid}.pindel_tandemdup.vcf.gz -s ${pid}.pindel_sv.vcf.gz -i ${pid}.pindel_indel.vcf.gz
   bgzip ${pid}.pindel_indel.pass.vcf
   bgzip ${pid}.pindel_tandemdup.pass.vcf
+  mv ${pid}.pindel_indel.pass.vcf.gz ${pid}.pindel.vcf.gz
   grep '#CHROM' ${pid}.pindel_sv.pass.vcf > ${pid}.dna.genefusion.txt
   cat ${pid}.pindel_sv.pass.vcf | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS END ANN[*].EFFECT ANN[*].GENE ANN[*].HGVS_C ANN[*].HGVS_P GEN[*] |grep -E 'CHROM|gene_fusion' |uniq >> ${pid}.dna.genefusion.txt
+  bgzip ${pid}.pindel_sv.pass.vcf
   """
 }
 process freebayes {
@@ -243,7 +247,7 @@ process shimmer {
 
 Channel
   .empty()
-  .mix(mutectvcf,platvcf,fbvcf,shimmervcf,strelkavcf)
+  .mix(mutectvcf,platvcf,fbvcf,shimmervcf,strelkavcf,pindelvcf,svabavcf)
   .groupTuple(by:0)
   .set { vcflist}
 
