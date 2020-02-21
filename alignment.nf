@@ -129,7 +129,7 @@ process qc_gbam           {
   queue '128GB,256GB,256GBv1'
 
   input:
-  set subjid, pair_id, file(sbam) from groupbam
+  set subjid, pair_id, file(sbam), file(sbai) from groupbam
   output:
   file("*fastqc*") into fastqc
   file("${pair_id}.flagstat.txt") into alignstats
@@ -207,7 +207,7 @@ process itdseek {
 
   script:
   """
-  bash $baseDir/process_scripts/variants/itdseek.sh -b $sbam -r $index_path -p $pair_id -l ${index_path}/itd_genes.bed -f
+  bash $baseDir/process_scripts/variants/svcalling.sh -b $sbam -r $index_path -p $pair_id -l ${index_path}/itd_genes.bed -a itdseek -f
   """
 }
 
@@ -244,11 +244,8 @@ process concatstat {
   
   output:
   file('*sequence.stats.txt')
-  file('*.png')
   script:
   """
-  source /etc/profile.d/modules.sh
-  module load R/3.2.1-intel git/gcc/v2.12.2
   perl $baseDir/scripts/sequenceqc_alignment_withumi.pl -r ${index_path} *.genomecov.txt
   """
 }
