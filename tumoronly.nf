@@ -101,7 +101,8 @@ process pindel {
   set subjid,file(ssbam),file(ssidx) from pindelbam
   output:
   file("${subjid}.pindel_tandemdup.pass.vcf.gz") into tdvcf
-  file("${subjid}.pindel_indel.pass.vcf.gz") into pindelvcf
+  set subjid,file("${subjid}.pindel.vcf.gz") into pindelvcf
+  file("${subjid}.pindel_sv.pass.vcf.gz") into pindelsv
   file("${subjid}.dna.genefusion.txt") into gf
   when:
   params.nuctype == "dna"
@@ -113,8 +114,10 @@ process pindel {
   perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${subjid}.pindel_tandemdup.vcf.gz -s ${subjid}.pindel_sv.vcf.gz -i ${subjid}.pindel_indel.vcf.gz
   bgzip ${subjid}.pindel_indel.pass.vcf
   bgzip ${subjid}.pindel_tandemdup.pass.vcf
+  mv ${subjid}.pindel_indel.pass.vcf.gz ${subjid}.pindel.vcf.gz
   grep '#CHROM' ${subjid}.pindel_sv.pass.vcf > ${subjid}.dna.genefusion.txt
   cat ${subjid}.pindel_sv.pass.vcf | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS END ANN[*].EFFECT ANN[*].GENE ANN[*].HGVS_C ANN[*].HGVS_P GEN[*] |grep -E 'CHROM|gene_fusion' |uniq >> ${subjid}.dna.genefusion.txt
+  bgzip ${subjid}.pindel_sv.pass.vcf
   """
 }
 process delly {
@@ -142,6 +145,7 @@ process svaba {
   set subjid,file(ssbam),file(ssidx) from svababam
   output:
   set subjid,file("${subjid}.svaba.vcf.gz") into svabavcf
+  set subjid,file("${subjid}.svaba.sv.vcf.gz") into svabasv
   when:
   params.nuctype == "dna"
   script:				       
@@ -231,7 +235,7 @@ process platypus {
 
 Channel
   .empty()
-  .mix(fbvcf,platvcf,strelkavcf,gatkvcf)
+  .mix(fbvcf,platvcf,strelkavcf,gatkvcf,pindelvcf,svabavcf)
   .groupTuple(by:0)
   .set { vcflist}
 
