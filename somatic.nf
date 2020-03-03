@@ -121,6 +121,7 @@ process delly {
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from dellybam
   output:
   set pid,file("${pid}.delly.vcf.gz") into dellyvcf
+  set pid,file("${pid}.delly.sv.vcf.gz") into dellysv
   script:				       
   """
   bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a delly
@@ -166,7 +167,7 @@ process pindel {
   bgzip ${pid}.pindel_sv.pass.vcf
   """
 }
-process freebayes {
+process fb {
   queue '32GB'
   errorStrategy 'ignore'
   publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
@@ -178,8 +179,8 @@ process freebayes {
   set pid,file("${pid}.fb.ori.vcf.gz") into fbori
   script:
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $pid -a freebayes
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.fb -v ${pid}.freebayes.vcf.gz
+  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $pid -a fb
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.fb -v ${pid}.fb.vcf.gz
   """
 }
 process platypus {
@@ -210,7 +211,7 @@ process mutect {
   set pid,file("${pid}.mutect.ori.vcf.gz") into mutectori
   script:
   """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh $ponopt -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a mutect2
+  bash $baseDir/process_scripts/variants/somatic_vc.sh $ponopt -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a mutect
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.mutect -v ${pid}.mutect.vcf.gz
   """
 }
@@ -247,7 +248,7 @@ process shimmer {
 
 Channel
   .empty()
-  .mix(mutectvcf,platvcf,fbvcf,shimmervcf,strelkavcf,pindelvcf,svabavcf)
+  .mix(mutectvcf,platvcf,fbvcf,shimmervcf,strelkavcf,pindelvcf,svabavcf,dellyvcf)
   .groupTuple(by:0)
   .set { vcflist}
 
