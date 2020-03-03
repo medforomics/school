@@ -129,6 +129,7 @@ process delly {
   set subjid,file(ssbam),file(ssidx) from dellybam
   output:
   set subjid,file("${subjid}.delly.vcf.gz") into dellyvcf
+  set subjid,file("${subjid}.delly.sv.vcf.gz") into dellysv
   when:
   params.nuctype == "dna"
   script:				       
@@ -154,7 +155,7 @@ process svaba {
   """
 }
 
-process freebayes {
+process fb {
   queue '32GB'
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/${params.nuctype}_${params.projectid}", mode: 'copy'
@@ -166,11 +167,11 @@ process freebayes {
   set subjid,file("${subjid}.fb.ori.vcf.gz") into fbori
   script:
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a freebayes
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.fb -v ${subjid}.freebayes.vcf.gz 
+  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a fb
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.fb -v ${subjid}.fb.vcf.gz 
   """
 }
-process mutect2 {
+process mutect {
   queue '128GB,256GB,256GBv1'
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/${params.nuctype}_${params.projectid}", mode: 'copy'
@@ -184,7 +185,7 @@ process mutect2 {
   when:
   params.nuctype == "dna"
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh $ponopt -r $index_path -p $subjid -a mutect2
+  bash $baseDir/process_scripts/variants/germline_vc.sh $ponopt -r $index_path -p $subjid -a mutect
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.mutect -v ${subjid}.mutect.vcf.gz
   """
 }
@@ -235,7 +236,7 @@ process platypus {
 
 Channel
   .empty()
-  .mix(fbvcf,platvcf,strelkavcf,gatkvcf,pindelvcf,svabavcf)
+  .mix(fbvcf,platvcf,strelkavcf,gatkvcf,pindelvcf,svabavcf,dellyvcf)
   .groupTuple(by:0)
   .set { vcflist}
 
