@@ -43,6 +43,8 @@ new File(params.design).withReader { reader ->
     nidx = header.findIndexOf{it == 'NormalID'};
     oneidx = header.findIndexOf{it == 'TumorBAM'};
     twoidx = header.findIndexOf{it == 'NormalBAM'};
+    ctidx = header.findIndexOf{it == 'TumorCBAM'};
+    cnidx = header.findIndexOf{it == 'NormalCBAM'};
     totidx = header.findIndexOf{it == 'TumorGATKBAM'};
     notidx = header.findIndexOf{it == 'NormalGATKBAM'};
 
@@ -54,6 +56,7 @@ new File(params.design).withReader { reader ->
 	   if (fileMap.get(row[oneidx]) != null) {
 	      nameMap[row[pidx]] = row[vidx]
 	      oribam << tuple(row[pidx],row[tidx],row[nidx],fileMap.get(row[oneidx]),fileMap.get(row[twoidx]))
+	      consbam << tuple(row[pidx],row[tidx],row[nidx],fileMap.get(row[ctidx]),fileMap.get(row[cnidx]))
 	      tarbam << tuple(row[pidx],row[tidx],row[nidx],fileMap.get(row[totidx]),fileMap.get(row[notidx]))
 	   }
 } 
@@ -68,13 +71,6 @@ process indexoribams {
   input:
   set pid,tid,nid,file(tumor),file(normal) from oribam
   output:
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into pindelbam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into platbam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into fbbam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into checkbams
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into strelkabam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into shimmerbam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into virmidbam
   set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into dellybam
   set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into svababam
   script:
@@ -82,6 +78,25 @@ process indexoribams {
   bash $baseDir/process_scripts/alignment/indexbams.sh 
   """
 }
+process indexconsbams {
+  executor 'local'
+  errorStrategy 'ignore'
+  input:
+  set pid,tid,nid,file(tumor),file(normal) from consbam
+  output:
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into pindelbam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into platbam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into fbbam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into checkbams
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into strelkabam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into shimmerbam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into virmidbam
+  script:
+  """
+  bash $baseDir/process_scripts/alignment/indexbams.sh 
+  """
+}
+
 process indextarbams {
   executor 'local'
   errorStrategy 'ignore'
