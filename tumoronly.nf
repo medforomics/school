@@ -39,7 +39,8 @@ new File(params.design).withReader { reader ->
     fidx = header.findIndexOf{it == 'FamilyID'};
     sidx = header.findIndexOf{it == 'SubjectID'};
     tidx = header.findIndexOf{it == 'SampleID'};
-    oneidx = header.findIndexOf{it == 'BAM'};
+    oneidx = header.findIndexOf{it == 'CBAM'};
+    twoidx = header.findIndexOf{it == 'BAM'};
     gtidx = header.findIndexOf{it == 'GATKBAM'};
     if (sidx == -1) {
        sidx = tidx
@@ -50,7 +51,8 @@ new File(params.design).withReader { reader ->
     while (line = reader.readLine()) {
     	   def row = line.split("\t")
 	   if (fileMap.get(row[oneidx]) != null) {
-	      oribam << tuple(row[fidx],row[tidx],fileMap.get(row[oneidx]))
+	      consbam << tuple(row[fidx],row[tidx],fileMap.get(row[oneidx]))
+	      oribam << tuple(row[fidx],row[tidx],fileMap.get(row[twoidx]))
 	      tarbam << tuple(row[fidx],fileMap.get(row[gtidx]))
 	   }
 	  
@@ -73,6 +75,19 @@ process indexoribams {
   """
 }
 
+process indexconsbams {
+  executor 'local'
+  errorStrategy 'ignore'
+  input:
+  set sid,tid,file(tumor) from consbam
+  output:
+  set sid,file(tumor),file("${tumor}.bai") into cidxbam
+  script:
+  """
+  bash $baseDir/process_scripts/alignment/indexbams.sh 
+  """
+}
+
 process indextarbams {
   executor 'local'
   input:
@@ -87,7 +102,11 @@ process indextarbams {
 
 idxbam
    .groupTuple(by:0)		
-   .into { fbbam; platbam; strelkabam; pindelbam; dellybam; svababam;}
+   .into { dellybam; svababam;}
+
+cidxbam
+   .groupTuple(by:0)		
+   .into { fbbam; platbam; strelkabam; pindelbam;}
 
 gtxbam
    .groupTuple(by:0)		
