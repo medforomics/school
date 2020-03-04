@@ -125,7 +125,7 @@ close SSOUT;
 my %inpair;
 foreach $dtype (keys %spairs ){#%stype) {
   open TNPAIR, ">$opt{dout}/$dtype/design_tumor_normal.txt" or die $!;
-  print TNPAIR join("\t",'PairID','VcfID','TumorID','NormalID','TumorBAM','NormalBAM',
+  print TNPAIR join("\t",'PairID','VcfID','TumorID','NormalID','TumorBAM','NormalBAM','TumorCBAM','NormalCBAM',
 		    'TumorGATKBAM','NormalGATKBAM'),"\n";
   foreach my $subjid (keys %{$spairs{$dtype}}) {
     my @ctypes = keys %{$spairs{$dtype}{$subjid}};
@@ -141,8 +141,9 @@ foreach $dtype (keys %spairs ){#%stype) {
 	  if ($pct > 0) {
 	    $pair_id .= ".$pct";
 	  }
-	  print TNPAIR join("\t",$pair_id,$pair_id."_".$prjid,$tid,$nid,$tid.".consensus.bam",
-			    $nid.".consensus.bam",$tid.".final.bam",$nid.".final.bam"),"\n";
+	  print TNPAIR join("\t",$pair_id,$pair_id."_".$prjid,$tid,$nid,$tid.".bam",
+			    $nid.".bam",$tid.".consensus.bam",$nid.".consensus.bam",
+			    $tid.".final.bam",$nid.".final.bam"),"\n";
 	  $pct ++;
 	}
       }
@@ -156,7 +157,7 @@ foreach $dtype (keys %samples) {
   open SSOUT, ">$opt{dout}\/$dtype\/design.txt" or die $!;
   open TONLY, ">$opt{dout}\/$dtype\/design_tumor_only.txt" or die $!;
   print SSOUT join("\t","SampleID",'FamilyID','FqR1','FqR2'),"\n";
-  print TONLY join("\t","SampleID",'VcfID','FamilyID','BAM','GATKBAM'),"\n";
+  print TONLY join("\t","SampleID",'VcfID','FamilyID','BAM','CBAM','GATKBAM'),"\n";
   my %thash;
   foreach $project (keys %{$samples{$dtype}}) {
     my $datadir =  "/project/PHG/PHG_Clinical/illumina/$prjid/$project/";
@@ -173,7 +174,7 @@ foreach $dtype (keys %samples) {
 	print TONLY join("\t",$info{Sample_Name},$info{VcfID},$info{SubjectID},
 			 $info{Sample_Name}.".bam",$info{Sample_Name}.".bam"),"\n";
       }else {
-	print TONLY join("\t",$info{Sample_Name},$info{VcfID},$info{SubjectID},
+	print TONLY join("\t",$info{Sample_Name},$info{VcfID},$info{SubjectID},$info{Sample_Name}.".bam",
 			 $info{Sample_Name}.".consensus.bam",$info{Sample_Name}.".final.bam"),"\n";
       }
     }
