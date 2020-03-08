@@ -119,24 +119,17 @@ process pindel {
   input:
   set subjid,file(ssbam),file(ssidx) from pindelbam
   output:
-  file("${subjid}.pindel_tandemdup.pass.vcf.gz") into tdvcf
+  file("${subjid}.pindel_tandemdup.vcf.gz") into tdvcf
   set subjid,file("${subjid}.pindel.vcf.gz") into pindelvcf
-  file("${subjid}.pindel_sv.pass.vcf.gz") into pindelsv
-  file("${subjid}.dna.genefusion.txt") into gf
+  file("${subjid}.pindel.sv.vcf.gz") into pindelsv
+  file("${pid}.pindel.genefusion.txt") into pindelgf
   when:
   params.nuctype == "dna"
   script:
   """
   source /etc/profile.d/modules.sh
   module load samtools/gcc/1.8 snpeff/4.3q htslib/gcc/1.8 
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -l ${index_path}/itd_genes.bed -a pindel
-  perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${subjid}.pindel_tandemdup.vcf.gz -s ${subjid}.pindel_sv.vcf.gz -i ${subjid}.pindel_indel.vcf.gz
-  bgzip ${subjid}.pindel_indel.pass.vcf
-  bgzip ${subjid}.pindel_tandemdup.pass.vcf
-  mv ${subjid}.pindel_indel.pass.vcf.gz ${subjid}.pindel.vcf.gz
-  grep '#CHROM' ${subjid}.pindel_sv.pass.vcf > ${subjid}.dna.genefusion.txt
-  cat ${subjid}.pindel_sv.pass.vcf | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS END ANN[*].EFFECT ANN[*].GENE ANN[*].HGVS_C ANN[*].HGVS_P GEN[*] |grep -E 'CHROM|gene_fusion' |uniq >> ${subjid}.dna.genefusion.txt
-  bgzip ${subjid}.pindel_sv.pass.vcf
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -l ${index_path}/itd_genes.bed -a pindel -f
   """
 }
 process delly {
@@ -147,13 +140,13 @@ process delly {
   input:
   set subjid,file(ssbam),file(ssidx) from dellybam
   output:
-  set subjid,file("${subjid}.delly.vcf.gz") into dellyvcf
-  set subjid,file("${subjid}.delly.sv.vcf.gz") into dellysv
+  set subjid,file("${subjid}.delly.vcf.gz") into dellysv
+  file("${pid}.delly.genefusion.txt") into dellygf
   when:
   params.nuctype == "dna"
   script:				       
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a delly
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a delly -f
   """
 }
 process svaba {
@@ -164,13 +157,13 @@ process svaba {
   input:
   set subjid,file(ssbam),file(ssidx) from svababam
   output:
-  set subjid,file("${subjid}.svaba.vcf.gz") into svabavcf
-  set subjid,file("${subjid}.svaba.sv.vcf.gz") into svabasv
+  set subjid,file("${subjid}.svaba.vcf.gz") into svabasv
+  file("${pid}.svaba.genefusion.txt") into svabagf
   when:
   params.nuctype == "dna"
   script:				       
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a svaba
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a svaba -f
   """
 }
 
@@ -255,7 +248,7 @@ process platypus {
 
 Channel
   .empty()
-  .mix(fbvcf,platvcf,strelkavcf,gatkvcf,pindelvcf,svabavcf,dellyvcf)
+  .mix(fbvcf,platvcf,strelkavcf,gatkvcf,pindelvcf)
   .groupTuple(by:0)
   .set { vcflist}
 

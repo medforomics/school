@@ -137,9 +137,10 @@ process delly {
   output:
   set pid,file("${pid}.delly.vcf.gz") into dellyvcf
   set pid,file("${pid}.delly.sv.vcf.gz") into dellysv
+  file("${pid}.delly.genefusion.txt") into dellygf
   script:				       
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a delly
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a delly -f 
   """
 }
 process svaba {
@@ -152,9 +153,10 @@ process svaba {
   output:
   set pid,file("${pid}.svaba.vcf.gz") into svabavcf
   set pid,file("${pid}.svaba.sv.vcf.gz") into svabasv
+  file("${pid}.svaba.genefusion.txt") into svabagf
   script:				       
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a svaba
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a svaba -f
   """
 }
 process pindel {
@@ -164,22 +166,15 @@ process pindel {
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from pindelbam
   output:
-  file("${pid}.pindel_tandemdup.pass.vcf.gz") into tdvcf
+  file("${pid}.pindel_tandemdup.vcf.gz") into tdvcf
   set pid,file("${pid}.pindel.vcf.gz") into pindelvcf
-  file("${pid}.pindel_sv.pass.vcf.gz") into pindelsv
-  file("${pid}.dna.genefusion.txt") into gf
+  file("${pid}.pindel.sv.vcf.gz") into pindelsv
+  file("${pid}.pindel.genefusion.txt") into pindelgf
   script:
   """
   source /etc/profile.d/modules.sh
   module load samtools/gcc/1.8 snpeff/4.3q htslib/gcc/1.8 
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -p $pid -l ${index_path}/itd_genes.bed -a pindel
-  perl $baseDir/process_scripts/variants/filter_pindel.pl -d ${pid}.pindel_tandemdup.vcf.gz -s ${pid}.pindel_sv.vcf.gz -i ${pid}.pindel_indel.vcf.gz
-  bgzip ${pid}.pindel_indel.pass.vcf
-  bgzip ${pid}.pindel_tandemdup.pass.vcf
-  mv ${pid}.pindel_indel.pass.vcf.gz ${pid}.pindel.vcf.gz
-  grep '#CHROM' ${pid}.pindel_sv.pass.vcf > ${pid}.dna.genefusion.txt
-  cat ${pid}.pindel_sv.pass.vcf | \$SNPEFF_HOME/scripts/vcfEffOnePerLine.pl |java -jar \$SNPEFF_HOME/SnpSift.jar extractFields - CHROM POS END ANN[*].EFFECT ANN[*].GENE ANN[*].HGVS_C ANN[*].HGVS_P GEN[*] |grep -E 'CHROM|gene_fusion' |uniq >> ${pid}.dna.genefusion.txt
-  bgzip ${pid}.pindel_sv.pass.vcf
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -p $pid -l ${index_path}/itd_genes.bed -a pindel -f
   """
 }
 process fb {
