@@ -136,7 +136,6 @@ process delly {
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from dellybam
   output:
   set pid,file("${pid}.delly.vcf.gz") into dellyvcf
-  set pid,file("${pid}.delly.sv.vcf.gz") into dellysv
   file("${pid}.delly.genefusion.txt") into dellygf
   script:				       
   """
@@ -258,7 +257,7 @@ process shimmer {
 
 Channel
   .empty()
-  .mix(mutectvcf,platvcf,fbvcf,shimmervcf,strelkavcf,pindelvcf,svabavcf,dellyvcf)
+  .mix(mutectvcf,platvcf,fbvcf,shimmervcf,strelkavcf,pindelvcf)
   .groupTuple(by:0)
   .set { vcflist}
 
