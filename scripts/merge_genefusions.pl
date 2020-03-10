@@ -32,7 +32,7 @@ foreach my $method (@files) {
   my %done;
   while (my $line = <ALG>) {
     chomp($line);
-    my ($chr1,$p1,$chr2,$p2,$effect,$gene,$gtype,$featureid,$filter,$format,@gts) = split(/\t/,$line);
+    my ($chr1,$p1,$chr2,$p2,$effect,$gene,$gtype,$filter,$format,@gts) = split(/\t/,$line);
 
     my @deschead = split(/:/,$format);
     unless ($gene =~ m/\w+/) {
