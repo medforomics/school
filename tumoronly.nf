@@ -157,7 +157,8 @@ process svaba {
   input:
   set subjid,file(ssbam),file(ssidx) from svababam
   output:
-  set subjid,file("${subjid}.svaba.vcf.gz") into svabasv
+  set subjid,file("${subjid}.svaba.vcf.gz") into svabavcf
+  set subjid,file("${subjid}.svaba.sv.vcf.gz") into svabasv
   file("${pid}.svaba.genefusion.txt") into svabagf
   when:
   params.nuctype == "dna"
