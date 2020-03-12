@@ -32,6 +32,7 @@ bams.each {
 }
 def oribam = []
 def tarbam = []
+def consbam = []
 def nameMap = [:]
 
 new File(params.design).withReader { reader ->
