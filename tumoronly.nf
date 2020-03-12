@@ -30,6 +30,7 @@ bams.each {
     fileMap[fileName] = it
 }
 
+def consbam =[]
 def oribam = []
 def tarbam = []
 

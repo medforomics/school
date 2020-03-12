@@ -50,7 +50,7 @@ then
 fi
 capture="${capturedir}/targetpanel.bed"
 
-nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/alignment.nf --design design.txt --capturedir $capturedir --capture $capture --input $outdir --output $outnf --markdups $mdup $pon_opt > nextflow_alignment.log
+nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/alignment.nf --design design.txt --capturedir $capturedir --capture $capture --input $outdir --output $outnf --markdups $mdup > nextflow_alignment.log
 
 awk '{print "mv '${outnf}'/"$1".* '${outnf}'/"$1"_* '${outnf}'/"$2"/"$1}' design.txt | grep -v SampleID |sh
 
@@ -62,7 +62,7 @@ if [[ -f design.txt && "$numsamps" -gt "$thresh" ]]
 then
     mkdir tonly
     cd tonly
-    nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/tumoronly.nf --design ../design_tumor_only.txt --projectid ${prjid} --input $outnf --output $outnf > nextflow_tumoronly.log &
+    nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/tumoronly.nf --design ../design_tumor_only.txt --projectid ${prjid} --input $outnf --output $outnf $pon_opt > nextflow_tumoronly.log &
     cd ..
 fi
 sleep 20
@@ -70,7 +70,7 @@ if [[ -f design_tumor_normal.txt ]]
 then
     mkdir somatic
     cd somatic
-    nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/somatic.nf --design ../design_tumor_normal.txt --projectid ${prjid} --input $outnf --output $outnf > nextflow_somatic.log &
+    nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/somatic.nf --design ../design_tumor_normal.txt --projectid ${prjid} --input $outnf --output $outnf $pon_opt > nextflow_somatic.log &
     cd ..
 fi
 wait
