@@ -25,7 +25,7 @@ my @files = ('delly','svaba','pindel');
 
 foreach my $method (@files) {
   next unless (-e $opt{$method});
-  open ALG, "<$opt{$method}" or die $!;
+  open ALG, "<$opt{$method}" or warn $!;
   my $head1 = <ALG>;
   chomp($head1);
   my ($H1,$H2,$H3,$H4,$H5,$H6,$H7,$H8,$H9,@sids) = split(/\t/,$head1);

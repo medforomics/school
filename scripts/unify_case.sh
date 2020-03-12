@@ -19,10 +19,11 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:n:a:p:t:m:g:v:s:k:i:x:c:d:e:b:f:h opt
+while getopts :r:n:a:p:t:m:g:v:s:k:y:j:i:x:c:d:e:b:f:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
+        y) rna_ref_path=$OPTARG;;
         n) caseID=$OPTARG;;
 	a) archive=$OPTARG;;
         p) subject=$OPTARG;;
@@ -37,6 +38,7 @@ do
         c) rnaseq_ntct=$OPTARG;;
 	f) rnaseq_fpkm=$OPTARG;;
 	e) rnaseq_bam=$OPTARG;;
+	j) rnaseq_translocation=$OPTARG;;
  	b) targetbed=$OPTARG;;
 	k) nucliatoken=$OPTARG;;
 	h) usage;;
@@ -45,16 +47,23 @@ done
 
 shift $(($OPTIND -1))
 
+module load bedtools/2.26.0 samtools/gcc/1.8 bcftools/gcc/1.8 htslib/gcc/1.8 vcftools/0.1.14 snpeff/4.3q
 if [[ -z $targetbed ]]
 then
-targetbed="${index_path}/clinseq_prj/UTSWV2_2.panelplus.bed"
+targetbed="${index_path}/../panels/UTSW_V4_heme/targetpanel.bed"
 fi
 
 baseDir="`dirname \"$0\"`"
 vepdir='/project/shared/bicf_workflow_ref/vcf2maf'
 
-module load bedtools/2.26.0 samtools/gcc/1.8 bcftools/gcc/1.8 htslib/gcc/1.8 vcftools/0.1.14 snpeff/4.3q
+dna_ref_path=$index_path
+if [[ -z $rna_ref_path ]]
+then
+    rna_ref_path="${index_path}/../rnaref"
+fi
 
+gfopt=''
+svcalls=''
 if [[ -n ${caseID} ]]
 then
     if [[ ! -f ${caseID}.json ]]
@@ -84,16 +93,26 @@ then
     if [[ -f "${subject}.pindel_tandemdup.pass.vcf.gz" ]]
     then
 	itdpindel_vcf="${subject}.pindel_tandemdup.pass.vcf.gz"
+	gfopt="${gfopt} -i ${subject}.pindel.genefusion.txt"
+	svcalls="${svcalls} ${subject}.pindel.vcf.gz"
     elif [[ -f "dna_${dna_runid}/${subject}.pindel_tandemdup.pass.vcf.gz" ]]
     then
 	itdpindel_vcf="dna_${dna_runid}/${subject}.pindel_tandemdup.pass.vcf.gz"
     fi
-    if [[ -f "${tumor_id}/${tumor_id}.itdseek_tandemdup.pass.vcf.gz" ]]
+    if [[ -f "${tumor_id}/${tumor_id}.itdseek_tandemdup.vcf.gz" ]]
     then
-	itdseeker_vcf="${tumor_id}/${tumor_id}.itdseek_tandemdup.pass.vcf.gz"
+	itdseeker_vcf="${tumor_id}/${tumor_id}.itdseek_tandemdup.vcf.gz"
     fi
-    cnv_answer="$tumor_id/$tumor_id.cnv.answer.txt"
-    
+    if [[ -f "${subject}.delly.vcf.gz" ]]
+    then
+	gfopt="${gfopt} -d ${subject}.delly.genefusion.txt"
+	svcalls="${svcalls} ${subject}.delly.vcf.gz"
+    fi
+    if [[ -f "${subject}.svaba.vcf.gz" ]]
+    then
+	gfopt="${gfopt} -s ${subject}.svaba.genefusion.txt"
+	svcalls="${svcalls} ${subject}.svaba.vcf.gz"
+    fi
     if [[ -n `ls ${subject}_${rna_runid}*rna.vcf.gz` ]]
     then
 	if [[ -f "${subject}_${rna_runid}.germline.rna.vcf.gz" ]]
@@ -106,14 +125,22 @@ then
 	rnaseq_ntct="${rnaseq_id}/${rnaseq_id}.bamreadct.txt"
 	rnaseq_fpkm="${rnaseq_id}/${rnaseq_id}.fpkm.txt"
 	rnaseq_bam="${rnaseq_id}/${rnaseq_id}.bam"
+	gfopt="${gfopt} -f ${rnaseq_translocation}"
+	rnaseq_translocation="${rnaseq_id}/${rnaseq_id}.translocations.answer.txt"
     fi
+    cnv_answer="$tumor_id/$tumor_id.cnv.answer.txt"
 fi
+
 echo $subject $tumor_id $tumor_vcf $somatic_vcf $merged_vcf 
 if [[ -z $subject ]] || [[ -z $index_path ]]; then
     usage
 fi 
 
-    #Merge VCFs if there are 2
+#merge gene fusion files
+perl $baseDir/merge_genefusions.pl -p ${subject} -t ${tumor_id} -r ${rna_ref_path} $gfopt
+
+
+#Merge VCFs if there are 2
 if [[ -f $somatic_vcf && -f $tumor_vcf ]]
 then
     tabix -f $somatic_vcf
