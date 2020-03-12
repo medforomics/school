@@ -172,7 +172,7 @@ foreach $dtype (keys %samples) {
       next if ($inpair{$info{Sample_Name}});
       if ($dtype =~ m/rna/) {
 	print TONLY join("\t",$info{Sample_Name},$info{VcfID},$info{SubjectID},
-			 $info{Sample_Name}.".bam",$info{Sample_Name}.".bam"),"\n";
+			 $info{Sample_Name}.".bam",$info{Sample_Name}.".bam",$info{Sample_Name}.".bam"),"\n";
       }else {
 	print TONLY join("\t",$info{Sample_Name},$info{VcfID},$info{SubjectID},$info{Sample_Name}.".bam",
 			 $info{Sample_Name}.".consensus.bam",$info{Sample_Name}.".final.bam"),"\n";

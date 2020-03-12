@@ -7,7 +7,7 @@ my %opt = ();
 my $results = GetOptions (\%opt,'subject|s=s','tumor|t=s','normal|n=s','refdata|r=s',
 			  'rnaseqvcf|v=s','rnaseqntct|c=s','regtools|g=s','help|h');
 
-open OM, "<$opt{refdata}\/clinseq_prj/cancer.genelist.txt" or die $!;
+open OM, "<$opt{refdata}\/cancer.genelist.txt" or die $!;
 while (my $line = <OM>) {
   chomp($line);
   $cgenelist{$line} = 1;
