@@ -40,7 +40,8 @@ foreach my $method (@files) {
     }
     next unless $gene;
     $gene =~ s/&/--/g;
-    my ($lgene,$rgene) = split(/--/,$gene);
+    my ($lgene,@genes,$rgene) = split(/--/,$gene);
+
     $chr2 =~ tr/CHR/chr/;
     unless ($chr2 =~ m/^chr/) {
 	$chr2 =~ m/(chr\w+):(\d+)/;
@@ -50,7 +51,7 @@ foreach my $method (@files) {
     $lbkpnt = join(":",$chr1,$p1);
     $rbkpnt = join(":",$chr2,$p2);
     unless ($rgene) {
-	$rgene=$rbkpnt;
+	$rgene="integenic";
     }
     next if ($done{$lbkpnt}{$rbkpnt});
     $done{$lbkpnt}{$rbkpnt} = 1;
