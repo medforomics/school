@@ -123,7 +123,7 @@ process pindel {
   file("${subjid}.pindel_tandemdup.vcf.gz") into tdvcf
   set subjid,file("${subjid}.pindel.vcf.gz") into pindelvcf
   file("${subjid}.pindel.sv.vcf.gz") into pindelsv
-  file("${pid}.pindel.genefusion.txt") into pindelgf
+  file("${subjid}.pindel.genefusion.txt") into pindelgf
   when:
   params.nuctype == "dna"
   script:
@@ -142,7 +142,7 @@ process delly {
   set subjid,file(ssbam),file(ssidx) from dellybam
   output:
   set subjid,file("${subjid}.delly.vcf.gz") into dellysv
-  file("${pid}.delly.genefusion.txt") into dellygf
+  file("${subjid}.delly.genefusion.txt") into dellygf
   when:
   params.nuctype == "dna"
   script:				       
@@ -160,7 +160,7 @@ process svaba {
   output:
   set subjid,file("${subjid}.svaba.vcf.gz") into svabavcf
   set subjid,file("${subjid}.svaba.sv.vcf.gz") into svabasv
-  file("${pid}.svaba.genefusion.txt") into svabagf
+  file("${subjid}.svaba.genefusion.txt") into svabagf
   when:
   params.nuctype == "dna"
   script:				       
