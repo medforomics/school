@@ -94,7 +94,8 @@ then
     then
 	itdpindel_vcf="${subject}.pindel_tandemdup.vcf.gz"
 	gfopt="${gfopt} -i ${subject}.pindel.genefusion.txt"
-	svcalls="${svcalls} ${subject}.pindel.vcf.gz"
+	vcf-shuffle-cols -t $merged_vcf ${subject}.pindel.vcf.gz | bgzip > pindel.vcf.gz
+	svcalls="${svcalls} pindel.vcf.gz"
     elif [[ -f "dna_${dna_runid}/${subject}.pindel_tandemdup.vcf.gz" ]]
     then
 	itdpindel_vcf="dna_${dna_runid}/${subject}.pindel_tandemdup.vcf.gz"
@@ -106,12 +107,14 @@ then
     if [[ -f "${subject}.delly.vcf.gz" ]]
     then
 	gfopt="${gfopt} -d ${subject}.delly.genefusion.txt"
-	svcalls="${svcalls} ${subject}.delly.vcf.gz"
+	vcf-shuffle-cols -t $merged_vcf ${subject}.delly.vcf.gz | bgzip > delly.vcf.gz
+	svcalls="${svcalls} delly.vcf.gz"
     fi
     if [[ -f "${subject}.svaba.vcf.gz" ]]
     then
 	gfopt="${gfopt} -s ${subject}.svaba.genefusion.txt"
-	svcalls="${svcalls} ${subject}.svaba.vcf.gz"
+	vcf-shuffle-cols -t $merged_vcf ${subject}.svaba.vcf.gz | bgzip > svaba.vcf.gz
+	svcalls="${svcalls} svaba.vcf.gz"
     fi
     if [[ -n `ls ${subject}_${rna_runid}*rna.vcf.gz` ]]
     then
@@ -125,8 +128,8 @@ then
 	rnaseq_ntct="${rnaseq_id}/${rnaseq_id}.bamreadct.txt"
 	rnaseq_fpkm="${rnaseq_id}/${rnaseq_id}.fpkm.txt"
 	rnaseq_bam="${rnaseq_id}/${rnaseq_id}.bam"
-	gfopt="${gfopt} -f ${rnaseq_translocation}"
 	rnaseq_translocation="${rnaseq_id}/${rnaseq_id}.translocations.answer.txt"
+	gfopt="${gfopt} -f ${rnaseq_translocation}"
     fi
     cnv_answer="$tumor_id/$tumor_id.cnv.answer.txt"
 fi
@@ -201,7 +204,8 @@ then
     icommand+=" -v $rnaseq_vcf -c $rnaseq_ntct -g ${subject}.splicevariants.vcf"
 fi
 $icommand
-vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.vcf.gz
+vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.set1.vcf.gz
+vcf-concat  ${subject}.set1.vcf.gz $svcalls |vcf-sort |bgzip > ${subject}.vcf.gz
 bgzip -f ${subject}.pass.vcf
 tabix -f ${subject}.vcf.gz
 tabix -f ${subject}.pass.vcf.gz

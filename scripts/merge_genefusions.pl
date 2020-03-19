@@ -64,6 +64,9 @@ foreach my $method (@files) {
       $chrtype = 'INTERCHROMOSOMAL';
       $chrdistance = join("--",$chr1,$chr2);
     }
+    if ($gene =~ m/ASMTL/) {
+	warn "debugging\n";
+    }
     foreach my $i (0..$#sids) {
       $sids[$i] = (split(/\./,$sids[$i]))[0];
       if ($sids[$i] eq $opt{tid}) {
@@ -76,7 +79,7 @@ foreach my $method (@files) {
 	next if ($dnagf{$lgene}{$rgene} && $gtdata{AO} ne '.' && $dnagf{$lgene}{$rgene}{DNAReads} > $gtdata{AO});
 	next unless $gtdata{AO} =~ m/\d+/;
 	if ($filter =~ m/LOWMAPQ|LowQual/i) {
-	    $filter = 'FailedQC'.$filter;
+	    $filter = 'FailedQC;'.$filter;
 	}
 	$dnagf{$lgene}{$rgene} = {FusionName=>$gene,LeftGene=>$lgene,
 				  LeftBreakpoint=>$lbkpnt,RightGene=>$rgene,
