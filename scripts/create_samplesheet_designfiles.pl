@@ -51,7 +51,7 @@ while (my $line = <SS>){
 	$hash{$colnames[$j]} = $row[$j];
       }
       if ($hash{Sample_Name} =~ m/_Lib/) {
-	  $hash{Sample_Name} =~ s/_Lib.+//;
+	  $hash{Sample_Name} =~ s/_Lib.*//;
       }
       my @splitname = split(/-/,$hash{Sample_Name});
       if (scalar(@splitname) > 3) {
