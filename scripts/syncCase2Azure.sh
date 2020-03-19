@@ -49,6 +49,10 @@ then
     cp $wkdir/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}*answer* $wkdir/casesTemp/${myarray[1]}/${myarray[3]}
     cp $wkdir/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.ballelefreq.txt $wkdir/casesTemp/${myarray[1]}/${myarray[3]}
     cp $wkdir/cases/${myarray[1]}/${myarray[1]}.vcf.gz $wkdir/casesTemp/${myarray[1]}
+    if -f [[ $wkdir/cases/${myarray[1]}/${myarray[1]}.translocations.answer.txt ]]
+    then
+	cp $wkdir/cases/${myarray[1]}/${myarray[1]}.translocations.answer.txt $wkdir/casesTemp/${myarray[1]}
+    fi
 fi
 if [[ -f $wkdir/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.consensus.bam ]]
 then
@@ -96,7 +100,13 @@ then
     samtools index -@ 4 $wkdir/casesTemp/${myarray[1]}/${myarray[7]}/${myarray[7]}.bam
     cp $wkdir/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.cts $wkdir/casesTemp/${myarray[1]}/${myarray[7]}
     cp $wkdir/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.fpkm.txt $wkdir/casesTemp/${myarray[1]}/${myarray[7]}
-    cp $wkdir/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.translocations.answer.txt $wkdir/casesTemp/${myarray[1]}/${myarray[7]}
+    if [[ -f $wkdir/cases/${myarray[1]}/${myarray[1]}.translocations.answer.txt ]]
+    then
+	cp $wkdir/cases/${myarray[1]}/${myarray[1]}.translocations.answer.txt $wkdir/casesTemp/${myarray[1]}/${myarray[7]}/${myarray[7]}.translocations.answer.txt
+    else
+        cp $wkdir/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.translocations.answer.txt $wkdir/casesTemp/${myarray[1]}/${myarray[7]}
+    fi
+    
 fi
 
 mv $wkdir/cases/${myarray[1]} $wkdir/toarchive/caseDirs/${myarray[1]}
