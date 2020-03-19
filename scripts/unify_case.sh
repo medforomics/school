@@ -90,14 +90,14 @@ then
     then
 	merged_vcf="${subject}_${dna_runid}.dna.vcf.gz"
     fi
-    if [[ -f "${subject}.pindel_tandemdup.pass.vcf.gz" ]]
+    if [[ -f "${subject}.pindel_tandemdup.vcf.gz" ]]
     then
-	itdpindel_vcf="${subject}.pindel_tandemdup.pass.vcf.gz"
+	itdpindel_vcf="${subject}.pindel_tandemdup.vcf.gz"
 	gfopt="${gfopt} -i ${subject}.pindel.genefusion.txt"
 	svcalls="${svcalls} ${subject}.pindel.vcf.gz"
-    elif [[ -f "dna_${dna_runid}/${subject}.pindel_tandemdup.pass.vcf.gz" ]]
+    elif [[ -f "dna_${dna_runid}/${subject}.pindel_tandemdup.vcf.gz" ]]
     then
-	itdpindel_vcf="dna_${dna_runid}/${subject}.pindel_tandemdup.pass.vcf.gz"
+	itdpindel_vcf="dna_${dna_runid}/${subject}.pindel_tandemdup.vcf.gz"
     fi
     if [[ -f "${tumor_id}/${tumor_id}.itdseek_tandemdup.vcf.gz" ]]
     then
