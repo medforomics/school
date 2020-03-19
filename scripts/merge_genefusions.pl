@@ -75,7 +75,9 @@ foreach my $method (@files) {
 	next unless ($keep{$lgene} || $keep{$rgene} || $gtype =~ m/IG/);
 	next if ($dnagf{$lgene}{$rgene} && $gtdata{AO} ne '.' && $dnagf{$lgene}{$rgene}{DNAReads} > $gtdata{AO});
 	next unless $gtdata{AO} =~ m/\d+/;
-
+	if ($filter =~ m/LOWMAPQ|LowQual/i) {
+	    $filter = 'FailedQC'.$filter;
+	}
 	$dnagf{$lgene}{$rgene} = {FusionName=>$gene,LeftGene=>$lgene,
 				  LeftBreakpoint=>$lbkpnt,RightGene=>$rgene,
 				  RightBreakpoint=>$rbkpnt,DNAReads=>$gtdata{AO},
