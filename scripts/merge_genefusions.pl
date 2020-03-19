@@ -33,15 +33,16 @@ foreach my $method (@files) {
   while (my $line = <ALG>) {
     chomp($line);
     my ($chr1,$p1,$chr2,$p2,$effect,$gene,$gtype,$filter,$format,@gts) = split(/\t/,$line);
-
     my @deschead = split(/:/,$format);
     unless ($gene =~ m/\w+/) {
 	$gene = $gtype;
     }
     next unless $gene;
+    next if ($gene =~ m/LINC00486/);
     $gene =~ s/&/--/g;
-    my ($lgene,@genes,$rgene) = split(/--/,$gene);
-
+    my (@genes) = split(/--/,$gene);
+    my $lgene = shift @genes;
+    my $rgene = pop @genes;
     $chr2 =~ tr/CHR/chr/;
     unless ($chr2 =~ m/^chr/) {
 	$chr2 =~ m/(chr\w+):(\d+)/;
@@ -72,9 +73,9 @@ foreach my $method (@files) {
 	  $gtdata{$deschead[$i]} = $gtinfo[$i];
 	}
 	next unless ($keep{$lgene} || $keep{$rgene} || $gtype =~ m/IG/);
-	next if ($dnagf{$lgene}{$rgene} && $dnagf{$lgene}{$rgene}{DNAReads} > $gtdata{AO});
+	next if ($dnagf{$lgene}{$rgene} && $gtdata{AO} ne '.' && $dnagf{$lgene}{$rgene}{DNAReads} > $gtdata{AO});
 	next unless $gtdata{AO} =~ m/\d+/;
-	
+
 	$dnagf{$lgene}{$rgene} = {FusionName=>$gene,LeftGene=>$lgene,
 				  LeftBreakpoint=>$lbkpnt,RightGene=>$rgene,
 				  RightBreakpoint=>$rbkpnt,DNAReads=>$gtdata{AO},
@@ -125,12 +126,12 @@ if (-e $opt{rnafile}) {
 }
 foreach my $lgene (sort {$a cmp $b} keys %dnagf) {
     foreach my $rgene (sort {$a cmp $b} keys %{$dnagf{$lgene}}) {
+	my $fname = $dnagf{$lgene}{$rgene}{FusionName};
 	next if ($reported{$lgene}{$rgene});
-	$fname = $dnagf{$lgene}{$rgene}{FusionName};
 	next unless ($known{$fname} ||  $dnagf{$lgene}{$rgene}{DNAReads} > 20);
 	my ($lchr,$lpos) = split(/:/,$dnagf{$lgene}{$rgene}{LeftBreakpoint});
 	my ($rchr,$rpos) = split(/:/,$dnagf{$lgene}{$rgene}{RightBreakpoint});
-	next if ($lchr eq $rchr);
+	next if ($lchr eq $rchr && abs($lpos-$rpos) < 9999);
 	my @line;
 	foreach (@outcol) {
 	    $dnagf{$lgene}{$rgene}{$_} = '' unless $dnagf{$lgene}{$rgene}{$_};

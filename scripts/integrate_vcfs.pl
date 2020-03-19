@@ -357,7 +357,7 @@ W1:while (my $line = <IN>) {
     $keepforvcf = $gene;
     $cancergene = 1 if ($cgenelist{$gene});
   }
-  next unless $keepforvcf;
+  next unless ($keepforvcf || ($chrom eq 'chr5' && ($pos >=1295047 || $pos <= 1295200)));
   $hash{ANN} = join(",",@newsnpeff);
   my @fail = sort {$a cmp $b} keys %fail;
   if (scalar(@fail) == 0) {
