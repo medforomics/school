@@ -52,7 +52,7 @@ foreach my $method (@files) {
     $lbkpnt = join(":",$chr1,$p1);
     $rbkpnt = join(":",$chr2,$p2);
     unless ($rgene) {
-	$rgene="integenic";
+	$rgene="intergenic";
     }
     next if ($done{$lbkpnt}{$rbkpnt});
     $done{$lbkpnt}{$rbkpnt} = 1;
