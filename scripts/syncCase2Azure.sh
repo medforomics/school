@@ -49,7 +49,7 @@ then
     cp $wkdir/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}*answer* $wkdir/casesTemp/${myarray[1]}/${myarray[3]}
     cp $wkdir/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.ballelefreq.txt $wkdir/casesTemp/${myarray[1]}/${myarray[3]}
     cp $wkdir/cases/${myarray[1]}/${myarray[1]}.vcf.gz $wkdir/casesTemp/${myarray[1]}
-    if -f [[ $wkdir/cases/${myarray[1]}/${myarray[1]}.translocations.answer.txt ]]
+    if [[ -f $wkdir/cases/${myarray[1]}/${myarray[1]}.translocations.answer.txt ]]
     then
 	cp $wkdir/cases/${myarray[1]}/${myarray[1]}.translocations.answer.txt $wkdir/casesTemp/${myarray[1]}
     fi
@@ -109,9 +109,11 @@ then
     
 fi
 
+rsync -avz $wkdir/casesTemp/${myarray[1]} answerbe@198.215.54.71:/swnas/cases
+
 mv $wkdir/cases/${myarray[1]} $wkdir/toarchive/caseDirs/${myarray[1]}
 mv $wkdir/casesTemp/${myarray[1]} $wkdir/cases
-rsync -avz $wkdir/cases/${myarray[1]} answerbe@198.215.54.71:/swnas/cases
+
 
 if [[ ! -f  $wkdir/toarchive/backups/${monyear}/${myarray[1]}.tar.gz ]]
 then
