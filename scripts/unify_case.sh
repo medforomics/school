@@ -78,53 +78,14 @@ then
     rna_runid=${myarray[6]}
     normal_id=${myarray[5]}
     rnaseq_id=${myarray[7]}
-    if [[ -f "somatic_${dna_runid}/${subject}_${dna_runid}.somatic.vcf.gz" ]]
-    then
-	somaticvcf="somatic_${dna_runid}/${subject}_${dna_runid}.somatic.vcf.gz"
-    fi
-    if [[ -f "${subject}_${dna_runid}.germline.vcf.gz" ]] 
-    then
-	tumor_vcf="${subject}_${dna_runid}.germline.vcf.gz"
-    fi
+
     if [[ -f  "${subject}_${dna_runid}.dna.vcf.gz" ]]
     then
 	merged_vcf="${subject}_${dna_runid}.dna.vcf.gz"
     fi
-    if [[ -f "${subject}.pindel_tandemdup.vcf.gz" ]]
-    then
-	itdpindel_vcf="${subject}.pindel_tandemdup.vcf.gz"
-	gfopt="${gfopt} -i ${subject}.pindel.genefusion.txt"
-	vcf-shuffle-cols -t $merged_vcf ${subject}.pindel.vcf.gz | bgzip > pindel.vcf.gz
-	svcalls="${svcalls} pindel.vcf.gz"
-    elif [[ -f "dna_${dna_runid}/${subject}.pindel_tandemdup.vcf.gz" ]]
-    then
-	itdpindel_vcf="dna_${dna_runid}/${subject}.pindel_tandemdup.vcf.gz"
-    fi
-    if [[ -f "${tumor_id}/${tumor_id}.itdseek_tandemdup.vcf.gz" ]]
-    then
-	itdseeker_vcf="${tumor_id}/${tumor_id}.itdseek_tandemdup.vcf.gz"
-    fi
-    if [[ -f "${subject}.delly.vcf.gz" ]]
-    then
-	gfopt="${gfopt} -d ${subject}.delly.genefusion.txt"
-	vcf-shuffle-cols -t $merged_vcf ${subject}.delly.vcf.gz | bgzip > delly.vcf.gz
-	svcalls="${svcalls} delly.vcf.gz"
-    fi
-    if [[ -f "${subject}.svaba.vcf.gz" ]]
-    then
-	gfopt="${gfopt} -s ${subject}.svaba.genefusion.txt"
-	vcf-shuffle-cols -t $merged_vcf ${subject}.svaba.vcf.gz | bgzip > svaba.vcf.gz
-	svcalls="${svcalls} svaba.vcf.gz"
-    fi
     if [[ -n `ls ${subject}_${rna_runid}*rna.vcf.gz` ]]
     then
-	if [[ -f "${subject}_${rna_runid}.germline.rna.vcf.gz" ]]
-	then
-	    rnaseq_vcf="${subject}_${rna_runid}.germline.rna.vcf.gz"
-	elif [[ -f "${subject}_${rna_runid}.rna.vcf.gz" ]]
-	then
-	    rnaseq_vcf="${subject}_${rna_runid}.rna.vcf.gz"
-	fi
+	rnaseq_vcf="${subject}_${rna_runid}.rna.vcf.gz"
 	rnaseq_ntct="${rnaseq_id}/${rnaseq_id}.bamreadct.txt"
 	rnaseq_fpkm="${rnaseq_id}/${rnaseq_id}.fpkm.txt"
 	rnaseq_bam="${rnaseq_id}/${rnaseq_id}.bam"
@@ -139,32 +100,72 @@ if [[ -z $subject ]] || [[ -z $index_path ]]; then
     usage
 fi 
 
+#Merge VCFs if there are 2
+
+cp $merged_vcf somatic_germline.vcf.gz
+tabix -f somatic_germline.vcf.gz
+
+#Identify functional splice sites
+
+if [[ -f ${rnaseq_bam} ]]
+then
+    samtools index -@ 4 ${rnaseq_bam}
+    /project/shared/bicf_workflow_ref/seqprg/bin/regtools cis-splice-effects identify somatic_germline.vcf.gz ${rnaseq_bam} ${index_path}/genome.fa ${index_path}/gencode.gtf -o ${subject}.splicevariants.txt -v ${subject}.splicevariants.vcf -s 0 -e 5 -i 5
+fi
+#Filter VCF File
+icommand="perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -r $index_path"
+if [[ -n $normal_id ]]
+then 
+    icommand+=" -n $normal_id"
+fi
+if [[ -f $rnaseq_vcf ]]
+then
+    icommand+=" -v $rnaseq_vcf -c $rnaseq_ntct -g ${subject}.splicevariants.vcf"
+fi
+$icommand
+
+vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.set1.vcf.gz
+bgzip -f ${subject}.pass.vcf
+tabix -f ${subject}.pass.vcf.gz
+
+if [[ -f "${subject}.pindel_tandemdup.vcf.gz" ]]
+then
+    itdpindel_vcf="${subject}.pindel_tandemdup.vcf.gz"
+    gfopt="${gfopt} -i ${subject}.pindel.genefusion.txt"
+    vcf-shuffle-cols -t ${subject}.set1.vcf.gz ${subject}.pindel.vcf.gz | bgzip > pindel.vcf.gz
+    svcalls="${svcalls} pindel.vcf.gz"
+elif [[ -f "dna_${dna_runid}/${subject}.pindel_tandemdup.vcf.gz" ]]
+then
+    itdpindel_vcf="dna_${dna_runid}/${subject}.pindel_tandemdup.vcf.gz"
+    gfopt="${gfopt} -i dna_${dna_runid}/${subject}.pindel.genefusion.txt"
+    vcf-shuffle-cols -t ${subject}.set1.vcf.gz dna_${dna_runid}/${subject}.pindel.vcf.gz | bgzip > pindel.vcf.gz
+    svcalls="${svcalls} pindel.vcf.gz"
+fi
+if [[ -f "${tumor_id}/${tumor_id}.itdseek_tandemdup.vcf.gz" ]]
+then
+    itdseeker_vcf="${tumor_id}/${tumor_id}.itdseek_tandemdup.vcf.gz"
+fi
+if [[ -f "dna_${dna_runid}/${subject}.delly.vcf.gz" ]]
+then
+    gfopt="${gfopt} -d dna_${dna_runid}/${subject}.delly.genefusion.txt"
+    vcf-shuffle-cols -t ${subject}.set1.vcf.gz dna_${dna_runid}/${subject}.delly.vcf.gz | bgzip > delly.vcf.gz
+    svcalls="${svcalls} delly.vcf.gz"
+fi
+if [[ -f "dna_${dna_runid}/${subject}.svaba.vcf.gz" ]]
+then
+    gfopt="${gfopt} -s dna_${dna_runid}/${subject}.svaba.genefusion.txt"
+    vcf-shuffle-cols -t ${subject}.set1.vcf.gz dna_${dna_runid}/${subject}.svaba.vcf.gz | bgzip > svaba.vcf.gz
+    svcalls="${svcalls} svaba.vcf.gz"
+fi
+
+vcf-concat  ${subject}.set1.vcf.gz $svcalls |vcf-sort |bgzip > ${subject}.vcf.gz
+tabix -f ${subject}.vcf.gz
+
 #merge gene fusion files
 perl $baseDir/merge_genefusions.pl -p ${subject} -t ${tumor_id} -r ${rna_ref_path} $gfopt
 
 
-#Merge VCFs if there are 2
-if [[ -f $somatic_vcf && -f $tumor_vcf ]]
-then
-    tabix -f $somatic_vcf
-    tabix -f $tumor_vcf
-    bcftools annotate -Ov -a $tumor_vcf -o somatic.only.vcf --columns CHROM,POS,CallSet $somatic_vcf
-    vcf-shuffle-cols -t somatic.only.vcf $tumor_vcf |bgzip > tumor.vcf.gz
-    bgzip -f somatic.only.vcf
-    vcf-concat somatic.only.vcf.gz tumor.vcf.gz |vcf-sort |uniq | bgzip > somatic_germline.vcf.gz
-elif [[ -f $merged_vcf ]]
-then
-    cp $merged_vcf somatic_germline.vcf.gz
-elif [[ -f $tumor_vcf ]]
-then   
-    cp $tumor_vcf somatic_germline.vcf.gz
-else
-    cp $somatic_vcf somatic_germline.vcf.gz
-fi
-tabix -f somatic_germline.vcf.gz
-
 #Merge ITD with CNV File
-
 if [[ -f $itdpindel_vcf ]] && [[ -f $itdseeker_vcf ]]
 then
     tabix -f $itdpindel_vcf
@@ -185,49 +186,23 @@ then
     cat ${tumor_id}.dupcnv.txt >> $cnv_answer
 fi
 
-#Identify functional splice sites
-
-if [[ -f ${rnaseq_bam} ]]
-then
-    samtools index -@ 4 ${rnaseq_bam}
-    /project/shared/bicf_workflow_ref/seqprg/bin/regtools cis-splice-effects identify somatic_germline.vcf.gz ${rnaseq_bam} ${index_path}/genome.fa ${index_path}/gencode.gtf -o ${subject}.splicevariants.txt -v ${subject}.splicevariants.vcf -s 0 -e 5 -i 5
-fi
-
-#Filter VCF File
-icommand="perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -r $index_path"
-if [[ -n $normal_id ]]
-then 
-    icommand+=" -n $normal_id"
-fi
-if [[ -f $rnaseq_vcf ]]
-then
-    icommand+=" -v $rnaseq_vcf -c $rnaseq_ntct -g ${subject}.splicevariants.vcf"
-fi
-$icommand
-vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.set1.vcf.gz
-vcf-concat  ${subject}.set1.vcf.gz $svcalls |vcf-sort |bgzip > ${subject}.vcf.gz
-bgzip -f ${subject}.pass.vcf
-tabix -f ${subject}.vcf.gz
-tabix -f ${subject}.pass.vcf.gz
-
 #Makes TumorMutationBurenFile
-perl ${vepdir}/vcf2maf.pl --input ${subject}.all.vcf --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
 
 bedtools intersect -header -a ${subject}.pass.vcf.gz -b $targetbed |uniq |bgzip > ${subject}.utswpass.vcf.gz
-
-#Calculate TMB
 targetsize=`awk '{sum+=$3-$2} END {print sum/1000000}' $targetbed`
 
 if [[ -n $normal_id ]] && [[ $normal_id != 'NA' ]]
 then
 zgrep "#\|SS=2" ${subject}.utswpass.vcf.gz > ${subject}.utswpass.somatic.vcf
-
-perl ${vepdir}/vcf2maf.pl --input ${subject}.utswpass.somatic.vcf --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
 grep -c -v "#" ${subject}.utswpass.somatic.vcf | awk -v tsize="$targetsize" '{print "Class,TMB\n,"sprintf("%.2f",$1/tsize)}' > ${subject}.TMB.csv
 perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
+perl ${vepdir}/vcf2maf.pl --input ${subject}.utswpass.somatic.vcf --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
 else
     echo -e "Class,TMB\n,0.00" > ${subject}.TMB.csv
 fi
+
+#RUN VCF2MAF
+perl ${vepdir}/vcf2maf.pl --input ${subject}.all.vcf --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
 
 if [[ -n $archive ]]
 then
