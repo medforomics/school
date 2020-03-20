@@ -116,13 +116,12 @@ gtxbam
 process pindel {
   errorStrategy 'ignore'
   queue '128GB,256GB,256GBv1'
-  publishDir "$params.output/$subjid", mode: 'copy'
+  publishDir "$params.output/$subjid/${params.nuctype}_${params.projectid}", mode: 'copy'
   input:
   set subjid,file(ssbam),file(ssidx) from pindelbam
   output:
   file("${subjid}.pindel_tandemdup.vcf.gz") into tdvcf
   set subjid,file("${subjid}.pindel.vcf.gz") into pindelvcf
-  file("${subjid}.pindel.sv.vcf.gz") into pindelsv
   file("${subjid}.pindel.genefusion.txt") into pindelgf
   when:
   params.nuctype == "dna"

@@ -64,9 +64,6 @@ foreach my $method (@files) {
       $chrtype = 'INTERCHROMOSOMAL';
       $chrdistance = join("--",$chr1,$chr2);
     }
-    if ($gene =~ m/ASMTL/) {
-	warn "debugging\n";
-    }
     foreach my $i (0..$#sids) {
       $sids[$i] = (split(/\./,$sids[$i]))[0];
       if ($sids[$i] eq $opt{tid}) {
@@ -101,7 +98,7 @@ my @outcol= ("FusionName","LeftGene","LeftBreakpoint",
 print OUT join("\t",@outcol),"\n";
 
 my %reported;
-if (-e $opt{rnafile}) {
+if ($opt{rnafile} && -e $opt{rnafile}) {
   open RNA, "<$opt{rnafile}" or die $!;
   my $header = <RNA>;
   chomp($header);
