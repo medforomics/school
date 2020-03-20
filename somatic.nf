@@ -113,7 +113,7 @@ process indextarbams {
 }
 process checkmates {
   executor 'local'
-  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
   errorStrategy 'ignore'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from checkbams
@@ -131,7 +131,7 @@ process checkmates {
 process delly {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
 
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from dellybam
@@ -146,7 +146,7 @@ process delly {
 process svaba {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
 
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from svababam
@@ -162,13 +162,12 @@ process svaba {
 process pindel {
   queue '128GB,256GB,256GBv1'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid", mode: 'copy'
+  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from pindelbam
   output:
   file("${pid}.pindel_tandemdup.vcf.gz") into tdvcf
   set pid,file("${pid}.pindel.vcf.gz") into pindelvcf
-  file("${pid}.pindel.sv.vcf.gz") into pindelsv
   file("${pid}.pindel.genefusion.txt") into pindelgf
   script:
   """
@@ -180,7 +179,7 @@ process pindel {
 process fb {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
 
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from fbbam
@@ -196,7 +195,7 @@ process fb {
 process platypus {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
 
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from platbam
@@ -213,7 +212,7 @@ process platypus {
 process mutect {
   queue '128GB,256GB,256GBv1'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from mutectbam
   output:
@@ -228,7 +227,7 @@ process mutect {
 process strelka {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from strelkabam
   output:
@@ -243,7 +242,7 @@ process strelka {
 process shimmer {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/somatic_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from shimmerbam
   output:
