@@ -3,12 +3,12 @@
 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
-my $results = GetOptions (\%opt,'subject|s=s','rnaseqid|r=s','vcf|v=s','help|h');
+my $results = GetOptions (\%opt,'outfile|o=s','rnaseqid|r=s','vcf|v=s','help|h');
 
-open OUT, ">$opt{subject}\.itd.vcf" or die $!;
+open OUT, ">$opt{outfile}" or die $!;
 
 my @sampids;
-open IN, "<$opt{vcf}" or die $!;
+open IN, "gunzip -c $opt{vcf} |" or die $!;
 W1:while (my $line = <IN>) {
   chomp($line);
   if ($line =~ m/^#CHROM/) {
