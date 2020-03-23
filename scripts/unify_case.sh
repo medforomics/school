@@ -132,12 +132,24 @@ if [[ -f "${subject}.pindel_tandemdup.vcf.gz" ]]
 then
     itdpindel_vcf="${subject}.pindel_tandemdup.vcf.gz"
     gfopt="${gfopt} -i ${subject}.pindel.genefusion.txt"
+    if [[ -n $rnaseq_id ]]
+    then
+	cp ${subject}.pindel.vcf.gz ${subject}.pindel.ori.vcf.gz
+	perl ${baseDir}/add_blank_sample_vcf.pl -r $rnaseq_id -v ${subject}.pindel.ori.vcf.gz -o ${subject}.pindel.vcf
+	bgzip -f ${subject}.pindel.vcf
+    fi
     vcf-shuffle-cols -t ${subject}.set1.vcf.gz ${subject}.pindel.vcf.gz | bgzip > pindel.vcf.gz
     svcalls="${svcalls} pindel.vcf.gz"
 elif [[ -f "dna_${dna_runid}/${subject}.pindel_tandemdup.vcf.gz" ]]
 then
     itdpindel_vcf="dna_${dna_runid}/${subject}.pindel_tandemdup.vcf.gz"
     gfopt="${gfopt} -i dna_${dna_runid}/${subject}.pindel.genefusion.txt"
+    if [[ -n $rnaseq_id ]]
+    then
+	cp dna_${dna_runid}/${subject}.pindel.vcf.gz dna_${dna_runid}/${subject}.pindel.ori.vcf.gz
+	perl ${baseDir}/add_blank_sample_vcf.pl -r $rnaseq_id -v dna_${dna_runid}/${subject}.pindel.ori.vcf.gz -o dna_${dna_runid}/${subject}.pindel.vcf
+	bgzip -f dna_${dna_runid}/${subject}.pindel.vcf
+    fi
     vcf-shuffle-cols -t ${subject}.set1.vcf.gz dna_${dna_runid}/${subject}.pindel.vcf.gz | bgzip > pindel.vcf.gz
     svcalls="${svcalls} pindel.vcf.gz"
 fi
@@ -148,12 +160,24 @@ fi
 if [[ -f "dna_${dna_runid}/${subject}.delly.vcf.gz" ]]
 then
     gfopt="${gfopt} -d dna_${dna_runid}/${subject}.delly.genefusion.txt"
+    if [[ -n $rnaseq_id ]]
+    then
+	cp dna_${dna_runid}/${subject}.delly.vcf.gz dna_${dna_runid}/${subject}.delly.ori.vcf.gz
+	perl ${baseDir}/add_blank_sample_vcf.pl -r $rnaseq_id -v dna_${dna_runid}/${subject}.delly.ori.vcf.gz -o dna_${dna_runid}/${subject}.delly.vcf
+	bgzip -f dna_${dna_runid}/${subject}.delly.vcf
+    fi
     vcf-shuffle-cols -t ${subject}.set1.vcf.gz dna_${dna_runid}/${subject}.delly.vcf.gz | bgzip > delly.vcf.gz
     svcalls="${svcalls} delly.vcf.gz"
 fi
 if [[ -f "dna_${dna_runid}/${subject}.svaba.vcf.gz" ]]
 then
     gfopt="${gfopt} -s dna_${dna_runid}/${subject}.svaba.genefusion.txt"
+    if [[ -n $rnaseq_id ]]
+    then
+	cp dna_${dna_runid}/${subject}.svaba.vcf.gz dna_${dna_runid}/${subject}.svaba.ori.vcf.gz
+	perl ${baseDir}/add_blank_sample_vcf.pl -r $rnaseq_id -v dna_${dna_runid}/${subject}.svaba.ori.vcf.gz -o dna_${dna_runid}/${subject}.svaba.vcf
+	bgzip -f dna_${dna_runid}/${subject}.svaba.vcf
+    fi
     vcf-shuffle-cols -t ${subject}.set1.vcf.gz dna_${dna_runid}/${subject}.svaba.vcf.gz | bgzip > svaba.vcf.gz
     svcalls="${svcalls} svaba.vcf.gz"
 fi

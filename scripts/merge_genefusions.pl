@@ -33,6 +33,9 @@ foreach my $method (@files) {
   while (my $line = <ALG>) {
     chomp($line);
     my ($chr1,$p1,$chr2,$p2,$effect,$gene,$gtype,$filter,$format,@gts) = split(/\t/,$line);
+    if ($filter =~ m/LOWMAPQ|LowQual/i) {
+      $filter = 'FailedQC;'.$filter;
+    }
     my @deschead = split(/:/,$format);
     unless ($gene =~ m/\w+/) {
 	$gene = $gtype;
@@ -64,27 +67,36 @@ foreach my $method (@files) {
       $chrtype = 'INTERCHROMOSOMAL';
       $chrdistance = join("--",$chr1,$chr2);
     }
+    my %hash;
+    next unless ($keep{$lgene} || $keep{$rgene} || $gtype =~ m/IG/);
     foreach my $i (0..$#sids) {
       $sids[$i] = (split(/\./,$sids[$i]))[0];
+      my @gtinfo = split(/:/,$gts[$i]);
+      my %gtdata;
+      foreach my $i (0..$#deschead) {
+	$gtdata{$deschead[$i]} = $gtinfo[$i];
+      }
       if ($sids[$i] eq $opt{tid}) {
-	my @gtinfo = split(/:/,$gts[$i]);
-	my %gtdata;
-	foreach my $i (0..$#deschead) {
-	  $gtdata{$deschead[$i]} = $gtinfo[$i];
-	}
-	next unless ($keep{$lgene} || $keep{$rgene} || $gtype =~ m/IG/);
-	next if ($dnagf{$lgene}{$rgene} && $gtdata{AO} ne '.' && $dnagf{$lgene}{$rgene}{DNAReads} > $gtdata{AO});
 	next unless $gtdata{AO} =~ m/\d+/;
-	if ($filter =~ m/LOWMAPQ|LowQual/i) {
-	    $filter = 'FailedQC;'.$filter;
-	}
-	$dnagf{$lgene}{$rgene} = {FusionName=>$gene,LeftGene=>$lgene,
-				  LeftBreakpoint=>$lbkpnt,RightGene=>$rgene,
-				  RightBreakpoint=>$rbkpnt,DNAReads=>$gtdata{AO},
-				  Filter=>$filter,ChrType=>$chrtype,
-				  ChrDistance=>$chrdistance};
+	$hash{tumor} = {FusionName=>$gene,LeftGene=>$lgene,
+			LeftBreakpoint=>$lbkpnt,RightGene=>$rgene,
+			RightBreakpoint=>$rbkpnt,DNAReads=>$gtdata{AO},
+			Filter=>$filter,ChrType=>$chrtype,
+			ChrDistance=>$chrdistance};
+      }else {
+	$hash{normal} = $gtdata{AO};
       }
     }
+    next unless $hash{tumor};
+    next if ($dnagf{$lgene}{$rgene} && $hash{tumor}{DNAReads} ne '.' && $dnagf{$lgene}{$rgene}{DNAReads} > $hash{tumor}{DNAReads});
+    $dnagf{$lgene}{$rgene} = $hash{tumor};
+    my %filter = map {$_=>1} split(";",$hash{tumor}{Filter});
+    $ftype = 'Somatic';
+    if ($hash{normal} > 10) {
+      $ftype = 'Germline;NormalDNAReads:'.$hash{normal};
+    }
+    my @filter = sort {$a cmp $b} keys %filter;
+    $dnagf{$lgene}{$rgene}{Filter} = join(";",@filter,$ftype);
   }
   close ALG;
 }
