@@ -91,12 +91,12 @@ foreach my $method (@files) {
     next if ($dnagf{$lgene}{$rgene} && $hash{tumor}{DNAReads} ne '.' && $dnagf{$lgene}{$rgene}{DNAReads} > $hash{tumor}{DNAReads});
     $dnagf{$lgene}{$rgene} = $hash{tumor};
     my %filter = map {$_=>1} split(";",$hash{tumor}{Filter});
-    $ftype = 'Somatic';
-    if ($hash{normal} > 10) {
-      $ftype = 'Germline;NormalDNAReads:'.$hash{normal};
+    $ss = 'Somatic';
+    if ($hash{normal} && $hash{normal} ne '.' && $hash{normal} > 10) {
+	$ss = 'Germline';
     }
-    my @filter = sort {$a cmp $b} keys %filter;
-    $dnagf{$lgene}{$rgene}{Filter} = join(";",@filter,$ftype);
+    $dnagf{$lgene}{$rgene}{NormalDNAReads} = $hash{normal};
+    $dnagf{$lgene}{$rgene}{SomaticStatus} = $ss;
   }
   close ALG;
 }
@@ -105,8 +105,9 @@ open OUT, ">$opt{pid}.translocations.answer.txt" or die $!;
 my @outcol= ("FusionName","LeftGene","LeftBreakpoint",
 	     "LeftGeneExons","LeftStrand","RightGene",
 	     "RightBreakpoint","RightGeneExons","RightStrand",
-	     "RNAReads","DNAReads","FusionType","Annot",
-	     'Filter','ChrType','ChrDistance');
+	     "RNAReads","DNAReads","NormalDNAReads","SomaticStatus",
+	     "FusionType","Annot",'Filter','ChrType','ChrDistance');
+
 print OUT join("\t",@outcol),"\n";
 
 my %reported;
@@ -114,45 +115,47 @@ if ($opt{rnafile} && -e $opt{rnafile}) {
   open RNA, "<$opt{rnafile}" or die $!;
   my $header = <RNA>;
   chomp($header);
+  $header =~ s/LefttBreakpoint/LeftBreakpoint/;
   my @colnames = split(/\t/,$header);
   while (my $line = <RNA>) {
     chomp($line);
     my @row = split(/\t/,$line);
     my %hash;
     foreach my $i (0..$#colnames) {
-	$hash{$colnames[$i]} = $row[$i];
+      $hash{$colnames[$i]} = $row[$i];
     }
     if ($dnagf{$hash{LeftGene}}{$hash{RightGene}}) { 
-	$hash{DNAReads} = $dnagf{$hash{LeftGene}}{$hash{RightGene}}{DNAReads};
-	$reported{$hash{LeftGene}}{$hash{RightGene}} = 1;
-	$reported{$hash{RightGene}}{$hash{LeftGene}} = 1;
+      $hash{DNAReads} = $dnagf{$hash{LeftGene}}{$hash{RightGene}}{DNAReads};
+      $reported{$hash{LeftGene}}{$hash{RightGene}} = 1;
+      $reported{$hash{RightGene}}{$hash{LeftGene}} = 1;
     } elsif ($dnagf{$hash{RightGene}}{$hash{LeftGene}}) {
-	$hash{DNAReads} = $dnagf{$hash{RightGene}}{$hash{LeftGene}}{DNAReads};
-	$reported{$hash{LeftGene}}{$hash{RightGene}} = 1;
-	$reported{$hash{RightGene}}{$hash{LeftGene}} = 1;
+      $hash{DNAReads} = $dnagf{$hash{RightGene}}{$hash{LeftGene}}{DNAReads};
+      $reported{$hash{LeftGene}}{$hash{RightGene}} = 1;
+      $reported{$hash{RightGene}}{$hash{LeftGene}} = 1;
     }
     my @line;
-    foreach (@colnames) {
-	push @line, $hash{$_};
+    foreach (@outcol) {
+	$hash{$_} = '' unless $hash{$_};
+      push @line, $hash{$_};
     }
     print OUT  join("\t",@line),"\n";
   }
 }
 foreach my $lgene (sort {$a cmp $b} keys %dnagf) {
-    foreach my $rgene (sort {$a cmp $b} keys %{$dnagf{$lgene}}) {
-	my $fname = $dnagf{$lgene}{$rgene}{FusionName};
-	next if ($reported{$lgene}{$rgene});
-	next unless ($known{$fname} ||  $dnagf{$lgene}{$rgene}{DNAReads} > 20);
-	my ($lchr,$lpos) = split(/:/,$dnagf{$lgene}{$rgene}{LeftBreakpoint});
-	my ($rchr,$rpos) = split(/:/,$dnagf{$lgene}{$rgene}{RightBreakpoint});
-	next if ($lchr eq $rchr && abs($lpos-$rpos) < 9999);
-	my @line;
-	foreach (@outcol) {
-	    $dnagf{$lgene}{$rgene}{$_} = '' unless $dnagf{$lgene}{$rgene}{$_};
-	    push @line, $dnagf{$lgene}{$rgene}{$_};
-	}
-	print OUT join("\t",@line),"\n"
+  foreach my $rgene (sort {$a cmp $b} keys %{$dnagf{$lgene}}) {
+    my $fname = $dnagf{$lgene}{$rgene}{FusionName};
+    next if ($reported{$lgene}{$rgene});
+    next unless ($known{$fname} ||  $dnagf{$lgene}{$rgene}{DNAReads} > 20);
+    my ($lchr,$lpos) = split(/:/,$dnagf{$lgene}{$rgene}{LeftBreakpoint});
+    my ($rchr,$rpos) = split(/:/,$dnagf{$lgene}{$rgene}{RightBreakpoint});
+    next if ($lchr eq $rchr && abs($lpos-$rpos) < 9999);
+    my @line;
+    foreach (@outcol) {
+      $dnagf{$lgene}{$rgene}{$_} = '' unless $dnagf{$lgene}{$rgene}{$_};
+      push @line, $dnagf{$lgene}{$rgene}{$_};
     }
+    print OUT join("\t",@line),"\n"
+  }
 }
 
 close OUT;
