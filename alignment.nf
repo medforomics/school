@@ -7,6 +7,7 @@ params.fastqs="$params.input/*.fastq.gz"
 params.design="$params.input/design.txt"
 
 params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
+params.virus_genome="/project/shared/bicf_workflow_ref/human_virus_genome/clinlab_idt_genomes"
 
 params.pairs="pe"
 params.markdups='fgbio_umi'
@@ -24,6 +25,7 @@ knownindel=file(indel)
 index_path=file(params.genome)
 capture_bed = file("$params.capture")
 capturedir = file("$params.capturedir")
+virus_index_path=file(params.virus_genome)
 
 skipCNV = false
 if(capturedir.isEmpty()) {
@@ -95,6 +97,7 @@ process dalign {
   output:
   set subjid,pair_id, file("${pair_id}.bam") into aligned
   set subjid,pair_id, file("${pair_id}.bam") into aligned2
+  set subjid,pair_id, file("${pair_id}.bam") into virusalign
   set subjid,pair_id, file("${pair_id}.bam"), file("${pair_id}.bam.bai") into cnvbam
   set subjid,pair_id, file("${pair_id}.bam"), file("${pair_id}.bam.bai") into itdbam
   file("${pair_id}.bam.bai") into baindex
@@ -102,6 +105,22 @@ process dalign {
   bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -a $params.aligner -p $pair_id -x $fq1 -y $fq2 $alignopts
   """
  }
+
+process valign {
+  errorStrategy 'ignore'
+  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
+
+  input:
+  set subjid,pair_id, file(sbam) from virusalign
+  output:
+  set subjid, pair_id, file("${pair_id}.viral.bam") into viralbam
+  file("${pair_id}.viral.idxstats.txt") into viralstats
+  file("${pair_id}.viral.flagstat.txt") into viralflagstat
+
+  """
+  bash $baseDir/process_scripts/alignment/viralalign.sh -b ${pair_id}.bam -p ${pair_id} -r $virus_index_path
+  """
+}
 
 process markdups_consensus {
   errorStrategy 'ignore'
