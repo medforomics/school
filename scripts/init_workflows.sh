@@ -134,7 +134,7 @@ for i in */design.txt; do
 	cp ${baseDir}/scripts/rnaworkflow.sh ${procbase}
 	bash ${procbase}/rnaworkflow.sh -r $rna_ref_path -e $baseDir -a $procbase -p $prjid -l $genelist &> log.txt &
     else
-	$pon_opt = ''
+	pon_opt=''
 	if [[ -f "${panelsdir}/${panelbed[${dtype}]}/mutect2.pon.vcf.gz" ]]
 	then
 	    pon_opt="-m ${panelsdir}/${panelbed[${dtype}]}/mutect2.pon.vcf.gz"
