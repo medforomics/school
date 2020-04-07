@@ -139,6 +139,11 @@ process markdups_consensus {
   bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id -r $index_path
   mv ${pair_id}.dedup.bam ${pair_id}.consensus.bam
   mv ${pair_id}.dedup.bam.bai ${pair_id}.consensus.bam.bai
+  if [[ ! -f ${pair_id}.group.bam ]] 
+  then
+    cp ${pair_id}.consensus.bam ${pair_id}.group.bam
+    cp ${pair_id}.consensus.bam.bai ${pair_id}.group.bam.bai
+  fi
   """
 }
 

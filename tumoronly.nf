@@ -103,7 +103,7 @@ process indextarbams {
 
 idxbam
    .groupTuple(by:0)		
-   .into { dellybam; svababam;}
+   .into { dellybam; svababam; msibam;}
 
 cidxbam
    .groupTuple(by:0)		
@@ -112,6 +112,20 @@ cidxbam
 gtxbam
    .groupTuple(by:0)		
    .set { gatkbam }
+
+process msi {
+  executor 'local'
+  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
+  errorStrategy 'ignore'
+  input:
+  set subjid,file(ssbam),file(ssidx) from msibam
+  output:
+  file("${subjid}*") into msiout
+  script:
+  """
+  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $pid -b $ssbam
+  """
+}
 
 process pindel {
   errorStrategy 'ignore'
