@@ -126,6 +126,7 @@ process checkmates {
   module load python/2.7.x-anaconda git/v2.5.3
   python /project/shared/bicf_workflow_ref/seqprg/NGSCheckMate/ncm.py -B -d ./ -bed ${index_path}/NGSCheckMate.bed -O ./ -N ${pid}
   perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${pid}_all.txt -o ${pid}_${params.projectid}.sequence.stats.txt
+  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $pid -b $tumor -n $normal
   """
 }
 process delly {
