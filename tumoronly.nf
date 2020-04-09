@@ -121,6 +121,8 @@ process msi {
   set subjid,file(ssbam),file(ssidx) from msibam
   output:
   file("${subjid}*") into msiout
+  when:
+  params.nuctype == "dna"
   script:
   """
   bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $subjid -b $ssbam
@@ -244,21 +246,13 @@ process platypus {
   output:
   set subjid,file("${subjid}.platypus.vcf.gz") into platvcf
   set subjid,file("${subjid}.platypus.ori.vcf.gz") into platori
-  when:					       
+  when:
+  params.nuctype == "dna"
   script:				       
-  if (params.nuctype == "dna")
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a platypus
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.platypus -v ${subjid}.platypus.vcf.gz
   """
-  else
-  """
-  source /etc/profile.d/modules.sh
-  module load samtools/1.6
-  cp ${index_path}/union.header.vcf ${subjid}.platypus.vcf
-  bgzip ${subjid}.platypus.vcf
-  cp ${subjid}.platypus.vcf.gz ${subjid}.platypus.ori.vcf.gz
-  """  
 }
 
 Channel
