@@ -115,7 +115,7 @@ gtxbam
 
 process msi {
   executor 'local'
-  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$subjid/dna_$params.projectid", mode: 'copy'
   errorStrategy 'ignore'
   input:
   set subjid,file(ssbam),file(ssidx) from msibam
@@ -123,7 +123,7 @@ process msi {
   file("${subjid}*") into msiout
   script:
   """
-  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $pid -b $ssbam
+  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $subjid -b $ssbam
   """
 }
 
