@@ -8,11 +8,12 @@ params.bams="$params.input/*.bam"
 params.design="$params.input/design.txt"
 params.callsvs="skip"
 params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
+params.capture="/project/shared/bicf_workflow_ref/human/grch38_cloud/panels/UTSW_V4_pancancer/targetpanel.bed"
 params.projectid=''
 
 design_file = file(params.design)
 bams=file(params.bams)
-
+capturebed=file(params.capture)
 index_path = file(params.genome)
 ncmconf = file("$params.genome/ncm.conf")
 
@@ -126,7 +127,7 @@ process checkmates {
   module load python/2.7.x-anaconda git/v2.5.3
   python /project/shared/bicf_workflow_ref/seqprg/NGSCheckMate/ncm.py -B -d ./ -bed ${index_path}/NGSCheckMate.bed -O ./ -N ${pid}
   perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${pid}_all.txt -o ${pid}_${params.projectid}.sequence.stats.txt
-  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $pid -b $tumor -n $normal
+  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $pid -b $tumor -n $normal -c $capturebed
   """
 }
 process delly {
