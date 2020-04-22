@@ -113,12 +113,9 @@ process valign {
   input:
   set subjid,pair_id, file(sbam) from virusalign
   output:
-  set subjid, pair_id, file("${pair_id}.viral.bam") into viralbam
-  file("${pair_id}.viral.idxstats.txt") into viralstats
-  file("${pair_id}.viral.flagstat.txt") into viralflagstat
-
+  file("${pair_id}.viral.seqstats.txt") into viralseqstats
   """
-  bash $baseDir/process_scripts/alignment/viralalign.sh -b ${pair_id}.bam -p ${pair_id} -r $virus_index_path
+  bash $baseDir/process_scripts/alignment/virusalign.sh -b ${pair_id}.bam -p ${pair_id} -r $virus_index_path -f
   """
 }
 

@@ -3,11 +3,13 @@
 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
-my $results = GetOptions (\%opt,'outfile|o=s','rnaseqid|r=s','vcf|v=s','help|h');
+my $results = GetOptions (\%opt,'outfile|o=s','rnaid|r=s',
+			  'normal|n=s','vcf|v=s','help|h');
 
 open OUT, ">$opt{outfile}" or die $!;
 
 my @sampids;
+my @addedgt;
 open IN, "gunzip -c $opt{vcf} |" or die $!;
 W1:while (my $line = <IN>) {
   chomp($line);
@@ -15,10 +17,17 @@ W1:while (my $line = <IN>) {
     my @header = split(/\t/,$line);
     ($chrom, $pos,$id,$ref,$alt,$score,
      $filter,$info,$format,@gtheader) = split(/\t/, $line);
-    @sampids = @gtheader;
-    push @sampids, $opt{rnaseqid};
+    %sampids = map {$_=>1} @gtheader;
+    unless ($sampids{$opt{normal}}) {
+      push @gtheader, $opt{normal};
+      push @addedgt, join(":",'.','.','.','.','.');
+    }
+    unless ($sampids{$opt{rnaid}}) {
+      push @gtheader, $opt{rnaid};
+      push @addedgt, join(":",'.','.','.','.','.');
+    }
     print OUT join("\t",$chrom,$pos,$id,$ref,$alt,$score,
-		   $filter,$info,$format,@sampids),"\n";
+		   $filter,$info,$format,@gtheader),"\n";
     next;
   } elsif ($line =~ m/^#/) {
     print OUT $line,"\n";
@@ -26,9 +35,8 @@ W1:while (my $line = <IN>) {
   }
   my ($chrom, $pos,$id,$ref,$alt,$score,
       $filter,$annot,$format,@gts) = split(/\t/, $line);
-
   next if ($ref =~ m/\./ || $alt =~ m/\./ || $alt=~ m/,X/);
-  push @gts, join(":",'.','.','.','.','.');
+  push @gts, @addedgt;
   print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$annot,
 		 $format,@gts),"\n";
 }

@@ -6,9 +6,11 @@ params.output = './analysis'
 params.bams="$params.input/*.bam"
 params.design="$params.input/design_tumor_only.txt"
 params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
+params.capture="/project/shared/bicf_workflow_ref/human/grch38_cloud/panels/UTSW_V4_pancancer/targetpanel.bed"
 
 index_path = file(params.genome)
 design_file = file(params.design)
+capturebed=file(params.capture)
 bams=file(params.bams)
 
 params.cancer="detect"
@@ -125,7 +127,7 @@ process msi {
   params.nuctype == "dna"
   script:
   """
-  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $subjid -b $ssbam
+  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $subjid -b $ssbam -c $capturebed
   """
 }
 
