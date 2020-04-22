@@ -335,29 +335,36 @@ W1:while (my $line = <IN>) {
     }
     push @newgt, join(":",@gtdata);
   }
-  next unless ($hash{ANN});
+  #next unless ($hash{ANN});
   my $cancergene = 0;
   my $keepforvcf;
   my @newsnpeff;
   my $regkey = join(":",$chrom, $pos,$ref,$alt);
-  foreach $trx (split(/,/,$hash{ANN})) {
-    my ($allele,$effect,$impact,$gene,$geneid,$feature,
-	$featureid,$biotype,$rank,$codon,$aa,$cdna_pos,$len_cdna,
-	$aapos,$distance,$err) = split(/\|/,$trx);
-    if ($regtools{$regkey}{$featureid}) {
-	$impact = 'HIGH';
-	$effect .= '&'.$regtools{$regkey}{$featureid};
-    }
-    push @newsnpeff, join("|",$allele,$effect,$impact,$gene,$geneid,
-			  $feature,$featureid,$biotype,$rank,$codon,
-			  $aa,$cdna_pos,$len_cdna,$aapos,$distance,$err);
-    
-    next unless ($impact =~ m/HIGH|MODERATE/ || $effect =~ /splice/i);
-    next if($effect eq 'sequence_feature');
-    $keepforvcf = $gene;
-    $cancergene = 1 if ($cgenelist{$gene});
+  if ($hash{ANN}) {
+      foreach $trx (split(/,/,$hash{ANN})) {
+	  my ($allele,$effect,$impact,$gene,$geneid,$feature,
+	      $featureid,$biotype,$rank,$codon,$aa,$cdna_pos,$len_cdna,
+	      $aapos,$distance,$err) = split(/\|/,$trx);
+	  if ($regtools{$regkey}{$featureid}) {
+	      $impact = 'HIGH';
+	      $effect .= '&'.$regtools{$regkey}{$featureid};
+	  }
+	  push @newsnpeff, join("|",$allele,$effect,$impact,$gene,$geneid,
+				$feature,$featureid,$biotype,$rank,$codon,
+				$aa,$cdna_pos,$len_cdna,$aapos,$distance,$err);
+	  
+	  next unless ($impact =~ m/HIGH|MODERATE/ || $effect =~ /splice/i);
+	  next if($effect eq 'sequence_feature');
+	  $keepforvcf = $gene;
+	  $cancergene = 1 if ($cgenelist{$gene});
+      }
   }
-  next unless ($keepforvcf || ($chrom eq 'chr5' && ($pos >=1295047 || $pos <= 1295200)));
+  if ($chrom eq 'chr5' && ($pos >=1295047 || $pos <= 1295200)) {
+      $keepforvcf = 'TERT';
+      push @newsnpeff, join("|",$alt,'intergenic','MODIFIER','TERT','',
+			    '','','promoter','','','','','','','','');
+  }
+  next unless ($keepforvcf);
   $hash{ANN} = join(",",@newsnpeff);
   my @fail = sort {$a cmp $b} keys %fail;
   if (scalar(@fail) == 0) {

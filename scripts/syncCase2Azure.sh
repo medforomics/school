@@ -9,7 +9,6 @@ if [[ -z $wrkdir ]]
 then
     wkdir= /archive/PHG/PHG_Clinical
 fi
-
 baseDir="`dirname \"$0\"`"
 
 module load samtools/gcc/1.8 azure/2.0.72 
@@ -27,6 +26,13 @@ fi
 
 jsonout=$(perl ${baseDir}/parse_getsampleJson.pl ${caseID}.json 2>&1)
 myarray=($jsonout)
+subject=${myarray[1]}
+tumor_id=${myarray[3]}
+dna_runid=${myarray[2]}
+rna_runid=${myarray[6]}
+normal_id=${myarray[5]}
+rnaseq_id=${myarray[7]}
+
 if [[ ${myarray[2]} != "NA" ]]
 then
     runid=${myarray[2]}
@@ -36,89 +42,88 @@ then
 fi
 monyear="20${runid:0:4}"
 
-if [[ ! -d $wkdir/casesTemp/${myarray[1]} ]]
+if [[ ! -d ${wkdir}/casesTemp/${subject} ]]
 then
-    mkdir $wkdir/casesTemp/${myarray[1]}
+    mkdir ${wkdir}/casesTemp/${subject}
 fi
-if [[ -d $wkdir/cases/${myarray[1]}/${myarray[3]} ]]
+if [[ -d ${wkdir}/cases/${subject}/${tumor_id} ]]
 then
-    if [[ ! -d $wkdir/casesTemp/${myarray[1]}/${myarray[3]} ]]
+    if [[ ! -d ${wkdir}/casesTemp/${subject}/${tumor_id} ]]
     then
-	mkdir $wkdir/casesTemp/${myarray[1]}/${myarray[3]}
+	mkdir ${wkdir}/casesTemp/${subject}/${tumor_id}
     fi
-    cp $wkdir/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}*answer* $wkdir/casesTemp/${myarray[1]}/${myarray[3]}
-    cp $wkdir/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.ballelefreq.txt $wkdir/casesTemp/${myarray[1]}/${myarray[3]}
-    cp $wkdir/cases/${myarray[1]}/${myarray[1]}.vcf.gz $wkdir/casesTemp/${myarray[1]}
-    if [[ -f $wkdir/cases/${myarray[1]}/${myarray[1]}.translocations.answer.txt ]]
+    cp ${wkdir}/cases/${subject}/${tumor_id}/${tumor_id}*answer* ${wkdir}/casesTemp/${subject}/${tumor_id}
+    cp ${wkdir}/cases/${subject}/${tumor_id}/${tumor_id}.ballelefreq.txt ${wkdir}/casesTemp/${subject}/${tumor_id}
+    cp ${wkdir}/cases/${subject}/${subject}.vcf.gz ${wkdir}/casesTemp/${subject}
+    cp ${wkdir}/cases/${subject}.viral_results.txt ${wkdir}/casesTemp/${subject}
+    cp ${wkdir}/cases/${subject}/${subject}.TMB.csv ${wkdir}/casesTemp/${subject}
+    if [[ -f ${wkdir}/cases/${subject}/${subject}.translocations.answer.txt ]]
     then
-	cp $wkdir/cases/${myarray[1]}/${myarray[1]}.translocations.answer.txt $wkdir/casesTemp/${myarray[1]}
+	cp ${wkdir}/cases/${subject}/${subject}.translocations.answer.txt ${wkdir}/casesTemp/${subject}
     fi
 fi
-if [[ -f $wkdir/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.consensus.bam ]]
+if [[ -f ${wkdir}/cases/${subject}/${tumor_id}/${tumor_id}.consensus.bam ]]
 then
-    cp $wkdir/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.consensus.bam $wkdir/casesTemp/${myarray[1]}/${myarray[3]}/${myarray[3]}.bam
-    samtools index -@ 4 $wkdir/casesTemp/${myarray[1]}/${myarray[3]}/${myarray[3]}.bam
-elif [[ -f $wkdir/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.final.bam ]]
+    cp ${wkdir}/cases/${subject}/${tumor_id}/${tumor_id}.consensus.bam ${wkdir}/casesTemp/${subject}/${tumor_id}/${tumor_id}.bam
+    samtools index -@ 4 ${wkdir}/casesTemp/${subject}/${tumor_id}/${tumor_id}.bam
+elif [[ -f ${wkdir}/cases/${subject}/${tumor_id}/${tumor_id}.final.bam ]]
 then
-    cp $wkdir/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.final.bam $wkdir/casesTemp/${myarray[1]}/${myarray[3]}/${myarray[3]}.bam
-    cp $wkdir/cases/${myarray[1]}/${myarray[3]}/${myarray[3]}.final.bai $wkdir/casesTemp/${myarray[1]}/${myarray[3]}/${myarray[3]}.bam.bai
+    cp ${wkdir}/cases/${subject}/${tumor_id}/${tumor_id}.final.bam ${wkdir}/casesTemp/${subject}/${tumor_id}/${tumor_id}.bam
+    cp ${wkdir}/cases/${subject}/${tumor_id}/${tumor_id}.final.bai ${wkdir}/casesTemp/${subject}/${tumor_id}/${tumor_id}.bam.bai
 fi
-if [[ -d $wkdir/cases/${myarray[1]}/${myarray[5]} ]]
+if [[ -d ${wkdir}/cases/${subject}/${normal_id} ]]
 then
-    cp $wkdir/cases/${myarray[1]}/${myarray[1]}.concordance.txt $wkdir/casesTemp/${myarray[1]}
-    cp $wkdir/cases/${myarray[1]}/${myarray[1]}.utswpass.somatic.vcf* $wkdir/casesTemp/${myarray[1]}
-    cp $wkdir/cases/${myarray[1]}/${myarray[1]}.TMB.csv $wkdir/casesTemp/${myarray[1]}
-    if [[ -f $wkdir/casesTemp/${myarray[1]}/${myarray[1]}.utswpass.somatic.vcf.gz ]]
+    cp ${wkdir}/cases/${subject}/${subject}.concordance.txt ${wkdir}/casesTemp/${subject}
+    cp ${wkdir}/cases/${subject}/${subject}.utswpass.somatic.vcf* ${wkdir}/casesTemp/${subject}
+    if [[ -f ${wkdir}/casesTemp/${subject}/${subject}.utswpass.somatic.vcf.gz ]]
     then
-	gunzip $wkdir/casesTemp/${myarray[1]}/${myarray[1]}.utswpass.somatic.vcf.gz
+	gunzip ${wkdir}/casesTemp/${subject}/${subject}.utswpass.somatic.vcf.gz
     fi
-    if [[ ! -d $wkdir/casesTemp/${myarray[1]}/${myarray[5]} ]]
+    if [[ ! -d ${wkdir}/casesTemp/${subject}/${normal_id} ]]
     then
-	mkdir $wkdir/casesTemp/${myarray[1]}/${myarray[5]}
+	mkdir ${wkdir}/casesTemp/${subject}/${normal_id}
     fi
-    if [[ -f $wkdir/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.consensus.bam ]]
+    if [[ -f ${wkdir}/cases/${subject}/${normal_id}/${normal_id}.consensus.bam ]]
     then
-	cp $wkdir/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.consensus.bam $wkdir/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
-	samtools index -@ 4 $wkdir/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
+	cp ${wkdir}/cases/${subject}/${normal_id}/${normal_id}.consensus.bam ${wkdir}/casesTemp/${subject}/${normal_id}/${normal_id}.bam
+	samtools index -@ 4 ${wkdir}/casesTemp/${subject}/${normal_id}/${normal_id}.bam
     else
-	cp $wkdir/cases/${myarray[1]}/${myarray[5]}/${myarray[5]}.final.bam $wkdir/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
-	samtools index -@ 4 $wkdir/casesTemp/${myarray[1]}/${myarray[5]}/${myarray[5]}.bam
+	cp ${wkdir}/cases/${subject}/${normal_id}/${normal_id}.final.bam ${wkdir}/casesTemp/${subject}/${normal_id}/${normal_id}.bam
+	samtools index -@ 4 ${wkdir}/casesTemp/${subject}/${normal_id}/${normal_id}.bam
     fi	   
 fi
-    
-if [[ -f $wkdir/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.bam ]]
+if [[ -f ${wkdir}/cases/${subject}/${rnaseq_id}/${rnaseq_id}.bam ]]
 then
-    if [[ ! -d $wkdir/casesTemp/${myarray[1]}/${myarray[7]} ]]
+    if [[ ! -d ${wkdir}/casesTemp/${subject}/${rnaseq_id} ]]
     then
-	mkdir $wkdir/casesTemp/${myarray[1]}/${myarray[7]}
+	mkdir ${wkdir}/casesTemp/${subject}/${rnaseq_id}
     fi
-    if [[ -f $wkdir/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.bamreadct.txt ]]
+    if [[ -f ${wkdir}/cases/${subject}/${rnaseq_id}/${rnaseq_id}.bamreadct.txt ]]
     then
-	gzip $wkdir/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.bamreadct.txt
+	gzip ${wkdir}/cases/${subject}/${rnaseq_id}/${rnaseq_id}.bamreadct.txt
     fi
-    cp $wkdir/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.bam $wkdir/casesTemp/${myarray[1]}/${myarray[7]}
-    samtools index -@ 4 $wkdir/casesTemp/${myarray[1]}/${myarray[7]}/${myarray[7]}.bam
-    cp $wkdir/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.cts $wkdir/casesTemp/${myarray[1]}/${myarray[7]}
-    cp $wkdir/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.fpkm.txt $wkdir/casesTemp/${myarray[1]}/${myarray[7]}
-    if [[ -f $wkdir/cases/${myarray[1]}/${myarray[1]}.translocations.answer.txt ]]
+    cp ${wkdir}/cases/${subject}/${rnaseq_id}/${rnaseq_id}.bam ${wkdir}/casesTemp/${subject}/${rnaseq_id}
+    samtools index -@ 4 ${wkdir}/casesTemp/${subject}/${rnaseq_id}/${rnaseq_id}.bam
+    cp ${wkdir}/cases/${subject}/${rnaseq_id}/${rnaseq_id}.cts ${wkdir}/casesTemp/${subject}/${rnaseq_id}
+    cp ${wkdir}/cases/${subject}/${rnaseq_id}/${rnaseq_id}.fpkm.txt ${wkdir}/casesTemp/${subject}/${rnaseq_id}
+    if [[ -f ${wkdir}/cases/${subject}/${subject}.translocations.answer.txt ]]
     then
-	cp $wkdir/cases/${myarray[1]}/${myarray[1]}.translocations.answer.txt $wkdir/casesTemp/${myarray[1]}/${myarray[7]}/${myarray[7]}.translocations.answer.txt
+	cp ${wkdir}/cases/${subject}/${subject}.translocations.answer.txt ${wkdir}/casesTemp/${subject}/${rnaseq_id}/${rnaseq_id}.translocations.answer.txt
     else
-        cp $wkdir/cases/${myarray[1]}/${myarray[7]}/${myarray[7]}.translocations.answer.txt $wkdir/casesTemp/${myarray[1]}/${myarray[7]}
+        cp ${wkdir}/cases/${subject}/${rnaseq_id}/${rnaseq_id}.translocations.answer.txt ${wkdir}/casesTemp/${subject}/${rnaseq_id}
     fi
-    
 fi
 
-rsync -avz $wkdir/casesTemp/${myarray[1]} answerbe@198.215.54.71:/swnas/cases
+rsync -avz $wkdir/casesTemp/${subject} answerbe@198.215.54.71:/swnas/cases
 
-mv $wkdir/cases/${myarray[1]} $wkdir/toarchive/caseDirs/${myarray[1]}
-mv $wkdir/casesTemp/${myarray[1]} $wkdir/cases
+mv $wkdir/cases/${subject} $wkdir/toarchive/caseDirs/${subject}
+mv $wkdir/casesTemp/${subject} $wkdir/cases
 
 
-if [[ ! -f  $wkdir/toarchive/backups/${monyear}/${myarray[1]}.tar.gz ]]
+if [[ ! -f  $wkdir/toarchive/backups/${monyear}/${subject}.tar.gz ]]
 then
-    tar cf $wkdir/toarchive/backups/${monyear}/${myarray[1]}.tar $wkdir/toarchive/caseDirs/${myarray[1]}
-    gzip $wkdir/toarchive/backups/${monyear}/${myarray[1]}.tar 
+    tar cf $wkdir/toarchive/backups/${monyear}/${subject}.tar $wkdir/toarchive/caseDirs/${subject}
+    gzip $wkdir/toarchive/backups/${monyear}/${subject}.tar 
 fi 
 
 isfalse=`az storage container exists -n archive${monyear} | grep false`
@@ -127,4 +132,4 @@ then
     az storage container create -n archive${monyear} --fail-on-exist
 fi
 
-az storage blob upload -c archive${monyear} -f $wkdir/toarchive/backups/${monyear}/${myarray[1]}.tar.gz -n ${myarray[1]}.tar.gz
+az storage blob upload -c archive${monyear} -f $wkdir/toarchive/backups/${monyear}/${subject}.tar.gz -n ${subject}.tar.gz
