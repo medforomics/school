@@ -1,3 +1,4 @@
 scripts/init_workflows.sh
 azure_credentials
 scripts/backup2azure.sh
+scripts/syncCase2Azure.sh
