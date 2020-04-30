@@ -21,4 +21,3 @@ while (my $line = <IN>) {
 	print OUT $line,"\n";
     }
 }
-
