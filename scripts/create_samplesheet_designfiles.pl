@@ -62,14 +62,12 @@ while (my $line = <SS>){
       $hash{Sample_Project} =~ s/\s*$//g;
       $hash{Assay} = lc($hash{Assay});
  
-      #$hash{Assay} = 'panel1385' if ($hash{Assay} eq 'dnaseqdevelopment');
       $hash{Assay} = 'panel1385v2' if ($hash{Sample_Name} =~ m/panel1385v2/);
-      #$hash{Assay} = 'idthemev2' if ($hash{Sample_Name} =~ m/IDTHemev2/);
       $hash{Assay} = 'tspcrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq/);
+      $hash{Assay} = 'idtrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq\d+/i);
       $hash{Assay} = 'wholernaseq' if ($hash{Sample_Name} =~ m/wholernaseq/);
       $hash{Assay} = 'solid' if ($hash{Sample_Name} =~ m/solid\d*/i);
       $hash{Assay} = 'pancancer' if ($hash{Sample_Name} =~ m/pancancer\d*/i);
-      $hash{Assay} = 'idtrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq\d*/i);
       $hash{Assay} = 'heme' if ($hash{Sample_Name} =~ m/heme\d*/i);
 
       unless (-e "$opt{dout}/$hash{Assay}") {
@@ -123,7 +121,7 @@ while (my $line = <SS>){
 }
 close SSOUT;
 my %inpair;
-foreach $dtype (keys %spairs ){#%stype) {
+foreach $dtype (keys %spairs ){
   open TNPAIR, ">$opt{dout}/$dtype/design_tumor_normal.txt" or die $!;
   print TNPAIR join("\t",'PairID','VcfID','TumorID','NormalID','TumorBAM','NormalBAM','TumorCBAM','NormalCBAM',
 		    'TumorGATKBAM','NormalGATKBAM'),"\n";

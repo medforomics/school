@@ -233,6 +233,7 @@ then
 	java -jar $SNPEFF_HOME/SnpSift.jar filter "(TYPE=='snp')" ${subject}.utswpass.somatic.vcf > ${subject}.snps.vcf
 	Rscript ${baseDir}/run_mutsig.R
 	mv mutational_signature.txt ${subject}.mutational_signature.txt
+	mv mutational_signature.png ${subject}.mutational_signature.png
     fi
     if [[ $(echo "$tmbval >= 10" |bc -l) == 1 ]]
     then

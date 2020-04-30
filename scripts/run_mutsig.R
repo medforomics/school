@@ -21,6 +21,12 @@ labs <- gsub(".snps.vcf","", vcf_files, perl=TRUE)
 vcfs <- read_vcfs_as_granges(vcf_files, labs, ref_genome)
 mut_mat <- mut_matrix(vcf_list = vcfs, ref_genome = ref_genome)
 
+png(file="mutational_signature.png",width=1024,height=230,pointsize=24)
+plot_96_profile(mut_mat)
+dev.off()
+
+write.table(mut_mat,file = "mutational_matrix.txt", sep = "\t", quote=F, row.names=T)
+
 cancer_signatures <- read.table("/project/shared/bicf_workflow_ref/seqprg/musica/aux_files/signatures_probabilities.txt", sep = "\t", header = TRUE)
 proposed_etiology <- read.table("/project/shared/bicf_workflow_ref/seqprg/musica/aux_files/proposed_etiology_COSMIC_signatures.txt",sep="\t",header=FALSE)[,2]
 known_cancer_signatures<-read.table("/project/shared/bicf_workflow_ref/seqprg/musica/aux_files/cancermatrix.tsv",header=TRUE,sep="\t",row.names=1)
