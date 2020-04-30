@@ -1,1 +1,2 @@
 scripts/backup2azure.sh
+scripts/init_workflows.sh
