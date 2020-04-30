@@ -121,6 +121,7 @@ while (my $line = <SS>){
 }
 close SSOUT;
 my %inpair;
+
 foreach $dtype (keys %spairs ){
   open TNPAIR, ">$opt{dout}/$dtype/design_tumor_normal.txt" or die $!;
   print TNPAIR join("\t",'PairID','VcfID','TumorID','NormalID','TumorBAM','NormalBAM','TumorCBAM','NormalCBAM',
