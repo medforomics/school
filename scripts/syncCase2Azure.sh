@@ -12,7 +12,6 @@ fi
 baseDir="`dirname \"$0\"`"
 
 module load samtools/gcc/1.8
-${baseDir}/../azure_credentials
 
 if [[ ! -f ${caseID}.json ]]
 then
@@ -114,17 +113,5 @@ rsync -avz $wkdir/casesTemp/${subject} answerbe@198.215.54.71:/swnas/cases
 mv $wkdir/cases/${subject} $wkdir/toarchive/caseDirs/${subject}
 mv $wkdir/casesTemp/${subject} $wkdir/cases
 
-
-if [[ ! -f  $wkdir/toarchive/backups/${monyear}/${subject}.tar.gz ]]
-then
-    tar cf $wkdir/toarchive/backups/${monyear}/${subject}.tar $wkdir/toarchive/caseDirs/${subject}
-    gzip $wkdir/toarchive/backups/${monyear}/${subject}.tar 
-fi 
-
-isfalse=`az storage container exists -n archive${monyear} | grep false`
-if [[ -n $isfalse ]]
-then
-    az storage container create -n archive${monyear} --fail-on-exist
-fi
-
-az storage blob upload -c archive${monyear} -f $wkdir/toarchive/backups/${monyear}/${subject}.tar.gz -n ${subject}.tar.gz
+source ${baseDir}/../azure_credentials
+az storage blob upload-batch -d seqruns -s $wkdir/cases/${subject} --destination-path ${year}/${subject}
