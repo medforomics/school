@@ -3,12 +3,16 @@
 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
-my $results = GetOptions (\%opt,'refdir|r=s','help|h');
+my $results = GetOptions (\%opt,'refdir|r=s','help|h','gitdir|e','user|u');
 
 my @statfiles = @ARGV;
 
+unless ($opt{gitdir}) {
+    $opt{gitdir} = $0;
+}
+my $fileowner = $opt{user};
 #### Begin Version Information ######
-my $gittag = `cd /project/PHG/PHG_Clinical/clinseq_workflows;git describe --abbrev=0 --tags`;
+my $gittag = `cd $opt{execdir} | git describe --abbrev=0 --tags`;
 chomp $gittag;
 #### End Version Information ######
 
@@ -173,7 +177,7 @@ foreach $sfile (@statfiles) {
   $year += 1900;
   $month++;
   $date = join("-",$year,sprintf("%02s",$month),sprintf("%02s",$day));
-  $fileowner = 's'.$stats[4];
+  $fileowner = 's'.$stats[4] unless $fileowner;
   $hash{status} = $status;
   $hash{date}=$date;
   $hash{fileowner} = $fileowner;

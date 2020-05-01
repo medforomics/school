@@ -151,15 +151,15 @@ fi
 for i in /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/${prjid}/*.properties; do
     curl "http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResultsWithProp?token=${nucliatoken}&propFilePath=${i}"
 done
-monyear="20${prjid:0:4}"
-if [[ ! -d "/archive/PHG/PHG_Clinical/toarchive/backups/${monyear}" ]]
+
+year="20${prjid:0:2}"
+
+if [[ ! -d "/archive/PHG/PHG_Clinical/toarchive/seqruns/${year}" ]]
 then
-    mkdir /archive/PHG/PHG_Clinical/toarchive/backups/${monyear}
+    mkdir /archive/PHG/PHG_Clinical/toarchive/backups/${year}
 fi
 
-tar cf /work/archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${prjid}.tar $seqdatadir
-gzip /work/archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${prjid}.tar
+rsync -avz --prune-empty-dirs --include "*/" --include="*.fastq.gz" --include="*.csv" --exclude="*" $seqdatadir /archive/PHG/PHG_Clinical/toarchive/seqruns/$year
 
 source ${baseDir}/../azure_credentials
-
-az storage blob upload -d archive${monyear} -f /work/archive/PHG/PHG_Clinical/toarchive/backups/${monyear}/${prjid}.tar.gz -n ${prjid}.tar.gz
+az storage blob upload-batch -d seqruns -s /archive/PHG/PHG_Clinical/toarchive/seqruns/${year}/${prjid} --destination-path ${year}/${prjid}
