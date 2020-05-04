@@ -12,7 +12,7 @@ unless ($opt{gitdir}) {
 }
 my $fileowner = $opt{user};
 #### Begin Version Information ######
-my $gittag = `cd $opt{execdir} | git describe --abbrev=0 --tags`;
+my $gittag = `cd $opt{gitdir} | git describe --abbrev=0 --tags`;
 chomp $gittag;
 #### End Version Information ######
 

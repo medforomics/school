@@ -73,26 +73,20 @@ process indexoribams {
   input:
   set pid,tid,nid,file(tumor),file(normal) from oribam
   output:
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into dellybam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into svababam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into idxbam
   script:
   """
   bash $baseDir/process_scripts/alignment/indexbams.sh 
   """
 }
+
 process indexconsbams {
   executor 'local'
   errorStrategy 'ignore'
   input:
   set pid,tid,nid,file(tumor),file(normal) from consbam
   output:
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into pindelbam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into platbam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into fbbam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into checkbams
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into strelkabam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into shimmerbam
-  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into virmidbam
+  set pid,tid,nid,file(tumor),file(normal),file("${tumor}.bai"),file("${normal}.bai") into cidxbam
   script:
   """
   bash $baseDir/process_scripts/alignment/indexbams.sh 
@@ -112,6 +106,29 @@ process indextarbams {
   bash $baseDir/process_scripts/alignment/indexbams.sh 
   """
 }
+
+idxbam
+   .groupTuple(by:0)		
+   .into { dellybam; svababam; msibam;}
+
+cidxbam
+   .groupTuple(by:0)		
+   .into { fbbam; platbam; strelkabam; pindelbam; checkbams; shimmerbam;}
+
+process msi {
+  executor 'local'
+  publishDir "$params.output/$subjid/dna_$params.projectid", mode: 'copy'
+  errorStrategy 'ignore'
+  input:
+  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from checkbams
+  output:
+  file("${pid}*") into msiout
+  script:
+  """
+  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $pid -b $tumor -n $normal -c $capturebed
+  """
+}
+
 process checkmates {
   executor 'local'
   publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
@@ -127,7 +144,6 @@ process checkmates {
   module load python/2.7.x-anaconda git/v2.5.3
   python /project/shared/bicf_workflow_ref/seqprg/NGSCheckMate/ncm.py -B -d ./ -bed ${index_path}/NGSCheckMate.bed -O ./ -N ${pid}
   perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${pid}_all.txt -o ${pid}_${params.projectid}.sequence.stats.txt
-  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $pid -b $tumor -n $normal -c $capturebed
   """
 }
 process delly {
