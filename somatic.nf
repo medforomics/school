@@ -120,7 +120,7 @@ process msi {
   publishDir "$params.output/$subjid/dna_$params.projectid", mode: 'copy'
   errorStrategy 'ignore'
   input:
-  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from checkbams
+  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from msibam
   output:
   file("${pid}*") into msiout
   script:
