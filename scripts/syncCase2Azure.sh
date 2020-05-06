@@ -7,7 +7,7 @@ wrkdir=$3
 
 if [[ -z $wrkdir ]]
 then
-    wkdir= /archive/PHG/PHG_Clinical
+    wkdir=/archive/PHG/PHG_Clinical
 fi
 baseDir="`dirname \"$0\"`"
 
