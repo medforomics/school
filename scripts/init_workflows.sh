@@ -56,7 +56,7 @@ outdir="$procbase/fastq"
 outnf="$procbase/analysis"
 workdir="$procbase/work"
 
-mkdir ${fqout}/${prjid}
+mkdir -p ${fqout}/${prjid}
 ln -s ${illumina}/${prjid}/* $fqout/${prjid}
 
 declare -A panelbed
@@ -64,23 +64,17 @@ panelbed=(["panel1385"]="UTSW_V2_pancancer" ["panel1385v2"]="UTSW_V3_pancancer" 
 
 source /etc/profile.d/modules.sh
 module load bcl2fastq/2.19.1
-if [[ ! -d /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/${prjid} ]]
-then
-   mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid
-fi
 
+mkdir -p /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid
 perl ${baseDir}/scripts/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${prjid} -p ${prjid} -f ${outdir} -n ${outnf} -u ${seqdatadir}/$prjid.noumi.csv
 lastline=`tail -n 1 ${seqdatadir}/$prjid.noumi.csv |grep -v Sample_ID`
+
 if [[ ${#lastline} > 0 ]]
 then
-    if [[ ! -d /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/${prjid}/noumi ]]
-    then
-	mkdir /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi
-    fi
+    mkdir -p /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi
     bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${seqdatadir}/$prjid.noumi.csv --use-bases-mask Y76,I6N8,Y76 &> ${seqdatadir}/bcl2fastq_noumi_${prjid}.log
-    rsync -avz ${seqdatadir}/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi
-    rsync -avz ${seqdatadir}/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid/noumi
-    mkdir ${seqdatadir}/noumi
+    rsync -avz ${seqdatadir}/Reports ${seqdatadir}/Stats answerbe@198.215.54.71:/swnas/qc_nuclia/demultiplexing/$prjid/noumi
+    mkdir -p ${seqdatadir}/noumi
     mv ${seqdatadir}/Reports ${seqdatadir}/Stats ${seqdatadir}/noumi
 fi
 mv ${seqdatadir}/RunInfo.xml ${seqdatadir}/RunInfo.xml.ori
@@ -88,8 +82,7 @@ perl  ${baseDir}/scripts/fix_runinfo_xml.pl $seqdatadir
 mdup='fgbio_umi'
 
 bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${newss} &> ${seqdatadir}/bcl2fastq_${prjid}.log
-rsync -avz ${seqdatadir}/Reports /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid
-rsync -avz ${seqdatadir}/Stats /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$prjid
+rsync -avz ${seqdatadir}/Reports ${seqdatadir}/Stats answerbe@198.215.54.71:/swnas/qc_nuclia/demultiplexing/$prjid
 cd ${prodir}/${prjid}
 
 for i in */design.txt; do
@@ -140,26 +133,18 @@ wait
 cd $outnf
 
 cd $prodir\/$prjid
-rsync -rlptgoD --exclude="*fastq.gz*" --exclude "*work*" --exclude="*bam*" ${prodir}/${prjid} /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/
-if [[ -n $umi ]]
-then
-    perl ${baseDir}/scripts/create_properties_run.pl -p $prjid -d /project/PHG/PHG_BarTender/bioinformatics/seqanalysis -u 1
-else
-    perl ${baseDir}/scripts/create_properties_run.pl -p $prjid -d /project/PHG/PHG_BarTender/bioinformatics/seqanalysis
-fi
+perl ${baseDir}/scripts/create_properties_run.pl -p $prjid -d $prodir\/$prjid
+rsync -rlptgoD --exclude="*fastq.gz*" --exclude "*work*" --exclude="*bam*" ${prodir}/${prjid} answerbe@198.215.54.71:/swnas/qc_nuclia/seqanalysis
 
-for i in /project/PHG/PHG_BarTender/bioinformatics/seqanalysis/${prjid}/*.properties; do
-    curl "http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResultsWithProp?token=${nucliatoken}&propFilePath=${i}"
+for i in *.properties; do
+    curl "http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResultsWithProp?token=${nucliatoken}&propFilePath=/swnas/qc_nuclia/seqanalysis/$prjid/${i}"
 done
 
 year="20${prjid:0:2}"
-
-if [[ ! -d "/archive/PHG/PHG_Clinical/toarchive/seqruns/${year}" ]]
-then
-    mkdir /archive/PHG/PHG_Clinical/toarchive/backups/${year}
-fi
+mkdir -p /archive/PHG/PHG_Clinical/toarchive/backups/${year}
 
 rsync -avz --prune-empty-dirs --include "*/" --include="*.fastq.gz" --include="*.csv" --exclude="*" $seqdatadir /archive/PHG/PHG_Clinical/toarchive/seqruns/$year
+rsync -avz --no-links --exclude="*fastq.gz*" ${prodir}/${prjid}/analysis/* /archive/PHG/PHG_Clinical/cases/
 
 source ${baseDir}/../azure_credentials
 az storage blob upload-batch -d seqruns -s /archive/PHG/PHG_Clinical/toarchive/seqruns/${year}/${prjid} --destination-path ${year}/${prjid}

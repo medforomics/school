@@ -105,11 +105,11 @@ then
 fi 
 #Concat Viral RNA Results
 nviral=''
-if [[ -n $normal_id ]]  && [[ $normal_id != 'NA' ]] && [[ -f "${normal_id}/${normal_id}.viral.idxstats.txt" ]]
+if [[ -n $normal_id ]]  && [[ $normal_id != 'NA' ]] && [[ -f "${normal_id}/${normal_id}.viral.seqstats.txt" ]]
 then
-    nviral="${normal_id}/${normal_id}.viral.idxstats.txt"
+    nviral="${normal_id}/${normal_id}.viral.seqstats.txt"
 fi
-if [[ -f "${tumor_id}/${tumor_id}.viral.idxstats.txt" ]]
+if [[ -f "${tumor_id}/${tumor_id}.viral.seqstats.txt" ]]
 then
     perl $baseDir/parse_viral_idxstats.pl ${tumor_id}/${tumor_id}.viral.seqstats.txt ${nviral}
     mv viral_results.txt ${subject}.viral_results.txt
@@ -240,7 +240,7 @@ then
 	tmbclass='High-TMB' 
     fi
     perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
-    perl ${vepdir}/vcf2maf.pl --input ${subject}.utswpass.somatic.vcf --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vepelse
+else
     tmbval=0.00
     tmbclass=UNK
 fi

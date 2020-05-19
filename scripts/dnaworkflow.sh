@@ -74,10 +74,11 @@ then
     cd ..
 fi
 wait
-if [[ -f "${outnf}/GM12878/GM12878_${prjid}.dna.vcf.gz" ]]
+if [[ -f "${outnf}/GM12878*/GM12878*_${prjid}.dna.vcf.gz" ]]
 then
     bamfile=`grep GM12878 design_tumor_only.txt |awk '{print ${outnf}/GM12878/"$1"/"$4}'`
-	sampid=`grep GM12878 design_tumor_only.txt |awk '{print $1}'`
-	cd ${outnf}/GM12878
-    bash $codeir\/scripts/snsp.sh -p $sampid -r $capturedir -t $capture -b $bamfile -v ${outnf}/GM12878/GM12878_${prjid}.dna.vcf.gz
+    sampid=`grep GM12878 design_tumor_only.txt |awk '{print $1}'`
+    vcfid=`grep GM12878 design_tumor_only.txt |awk '{print $3}'`
+    cd ${outnf}/GM12878
+    bash $codeir\/scripts/snsp.sh -p $sampid -r $capturedir -t $capture -b $bamfile -v ${vcfid}.dna.vcf.gz
 fi
