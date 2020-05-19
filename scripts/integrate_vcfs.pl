@@ -382,7 +382,7 @@ W1:while (my $line = <IN>) {
   }
   my $newannot = join(";",@nannot);
   print PASS join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$newannot,
-		  $newformat,@newgt),"\n" if ($filter eq 'PASS' || $filter eq 'FailedQC;COMMON');
+		  $newformat,@newgt),"\n" if ($filter eq 'PASS' || $filter eq 'FailedQC;COMMON' || $filter eq 'FailedQC;StrandBias');
   print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$newannot,
 		 $newformat,@newgt),"\n" if ($filter eq 'PASS' || $id =~ m/COS/ || $cancergene || $filter eq 'FailedQC;COMMON');
 }
