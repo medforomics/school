@@ -36,21 +36,23 @@ then
 fi
 monyear="20${runid:0:4}"
 
-if [[ ! -d ${wkdir}/casesTemp/${subject} ]]
+mkdir -p ${wkdir}/casesTemp/${subject}
+cp ${wkdir}/cases/${subject}/${subject}.vcf.gz ${wkdir}/casesTemp/${subject}
+cp ${wkdir}/cases/${subject}/${subject}.maf ${wkdir}/casesTemp/${subject}
+cp ${wkdir}/cases/${subject}/${subject}.viral_results.txt ${wkdir}/casesTemp/${subject}
+cp ${wkdir}/cases/${subject}/${subject}.TMB.csv ${wkdir}/casesTemp/${subject}
+
+if [[ -f /archive/PHG/PHG_Clinical/cases/${subject}/${subject}.mutational_signature.txt ]]
 then
-    mkdir ${wkdir}/casesTemp/${subject}
-fi
+    cp /archive/PHG/PHG_Clinical/cases/${subject}/${subject}.mutational_signature.txt /archive/PHG/PHG_Clinical/casesTemp/${subject}
+    cp /archive/PHG/PHG_Clinical/cases/${subject}/${subject}.mutational_signature.png /archive/PHG/PHG_Clinical/casesTemp/${subject}
+fi 
+
 if [[ -d ${wkdir}/cases/${subject}/${tumor_id} ]]
 then
-    if [[ ! -d ${wkdir}/casesTemp/${subject}/${tumor_id} ]]
-    then
-	mkdir ${wkdir}/casesTemp/${subject}/${tumor_id}
-    fi
+    mkdir -p ${wkdir}/casesTemp/${subject}/${tumor_id}
     cp ${wkdir}/cases/${subject}/${tumor_id}/${tumor_id}*answer* ${wkdir}/casesTemp/${subject}/${tumor_id}
     cp ${wkdir}/cases/${subject}/${tumor_id}/${tumor_id}.ballelefreq.txt ${wkdir}/casesTemp/${subject}/${tumor_id}
-    cp ${wkdir}/cases/${subject}/${subject}.vcf.gz ${wkdir}/casesTemp/${subject}
-    cp ${wkdir}/cases/${subject}.viral_results.txt ${wkdir}/casesTemp/${subject}
-    cp ${wkdir}/cases/${subject}/${subject}.TMB.csv ${wkdir}/casesTemp/${subject}
     if [[ -f ${wkdir}/cases/${subject}/${subject}.translocations.answer.txt ]]
     then
 	cp ${wkdir}/cases/${subject}/${subject}.translocations.answer.txt ${wkdir}/casesTemp/${subject}
@@ -73,10 +75,7 @@ then
     then
 	gunzip ${wkdir}/casesTemp/${subject}/${subject}.utswpass.somatic.vcf.gz
     fi
-    if [[ ! -d ${wkdir}/casesTemp/${subject}/${normal_id} ]]
-    then
-	mkdir ${wkdir}/casesTemp/${subject}/${normal_id}
-    fi
+    mkdir -p ${wkdir}/casesTemp/${subject}/${normal_id}
     if [[ -f ${wkdir}/cases/${subject}/${normal_id}/${normal_id}.consensus.bam ]]
     then
 	cp ${wkdir}/cases/${subject}/${normal_id}/${normal_id}.consensus.bam ${wkdir}/casesTemp/${subject}/${normal_id}/${normal_id}.bam
@@ -88,10 +87,7 @@ then
 fi
 if [[ -f ${wkdir}/cases/${subject}/${rnaseq_id}/${rnaseq_id}.bam ]]
 then
-    if [[ ! -d ${wkdir}/casesTemp/${subject}/${rnaseq_id} ]]
-    then
-	mkdir ${wkdir}/casesTemp/${subject}/${rnaseq_id}
-    fi
+    mkdir -p ${wkdir}/casesTemp/${subject}/${rnaseq_id}
     if [[ -f ${wkdir}/cases/${subject}/${rnaseq_id}/${rnaseq_id}.bamreadct.txt ]]
     then
 	gzip ${wkdir}/cases/${subject}/${rnaseq_id}/${rnaseq_id}.bamreadct.txt

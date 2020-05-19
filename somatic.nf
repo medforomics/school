@@ -117,7 +117,7 @@ cidxbam
 
 process msi {
   executor 'local'
-  publishDir "$params.output/$subjid/dna_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
   errorStrategy 'ignore'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from msibam

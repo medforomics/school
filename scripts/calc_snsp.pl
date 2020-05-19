@@ -116,7 +116,7 @@ while (my $line = <IN>) {
   }elsif ($hash{RepeatType} && $hash{RepeatType} =~ m/Simple_repeat/ && $maf < 0.15) {
       $reason{$chrom}{$pos}{$ref}{$alt} = 'InRepeat';
       $is_gs = 0;
-  } elsif ($hash{strandBias} || (($hash{SAP} && $hash{SAP} > 20) && ((exists $hash{SAF} && $hash{SAF}< 1) || (exists $hash{SAR} && $hash{SAR}< 1)))) {
+  } elsif ($hash{strandBias} || (($hash{SAP} && $hash{SAP} > 20) && ((exists $hash{SAF} && $hash{SAF}< 1 & $hash{SRF} > 10) || (exists $hash{SAR} && $hash{SAR}< 1 & $hash{SRR} > 10)))) {
       $reason{$chrom}{$pos}{$ref}{$alt} = 'StrandBias';
       $is_gs = 0;
   } elsif ($id =~ m/COS/ && $cosmicsubj >= 5) {

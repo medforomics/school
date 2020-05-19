@@ -3,7 +3,7 @@
 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
-my $results = GetOptions (\%opt,'refdir|r=s','help|h','gitdir|e','user|u');
+my $results = GetOptions (\%opt,'refdir|r=s','help|h','gitdir|e=s','user|u=s');
 
 my @statfiles = @ARGV;
 

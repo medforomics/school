@@ -2,6 +2,8 @@
 
 library(MutationalPatterns)
 library(tidyverse)
+ref_genome <- 'BSgenome.Hsapiens.UCSC.hg38'
+library(ref_genome, character.only = TRUE)
 
 divisionRel<-function(df){
   sum_df<-sapply(df,sum)
@@ -11,8 +13,6 @@ divisionRel<-function(df){
   return(df)
 }
 
-ref_genome <- "BSgenome.Hsapiens.UCSC.hg38"
-library(ref_genome, character.only = TRUE)
 
 pathdir <- '.'
 

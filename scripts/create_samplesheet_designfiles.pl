@@ -53,11 +53,6 @@ while (my $line = <SS>){
       if ($hash{Sample_Name} =~ m/_Lib/) {
 	  $hash{Sample_Name} =~ s/_Lib.*//;
       }
-      my @splitname = split(/-/,$hash{Sample_Name});
-      if (scalar(@splitname) > 3) {
-	  $hash{MergeName} = join("-",@splitname[0..2]);
-	  $hash{Sample_Name} = join("-",@splitname[0..2]);
-      }
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
       $hash{Assay} = lc($hash{Assay});
