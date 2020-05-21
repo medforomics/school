@@ -181,7 +181,7 @@ W1:while (my $line = <IN>) {
   }
   next if ($exacaf && $exacaf > 0.05);
   $fail{'COMMON'} = 1 if ($exacaf && $exacaf > 0.01);
-  $fail{'StrandBias'} = 1 if (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i || $hash{strandBias} || (($hash{SAP} && $hash{SAP} > 20) && ((exists $hash{SAF} && $hash{SAF}< 1) || (exists $hash{SAR} && $hash{SAR}< 1))));
+  $fail{'StrandBias'} = 1 if (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i || $hash{strandBias} || (($hash{SAP} && $hash{SAP} > 20) && ((exists $hash{SAF} && $hash{SAF}< 1 & $hash{SRF} > 10) || (exists $hash{SAR} && $hash{SAR}< 1 & $hash{SRR} > 10))));
   my $cosmicsubj = 0;
   if ($hash{CNT}) {
     my @cosmicct = split(/,/,$hash{CNT}); 

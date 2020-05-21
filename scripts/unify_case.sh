@@ -47,10 +47,15 @@ done
 
 shift $(($OPTIND -1))
 
-module load bedtools/2.26.0 samtools/gcc/1.8 bcftools/gcc/1.8 htslib/gcc/1.8 vcftools/0.1.14 snpeff/4.3q
+module load bedtools/2.26.0 samtools/gcc/1.8 bcftools/gcc/1.8 htslib/gcc/1.8 vcftools/0.1.14 snpeff/4.3q R/3.6.1-gccmkl
+
+if [[ -z $index_path ]]
+then
+    index_path=/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref
+fi
 if [[ -z $targetbed ]]
 then
-targetbed="${index_path}/../panels/UTSW_V4_heme/targetpanel.bed"
+    targetbed=/project/shared/bicf_workflow_ref/human/grch38_cloud/panels/UTSW_V4_heme/targetpanel.bed
 fi
 
 baseDir="`dirname \"$0\"`"
