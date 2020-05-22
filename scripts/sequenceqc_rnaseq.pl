@@ -8,15 +8,8 @@ my $results = GetOptions (\%opt,'refdir|r=s','help|h','gitdir|e=s','user|u=s');
 my @files = @ARGV;
 chomp(@files);
 
-unless ($opt{gitdir}) {
-    $opt{gitdir} = $0;
-}
-
 my $fileowner = $opt{user};
-#### Begin Version Information ######
-my $gittag = `cd $opt{gitdir} | git describe --abbrev=0 --tags`;
-chomp $gittag;
-#### End Version Information ######
+my $gittag = $opt{gitdir};
 
 foreach my $file (@files) {
   chomp($file);
