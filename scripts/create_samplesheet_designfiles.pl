@@ -53,6 +53,8 @@ while (my $line = <SS>){
       if ($hash{Sample_Name} =~ m/_Lib/) {
 	  $hash{Sample_Name} =~ s/_Lib.*//;
       }
+      $hash{Sample_Name} =~ s/T_RNA_panelrnaseq-\d+-\d+/T_RNA_panelrnaseq/;
+      
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
       $hash{Assay} = lc($hash{Assay});
@@ -74,13 +76,7 @@ while (my $line = <SS>){
 	$hash{Class} = 'normal' if ($hash{Sample_Name} =~ m/_N_/);
       }
       $hash{SubjectID} = $hash{Sample_Project};
-      unless ($hash{MergeName}) {
-	$hash{MergeName} = $hash{Sample_Name};
-	if ($samplename[-1] =~ m/^[A|B|C|D]$/) {
-	  pop @samplename;
-	  $hash{MergeName} = join("_",@samplename);
-	}
-      }
+
       my $clinres = 'cases';
       $hash{VcfID} = $hash{SubjectID}."_".$prjid;
       if (($hash{Description} && $hash{Description} =~ m/research/i) ||

@@ -1,6 +1,8 @@
 #!/bin/bash
 #init_workflows.sh
 
+set -e
+
 usage() {
   echo "-h Help documentation for gatkrunner.sh"
   echo "-p  --projectID"
@@ -31,6 +33,10 @@ if [[ -z $baseDir ]]
 then
     baseDir="/project/PHG/PHG_Clinical/devel/clinseq_workflows"
 fi
+
+cd $baseDir
+gittag=`git describe --abbrev=0 --tags`
+
 if [[ -z $index_path ]]
 then
     index_path="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
@@ -112,12 +118,12 @@ for i in */design.txt; do
     if [[ $dtype == 'wholernaseq' ]]
     then
 	cp ${baseDir}/scripts/rnaworkflow.sh ${procbase}
-	bash ${procbase}/rnaworkflow.sh -r $rna_ref_path -e $baseDir -a $procbase -p $prjid -c &> log.txt &
+	bash ${procbase}/rnaworkflow.sh -r $rna_ref_path -e $baseDir -a $procbase -p $prjid -c 1 -g $gittag &> log.txt &
     elif [[ $dtype =~ 'rnaseq' ]]
     then
 	genelist="${panelsdir}/${panelbed[${dtype}]}/genelist.txt"
 	cp ${baseDir}/scripts/rnaworkflow.sh ${procbase}
-	bash ${procbase}/rnaworkflow.sh -r $rna_ref_path -e $baseDir -a $procbase -p $prjid -l $genelist &> log.txt &
+	bash ${procbase}/rnaworkflow.sh -r $rna_ref_path -e $baseDir -a $procbase -p $prjid -l $genelist -g $gittag &> log.txt &
     else
 	pon_opt=''
 	if [[ -f "${panelsdir}/${panelbed[${dtype}]}/mutect2.pon.vcf.gz" ]]
@@ -126,7 +132,7 @@ for i in */design.txt; do
 	fi
 	capture="${panelsdir}/${panelbed[${dtype}]}"
 	cp ${baseDir}/scripts/dnaworkflow.sh ${procbase}
-	bash ${procbase}/dnaworkflow.sh -r $dna_ref_path -e $baseDir -b $capture -a $procbase -p $prjid -d $mdup $pon_opt &> log.txt &
+	bash ${procbase}/dnaworkflow.sh -r $dna_ref_path -e $baseDir -b $capture -a $procbase -p $prjid -d $mdup $pon_opt -g $gittag &> log.txt &
     fi
 done
 wait

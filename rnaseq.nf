@@ -19,6 +19,8 @@ params.variant = "detect"
 params.bamct = "detect"
 params.gatk='skip'
 
+params.version='v4'
+
 design_file = file(params.design)
 fastqs=file(params.fastqs)
 design_file = file(params.design)
@@ -125,7 +127,7 @@ process ralign {
   set subjid,pair_id, file("${pair_id}.bam") into ctbams
   set subjid,pair_id, file("${pair_id}.bam"),file("${pair_id}.alignerout.txt") into aligned2
   set subjid,pair_id, file("${pair_id}.bam") into deduped1
-  set subjid,pair_id, file("${pair_id}.bam") into deduped2
+  set subjid,pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai") into fbbam
 
   script:
   """
@@ -167,24 +169,12 @@ process alignqc {
   source /etc/profile.d/modules.sh
   module load git/gcc/v2.12.2
   bash $baseDir/process_scripts/alignment/bamqc.sh -p ${pair_id} -b ${bam} -n rna
-  perl $baseDir/scripts/sequenceqc_rnaseq.pl -r ${index_path} *.flagstat.txt
+  perl $baseDir/scripts/sequenceqc_rnaseq.pl -r ${index_path} -e $params.version *.flagstat.txt
   """
 }
 
 // Identify duplicate reads with Picard
 
-// process markdups {
-//  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
-//   input:
-//   set subjid,pair_id, file(sbam) from aligned
-//   output:
-//   set subjid,pair_id, file("${pair_id}.dedup.bam") into deduped1
-//   set subjid,pair_id, file("${pair_id}.dedup.bam") into deduped2
-//   script:
-//   """
-//   bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id
-//   """
-// }
 
 process geneabund {
   errorStrategy 'ignore'
@@ -201,19 +191,20 @@ process geneabund {
   bash $baseDir/process_scripts/diff_exp/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam}
   """
 }
-process gatkbam {
+
+process fb {
+  queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/", mode: 'copy'
+  publishDir "$params.output/$subjid", mode: 'copy'
 
   input:
-  set subjid,pair_id, file(rbam) from deduped2
-
+  set subjid,$pair_id,file(gbam),file(gidx) from fbbam
   output:
-  set file("${pair_id}.final.bam"),file("${pair_id}.final.bai") into gatkbam
-  when:
-  params.gatk=='detect'
+  set subjid,file("${subjid}.rna.vcf.gz") into fbvcf
   script:
   """
-  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam_rna -b $rbam -r ${index_path} -p $pair_id
+  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a fb
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.fb -v ${subjid}.fb.vcf.gz 
+  mv ${subjid}.fb.vcf.gz ${subjid}_${params.projectid}.rna.vcf.gz
   """
 }

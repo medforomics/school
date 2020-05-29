@@ -14,6 +14,8 @@ params.markdups='fgbio_umi'
 params.aligner='bwa'
 params.cnv = "detect"
 
+params.version = 'v4'
+
 reffa=file("$params.genome/genome.fa")
 dbsnp="$params.genome/dbSnp.vcf.gz"
 indel="$params.genome/GoldIndels.vcf.gz"
@@ -23,8 +25,8 @@ design_file=file(params.design)
 dbsnp=file(dbsnp)
 knownindel=file(indel)
 index_path=file(params.genome)
-capture_bed = file("$params.capture")
-capturedir = file("$params.capturedir")
+capture_bed = file(params.capture)
+capturedir = file(params.capturedir)
 virus_index_path=file(params.virus_genome)
 
 skipCNV = false
@@ -79,8 +81,7 @@ process dtrim {
   input:
   set subjid,pair_id, file(read1), file(read2) from read
   output:
-  set subjid,pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into trimread
-  file("${pair_id}.trimreport.txt") into trimstat 
+  set subjid,pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz"),file("${pair_id}.trimreport.txt") into trimread
   script:
   """
   bash $baseDir/process_scripts/preproc_fastq/trimgalore.sh -p ${pair_id} -a ${read1} -b ${read2} -f
@@ -93,16 +94,16 @@ process dalign {
   publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
 
   input:
-  set subjid,pair_id, file(fq1), file(fq2) from trimread
+  set subjid,pair_id, file(fq1), file(fq2), file(trimreport) from trimread
   output:
   set subjid,pair_id, file("${pair_id}.bam") into aligned
-  set subjid,pair_id, file("${pair_id}.bam") into aligned2
+  set subjid,pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai"),file(trimreport) into aligned2
   set subjid,pair_id, file("${pair_id}.bam") into virusalign
   set subjid,pair_id, file("${pair_id}.bam"), file("${pair_id}.bam.bai") into cnvbam
   set subjid,pair_id, file("${pair_id}.bam"), file("${pair_id}.bam.bai") into itdbam
-  file("${pair_id}.bam.bai") into baindex
+
   """
-  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -a $params.aligner -p $pair_id -x $fq1 -y $fq2 $alignopts
+  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x $fq1 -y $fq2 $alignopts
   """
  }
 
@@ -127,9 +128,7 @@ process markdups_consensus {
   input:
   set subjid, pair_id, file(sbam) from aligned
   output:
-  set subjid, pair_id, file("${pair_id}.consensus.bam"),file("${pair_id}.consensus.bam.bai") into qcbam
   set subjid, pair_id, file("${pair_id}.consensus.bam"),file("${pair_id}.consensus.bam.bai") into togatkbam
-  set subjid, pair_id, file("${pair_id}.group.bam"),file("${pair_id}.group.bam.bai") into groupbam
   file("*.txt") into statfile
   script:
   """
@@ -150,45 +149,14 @@ process qc_gbam           {
   queue '128GB,256GB,256GBv1'
 
   input:
-  set subjid, pair_id, file(sbam), file(sbai) from groupbam
+  set subjid,pair_id, file(sbam),file(bai),file(trimreport) from aligned2
   output:
   file("*fastqc*") into fastqc
-  file("${pair_id}.flagstat.txt") into alignstats
-  file("${pair_id}.meanmap.txt") into meanmap
-  file("${pair_id}.libcomplex.txt") into libcomplex
-  file("${pair_id}.hist.txt") into insertsize
-  file("${pair_id}.alignmentsummarymetrics.txt") into alignmentsummarymetrics
-  file("${pair_id}.genomecov.txt") into genomecov
-  file("${pair_id}.covhist.txt") into covhist
-  file("*coverage.txt") into capcovstat
-  file("${pair_id}.mapqualcov.txt") into mapqualcov
-
+  file("${pair_id}*.txt") into alignstats
   script:
   """
   bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${sbam} -p $pair_id  
-  """
-}
-
-process qc_cbam {
-  errorStrategy 'ignore'
-  queue '128GB,256GB,256GBv1'
-  publishDir "$params.output/$subjid/$pair_id", mode: 'copy'
-
-  input:
-  set subjid, pair_id, file(sbam),file(idx) from qcbam
-  output:
-  file("${pair_id}.uniqhist.txt") into umihist
-  file("${pair_id}.dedupcov.txt") into dedupcov
-  file("${pair_id}.covuniqhist.txt") into covuniqhist
-  file("*coverageuniq.txt") into covuniqstat
-  script:
-  """
-  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${sbam} -p $pair_id -s 1
-  mv ${pair_id}.genomecov.txt ${pair_id}.dedupcov.txt
-  mv ${pair_id}.covhist.txt ${pair_id}.covuniqhist.txt
-  mv ${pair_id}.hist.txt ${pair_id}.uniqhist.txt
-  mv ${pair_id}_lowcoverage.txt ${pair_id}_lowcoverageuniq.txt
-  mv ${pair_id}_exoncoverage.txt ${pair_id}_exoncoverageuniq.txt
+  perl $baseDir/scripts/sequenceqc_alignment_withumi.pl -r ${index_path} -e $params.version *.genomecov.txt
   """
 }
 
@@ -243,30 +211,5 @@ process gatkbam {
   script:
   """
   bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r $index_path -p $pair_id
-  """
-}
-
-process concatstat {
-  queue '32GB,128GB,256GB,256GBv1'
-  errorStrategy 'ignore'
-  publishDir "$params.output", mode: 'copy'
-
-  input:
-  file(txt) from alignstats.toList()
-  file(lc) from libcomplex.toList()
-  file(is) from insertsize.toList()
-  file(gc) from genomecov.toList()
-  //file(on) from ontarget.toList()
-  file(tr) from trimstat.toList()
-  file(mq) from mapqualcov.toList()
-  file(de) from dedupcov.toList()
-  file(mm) from meanmap.toList()
-  file(asmet) from alignmentsummarymetrics.toList()
-  
-  output:
-  file('*sequence.stats.txt')
-  script:
-  """
-  perl $baseDir/scripts/sequenceqc_alignment_withumi.pl -r ${index_path} *.genomecov.txt
   """
 }
