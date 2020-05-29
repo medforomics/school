@@ -17,6 +17,10 @@ capturebed=file(params.capture)
 index_path = file(params.genome)
 ncmconf = file("$params.genome/ncm.conf")
 
+fpsalgo = ['fb', 'platypus']
+svalgo = ['delly', 'svaba']
+ssalgo = [‘strelka2’,’shimmer’]
+
 ponopt=''
 if (params.pon) {
    ponopt="-q $params.pon"
@@ -146,35 +150,20 @@ process checkmates {
   perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${pid}_all.txt -o ${pid}_${params.projectid}.sequence.stats.txt
   """
 }
-process delly {
+process sv {
   queue '32GB'
   errorStrategy 'ignore'
   publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
 
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from dellybam
+  each algo from svalgo
   output:
-  set pid,file("${pid}.delly.vcf.gz") into dellyvcf
-  file("${pid}.delly.genefusion.txt") into dellygf
+  set pid,file("${pid}.${algo}.vcf.gz") into svvcf
+  file("${pid}.${algo}.genefusion.txt") into svgf
   script:				       
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a delly -f 
-  """
-}
-process svaba {
-  queue '32GB'
-  errorStrategy 'ignore'
-  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
-
-  input:
-  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from svababam
-  output:
-  set pid,file("${pid}.svaba.vcf.gz") into svabavcf
-  set pid,file("${pid}.svaba.sv.vcf.gz") into svabasv
-  file("${pid}.svaba.genefusion.txt") into svabagf
-  script:				       
-  """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a svaba -f
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b $tumor -n $normal -p $pid -a ${algo} -f 
   """
 }
 process pindel {
@@ -198,32 +187,17 @@ process fb {
   queue '32GB'
   errorStrategy 'ignore'
   publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
-
+  
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from fbbam
+  each algo from fpsalgo
   output:
-  set pid,file("${pid}.fb.vcf.gz") into fbvcf
-  set pid,file("${pid}.fb.ori.vcf.gz") into fbori
+  set pid,file("${pid}.${algo}.vcf.gz") into fbvcf
+  set pid,file("${pid}.${algo}.ori.vcf.gz") into fbori
   script:
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $pid -a fb
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.fb -v ${pid}.fb.vcf.gz
-  """
-}
-process platypus {
-  queue '32GB'
-  errorStrategy 'ignore'
-  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
-
-  input:
-  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from platbam
-  output:
-  set pid,file("${pid}.platypus.vcf.gz") into platvcf
-  set pid,file("${pid}.platypus.ori.vcf.gz") into platori
-  script:				       
-  """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $pid -a platypus
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.platypus -v ${pid}.platypus.vcf.gz
+  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $pid -a ${algo}
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.${algo} -v ${pid}.${algo}.vcf.gz
   """
 }
 
@@ -242,40 +216,26 @@ process mutect {
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.mutect -v ${pid}.mutect.vcf.gz
   """
 }
-process strelka {
+process ss {
   queue '32GB'
   errorStrategy 'ignore'
   publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
   input:
   set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from strelkabam
+  each algo from ssalgo
   output:
-  set pid,file("${pid}.strelka2.vcf.gz") into strelkavcf
-  set pid,file("${pid}.strelka2.ori.vcf.gz") into strelkaori
+  set pid,file("${pid}.${algo}.vcf.gz") into ssvcf
+  set pid,file("${pid}.${algo}.ori.vcf.gz") into ssori
   script:
   """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a strelka2
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.strelka2 -v ${pid}.strelka2.vcf.gz
-  """
-}
-process shimmer {
-  queue '32GB'
-  errorStrategy 'ignore'
-  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
-  input:
-  set pid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from shimmerbam
-  output:
-  set pid, file("${pid}.shimmer.vcf.gz") into shimmervcf
-  set pid, file("${pid}.shimmer.ori.vcf.gz") into shimmerori
-  script:
-  """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a shimmer
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.shimmer -v ${pid}.shimmer.vcf.gz
+  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $pid -x $tid -y $nid -n $normal -t $tumor -a ${algo}
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${pid}.${algo} -v ${pid}.${algo}.vcf.gz
   """
 }
 
 Channel
   .empty()
-  .mix(mutectvcf,platvcf,fbvcf,shimmervcf,strelkavcf,pindelvcf)
+  .mix(mutectvcf,fbvcf,ssvcf,pindelvcf)
   .groupTuple(by:0)
   .set { vcflist}
 

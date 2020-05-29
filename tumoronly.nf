@@ -18,7 +18,8 @@ params.callsvs="detect"
 params.nuctype='dna'
 params.projectid=''
 snpeff_vers = 'GRCh38.86';
-
+fpsalgo = ['fb', 'strelka2', 'platypus']
+svalgo = ['delly', 'svaba']
 ponopt=''
 if (params.pon) {
    ponopt="-q $params.pon"
@@ -109,7 +110,7 @@ idxbam
 
 cidxbam
    .groupTuple(by:0)		
-   .into { fbbam; platbam; strelkabam; pindelbam;}
+   .into { fbbam; platbam; strelkabam; fpsbam; pindelbam;}
 
 gtxbam
    .groupTuple(by:0)		
@@ -150,56 +151,42 @@ process pindel {
   bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -l ${index_path}/itd_genes.bed -a pindel -f
   """
 }
-process delly {
-  queue '32GB'
-  errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/${params.nuctype}_${params.projectid}", mode: 'copy'
 
-  input:
-  set subjid,file(ssbam),file(ssidx) from dellybam
-  output:
-  set subjid,file("${subjid}.delly.vcf.gz") into dellysv
-  file("${subjid}.delly.genefusion.txt") into dellygf
-  when:
-  params.nuctype == "dna"
-  script:				       
-  """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a delly -f
-  """
-}
-process svaba {
+process sv {
   queue '32GB'
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/${params.nuctype}_${params.projectid}", mode: 'copy'
 
   input:
   set subjid,file(ssbam),file(ssidx) from svababam
+  each algo from svalgo
   output:
-  set subjid,file("${subjid}.svaba.vcf.gz") into svabavcf
-  set subjid,file("${subjid}.svaba.sv.vcf.gz") into svabasv
-  file("${subjid}.svaba.genefusion.txt") into svabagf
+  set subjid,file("${subjid}.${algo}.vcf.gz") into svabavcf
+  set subjid,file("${subjid}.${algo}.sv.vcf.gz") into svabasv
+  file("${subjid}.${algo}.genefusion.txt") into svabagf
   when:
   params.nuctype == "dna"
   script:				       
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a svaba -f
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b $ssbam -p $subjid -a ${algo} -f
   """
 }
 
-process fb {
+process fps {
   queue '32GB'
   errorStrategy 'ignore'
   publishDir "$params.output/$subjid/${params.nuctype}_${params.projectid}", mode: 'copy'
 
   input:
-  set subjid,file(gbam),file(gidx) from fbbam
+  set subjid,file(gbam),file(gidx) from fpsbam
+  each algo from fpsalgo
   output:
-  set subjid,file("${subjid}.fb.vcf.gz") into fbvcf
-  set subjid,file("${subjid}.fb.ori.vcf.gz") into fbori
+  set subjid,file("${subjid}.${algo}.vcf.gz") into fpsvcf
+  set subjid,file("${subjid}.${algo}.ori.vcf.gz") into fpsori
   script:
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a fb
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.fb -v ${subjid}.fb.vcf.gz 
+  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a ${algo}
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.${algo} -v ${subjid}.${algo}.vcf.gz 
   """
 }
 process mutect {
@@ -220,46 +207,10 @@ process mutect {
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.mutect -v ${subjid}.mutect.vcf.gz
   """
 }
-process strelka {
-  queue '32GB'
-  errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/${params.nuctype}_${params.projectid}", mode: 'copy'
-
-  input:
-  set subjid,file(gbam),file(gidx) from strelkabam
-  output:
-  set subjid,file("${subjid}.strelka2.vcf.gz") into strelkavcf
-  set subjid,file("${subjid}.strelka2.ori.vcf.gz") into strelkaori
-  when:
-  params.nuctype == "dna"
-  script:
-  """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a strelka2
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.strelka2 -v ${subjid}.strelka2.vcf.gz
-  """
-}
-process platypus {
-  queue '32GB'
-  errorStrategy 'ignore'
-  publishDir "$params.output/$subjid/${params.nuctype}_${params.projectid}", mode: 'copy'
-
-  input:
-  set subjid,file(gbam),file(gidx) from platbam
-  output:
-  set subjid,file("${subjid}.platypus.vcf.gz") into platvcf
-  set subjid,file("${subjid}.platypus.ori.vcf.gz") into platori
-  when:
-  params.nuctype == "dna"
-  script:				       
-  """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $subjid -a platypus
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${subjid}.platypus -v ${subjid}.platypus.vcf.gz
-  """
-}
 
 Channel
   .empty()
-  .mix(fbvcf,platvcf,strelkavcf,gatkvcf,pindelvcf)
+  .mix(fpsvcf,gatkvcf,pindelvcf)
   .groupTuple(by:0)
   .set { vcflist}
 

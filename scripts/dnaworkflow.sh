@@ -14,7 +14,7 @@ usage() {
     exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:e:a:p:b:d:m:w:c:h opt
+while getopts :r:e:a:p:b:d:m:w:g:c:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -24,6 +24,7 @@ do
 	b) capturedir=$OPTARG;;
 	d) mdup=$OPTARG;;
 	m) mutectpon=$OPTARG;;
+	g) gittag=$OPTARG;;
 	h) usage;;
     esac
 done
@@ -41,7 +42,7 @@ outnf="$prodir/analysis"
 workdir="$prodir/work"
 
 source /etc/profile.d/modules.sh
-module load nextflow/0.31.0
+module load nextflow/20.01.0
 
 pon_opt=''
 if [[ -f $mutectpon ]]
@@ -50,7 +51,7 @@ then
 fi
 capture="${capturedir}/targetpanel.bed"
 
-nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/alignment.nf --design design.txt --capturedir $capturedir --capture $capture --input $outdir --output $outnf --markdups $mdup > nextflow_alignment.log
+nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/alignment.nf --design design.txt --capturedir $capturedir --capture $capture --input $outdir --output $outnf --markdups $mdup --version $gittag > nextflow_alignment.log
 
 awk '{print "mv '${outnf}'/"$1".* '${outnf}'/"$1"_* '${outnf}'/"$2"/"$1}' design.txt | grep -v SampleID |sh
 

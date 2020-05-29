@@ -14,7 +14,7 @@ usage() {
     exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:e:a:p:w:l:c:h opt
+while getopts :r:e:a:p:w:g:l:c:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -23,6 +23,7 @@ do
 	a) analdir=$OPTARG;;
 	l) genelist=$OPTARG;;
         p) prjid=$OPTARG;;
+	g) gittag=$OPTARG;;
 	h) usage;;
     esac
 done
@@ -40,10 +41,10 @@ outdir="$analdir/fastq"
 outnf="$analdir/analysis"
 workdir="$analdir/work"
 source /etc/profile.d/modules.sh
-module load nextflow/0.31.0
-nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/rnaseq.nf --design design.txt --input $outdir --output $outnf $bamct --markdups skip > nextflow.log
+module load nextflow/20.01.0
+nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/rnaseq.nf --design design.txt --input $outdir --output $outnf $bamct --markdups skip --version $gittag > nextflow.log
 ln -fs ${outnf}/*/*/*.bam $outnf
-nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/tumoronly.nf --design design_tumor_only.txt --genome $index_path --nuctype rna --callsvs skip --projectid ${prjid} --input $outnf --output $outnf > nextflow_tumoronly.log
+#nextflow -C ${codedir}/nextflow.config run -w $workdir ${codedir}/tumoronly.nf --design design_tumor_only.txt --genome $index_path --nuctype rna --callsvs skip --projectid ${prjid} --input $outnf --output $outnf > nextflow_tumoronly.log
 
 if [[ -a $genelist ]]
 then
