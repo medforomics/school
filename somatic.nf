@@ -19,7 +19,7 @@ ncmconf = file("$params.genome/ncm.conf")
 
 fpsalgo = ['fb', 'platypus']
 svalgo = ['delly', 'svaba']
-ssalgo = [‘strelka2’,’shimmer’]
+ssalgo = ['strelka2','shimmer']
 
 ponopt=''
 if (params.pon) {

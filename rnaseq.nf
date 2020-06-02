@@ -31,13 +31,8 @@ indel="$params.genome/GoldIndels.vcf.gz"
 knownindel=file(indel)
 dbsnp=file(dbsnp)
 
-snpeff_vers = 'GRCh38.82';
-if (params.genome == '/project/shared/bicf_workflow_ref/GRCm38') {
-   snpeff_vers = 'GRCm38.82';
-}
-if (params.genome == '/project/shared/bicf_workflow_ref/GRCh37') {
-   snpeff_vers = 'GRCh37.75';
-}
+snpeff_vers = 'GRCh38.86';
+
 alignopts = ''
 if (params.markdups == 'fgbio_umi') {
    alignopts = '-u'
