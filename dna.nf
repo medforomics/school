@@ -2,26 +2,48 @@
 
 params.input = './fastq'
 params.output = './analysis'
-
-params.caseid = 'test'
-params.seqrunid = 'runtest'
-params.vcfid = ${params.caseid}.${params.seqrunid}"
-params.tumorid = 'Tumor'
-
-params.tfq = "${params.input}/${params.tumorid}.R{1,2}.fq.gz"
-if( $params.normalid ) {
-    params.nfq = "${params.input}/${params.normalid}.R{1,2}.fq.gz"
-    reads_ch = Channel.fromFilePairs([params.tfq, params.nfq])
-}
-else {
-     reads_ch = Channel.fromFilePairs(params.tfq)
-}
-
+snpeff_vers = 'GRCh38.86';
 params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
 params.virus_genome="/project/shared/bicf_workflow_ref/human_virus_genome/clinlab_idt_genomes"
 
 params.markdups='fgbio_umi'
 params.version = 'v4'
+
+params.caseid = 'test'
+params.seqrunid = 'runtest'
+params.vcfid = "${params.caseid}.${params.seqrunid}"
+params.tumorid = 'Tumor'
+
+somatic = false
+fpsalgo = ['fb', 'strelka2', 'platypus']
+svalgo = ['delly', 'svaba']
+ssalgo = ['strelka2','shimmer']
+
+params.tfq = "${params.input}/${params.tumorid}.R{1,2}.fastq.gz"
+Channel
+  .fromPath(params.tfq)
+  .ifEmpty { error "Cannot find any reads matching: ${params.tfq}" }
+  .set { fqfiles }
+pnames = Channel
+  .from([params.tumorid,params.tumorid])
+  .merge( fqfiles )
+  .groupTuple(by:0)
+  .set { reads }
+
+if( params.normalid ) {
+    somatic = true
+    fpsalgo = ['fb', 'platypus']
+    params.nfq = "${params.input}/${params.normalid}.R{1,2}.fastq.gz"
+    Channel
+      .fromPath([params.tfq, params.nfq])
+      .ifEmpty { error "Cannot find any reads matching: ${params.tfq}" }
+      .set { fqfiles }
+    pnames = Channel
+      .from([params.tumorid, params.tumorid, params.normalid,params.normalid])
+      .merge( fqfiles )
+      .groupTuple(by:0)
+      .set { reads }
+}
 
 ncmconf = file("$params.genome/ncm.conf")
 reffa=file("$params.genome/genome.fa")
@@ -31,23 +53,13 @@ indel="$params.genome/GoldIndels.vcf.gz"
 dbsnp=file(dbsnp)
 knownindel=file(indel)
 index_path=file(params.genome)
-capture_bed = file("$params.capture")
+capturebed = file("$params.capture")
 capturedir = file("$params.capturedir")
 virus_index_path=file(params.virus_genome)
 
 skipCNV = false
 if(capturedir.isEmpty()) {
   skipCNV = true
-}
-
-fpsalgo = ['fb', 'platypus']
-svalgo = ['delly', 'svaba']
-ssalgo = [‘strelka2’,’shimmer’]
-
-somatic = true
-if(normalid.isEmpty()) {
-  somatic = false
-  fpsalgo = ['fb', 'strelka2', 'platypus']
 }
 
 alignopts = ''
@@ -60,27 +72,28 @@ if (params.pon) {
    ponopt="-q $params.pon"
 }
 
-
 process dtrim_align {
   executor 'local'
   errorStrategy 'ignore'
   publishDir "$params.output/$params.caseid/$pair_id", mode: 'copy'
   input:
-  set pair_id, file(reads) from read
+  set pair_id, file(fqs) from reads
   output:
-  set pair_id,file("${pair_id}.bam") into aligned
-  set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai"),file("${pair_id}.trimreport.txt") into aligned2
-  set pair_id,file("${pair_id}.bam") into virusalign
-  set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into cnvbam
-  set pair_id,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into itdbam
-  set params.caseid,file("${pair_id}.bam"),file("${pair_id}.bam.bai") into oribam
+  set pair_id, file("${pair_id}.bam") into mdupbam
+  set pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai"),file("${pair_id}.trimreport.txt") into qcbam
+  set pair_id, file("${pair_id}.bam") into virusalign
+  set pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai") into cnvbam
+  set pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai") into itdbam
+  set env(subjid),file("${pair_id}.bam"), file("${pair_id}.bam.bai") into oribam
   script:
   """
-  bash $baseDir/process_scripts/cvc/dna_trim_align.sh -p ${pair_id} -r $index_path -f $alignopts $reads
+  subjid=${params.caseid}
+  bash $baseDir/process_scripts/cvc/dna_trim_align.sh -p ${pair_id} -r $index_path -f $alignopts $fqs
   """
 }
 
 process valign {
+  executor 'local'
   errorStrategy 'ignore'
   publishDir "$params.output/$params.caseid/$pair_id", mode: 'copy'
 
@@ -88,6 +101,7 @@ process valign {
   set pair_id, file(sbam) from virusalign
   output:
   file("${pair_id}.viral.seqstats.txt") into viralseqstats
+  script:
   """
   bash $baseDir/process_scripts/alignment/virusalign.sh -b ${pair_id}.bam -p ${pair_id} -r $virus_index_path -f
   """
@@ -99,18 +113,15 @@ process markdups_consensus {
   publishDir "$params.output/$params.caseid/$pair_id", mode: 'copy'
 
   input:
-  set  pair_id, file(sbam) from aligned
+  set  pair_id, file(sbam) from mdupbam
   output:
   set pair_id, file("${pair_id}.consensus.bam"),file("${pair_id}.consensus.bam.bai") into togatkbam
-  set params.caseid,file("${pair_id}.consensus.bam"),file("${pair_id}.consensus.bam.bai") into consbam
+  set env(subjid),file("${pair_id}.consensus.bam"),file("${pair_id}.consensus.bam.bai") into consbam
   script:
   """
+  subjid=${params.caseid}
   bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id -r $index_path
-  if [[ ! -f ${pair_id}.group.bam ]] 
-  then
-    cp ${pair_id}.dedup.bam ${pair_id}.group.bam
-    cp ${pair_id}.dedup.bam.bai ${pair_id}.group.bam.bai
-  fi
+
   mv ${pair_id}.dedup.bam ${pair_id}.consensus.bam
   mv ${pair_id}.dedup.bam.bai ${pair_id}.consensus.bam.bai
   """
@@ -121,19 +132,19 @@ process qc_gbam           {
   publishDir "$params.output/$params.caseid/$pair_id", mode: 'copy'
   queue '128GB,256GB,256GBv1'
   input:
-  set pair_id, file(gbam),file(idx),file(trimreport) from aligned2
+  set pair_id, file(gbam),file(idx),file(trimreport) from qcbam
   output:
   file("*fastqc*") into fastqc
   file("${pair_id}*txt") into dalignstats	
   script:
   """
-  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${gbam} -p $pair_id  
-  perl $baseDir/scripts/sequenceqc_alignment_withumi.pl -r ${index_path} -e $params.version *.genomecov.txt
+  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capturebed -n dna -r $index_path -b ${gbam} -p $pair_id  
+  perl $baseDir/scripts/sequenceqc_alignment_withumi.pl -r ${index_path} -e ${params.version} *.genomecov.txt
   """
 }
 
 process cnv {
-  queue '32GB,super'
+  executor 'local'
   errorStrategy 'ignore'
   publishDir "$params.output/$params.caseid/$pair_id", mode: 'copy'
   input:
@@ -155,7 +166,7 @@ process cnv {
 }
 
 process itdseek {
-  queue '32GB,super'
+  executor 'local'
   errorStrategy 'ignore'
   publishDir "$params.output/$params.caseid/$pair_id", mode: 'copy'
   input:
@@ -177,9 +188,10 @@ process gatkbam {
   input:
   set pair_id, file(sbam),file(idx) from togatkbam
   output:
-  set params.caseid,file("${pair_id}.final.bam"),file("${pair_id}.final.bam.bai") into gtxbam
+  set env(subjid),file("${pair_id}.final.bam"),file("${pair_id}.final.bam.bai") into gtxbam
   script:
   """
+  subjid=${params.caseid}
   bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r $index_path -p $pair_id
   """
 }
@@ -204,15 +216,14 @@ process msi {
   set caseid,file(ssbam),file(ssidx) from msibam
   output:
   file("${caseid}*") into msiout
-  when:
   script:
-  if ( $somatic == true )
+  if ( somatic == true )
   """
-  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $params.caseid -b ${tumorid}.bam -n ${normalid}.bam -c $capturebed
+  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $params.caseid -b ${params.tumorid}.bam -n ${params.normalid}.bam -c $capturebed
   """
   else
   """
-  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $params.caseid -b ${tumorid}.bam -c $capturebed
+  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $params.caseid -b ${params.tumorid}.bam -c $capturebed
   """
 }
 
@@ -225,7 +236,7 @@ process checkmates {
   file(conf) from ncmconf
   output:
   file("${caseid}*") into checkmateout
-  when: $somatic == true
+  when: somatic == true
   script:
   """
   source /etc/profile.d/modules.sh
@@ -238,7 +249,7 @@ process checkmates {
 process pindel {
   errorStrategy 'ignore'
   queue '128GB,256GB,256GBv1'
-  publishDir "$params.output/$params.caseid/dna_${params.seqrunid}", mode: 'copy'
+  publishDir "$params.output/$params.caseid/dna_$params.seqrunid", mode: 'copy'
   input:
   set caseid,file(ssbam),file(ssidx) from pindelbam
   output:
@@ -254,7 +265,7 @@ process pindel {
 process sv {
   queue '32GB,super'
   errorStrategy 'ignore'
-  publishDir "$params.output/$params.caseid/dna_${params.seqrunid}", mode: 'copy'
+  publishDir "$params.output/$params.caseid/dna_$params.seqrunid", mode: 'copy'
 
   input:
   set caseid,file(ssbam),file(ssidx) from svbam
@@ -265,29 +276,30 @@ process sv {
   file("${caseid}.${algo}.genefusion.txt") into svgf
 
   script:				       
-  if ( $somatic == true ) 
+  if ( somatic == true ) 
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tumorid} -y ${normalid} -b ${tumorid}.bam -n ${normalid}.bam -p $params.caseid -a ${algo} -f 
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${params.tumorid} -y ${params.normalid} -b ${params.tumorid}.bam -n ${params.normalid}.bam -p $params.caseid -a ${algo} -f 
   """
   else 
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b ${tumorid}.bam -p $params.caseid -a ${algo} -f
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b ${params.tumorid}.bam -p $params.caseid -a ${algo} -f
   """
 }
 
 process mutect {
   queue '128GB,256GB,256GBv1'
   errorStrategy 'ignore'
-  publishDir "$params.output/$pid/dna_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$params.caseid/dna_$params.seqrunid", mode: 'copy'
+
   input:
   set caseid,file(ssbam),file(ssidx) from svbam from mutectbam
   output:
   set caseid,file("${caseid}.mutect.vcf.gz") into mutectvcf
   set caseid,file("${caseid}.mutect.ori.vcf.gz") into mutectori
   script:
-  if ( $somatic == true ) 
+  if ( somatic == true ) 
   """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh $ponopt -r $index_path -p $params.caseid -x $tumorid -y $normalid -t ${tumorid}.final.bam -n ${normalid}.final.bam -a mutect
+  bash $baseDir/process_scripts/variants/somatic_vc.sh $ponopt -r $index_path -p $params.caseid -x $params.tumorid -y $params.normalid -t ${params.tumorid}.final.bam -n ${params.normalid}.final.bam -a mutect
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${caseid}.mutect -v ${caseid}.mutect.vcf.gz
   """
   else
@@ -300,9 +312,10 @@ process mutect {
 process somvc {
   queue '32GB,super'
   errorStrategy 'ignore'
-  publishDir "$params.output/$params.caseid/dna_$params.projectid", mode: 'copy'
+  publishDir "$params.output/$params.caseid/dna_$params.seqrunid", mode: 'copy'
+
   input:
-  set caseid,tid,nid,file(tumor),file(normal),file(tidx),file(nidx) from sombam
+  set caseid,file(ssbam),file(ssidx) from svbam from sombam
   each algo from ssalgo
   output:
   set caseid,file("${caseid}.${algo}.vcf.gz") into ssvcf
@@ -311,7 +324,7 @@ process somvc {
   somatic == true
   script:
   """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $params.caseid -x $tumorid -y $normalid -n ${normalid}.consensus.bam -t ${tumorid}.consensus -a ${algo}
+  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $params.caseid -x $params.tumorid -y $params.normalid -n ${params.normalid}.consensus.bam -t ${params.tumorid}.consensus.bam -a ${algo} -b $capturebed
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${caseid}.${algo} -v ${caseid}.${algo}.vcf.gz
   """
 }
@@ -319,7 +332,8 @@ process somvc {
 process germvc {
   queue '32GB,super'
   errorStrategy 'ignore'
-  publishDir "$params.output/$params.caseid/${params.nuctype}_${params.projectid}", mode: 'copy'
+  publishDir "$params.output/$params.caseid/dna_$params.seqrunid", mode: 'copy'
+
 
   input:
   set caseid,file(gbam),file(gidx) from germbam
@@ -329,7 +343,7 @@ process germvc {
   set caseid,file("${caseid}.${algo}.ori.vcf.gz") into germori
   script:
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $params.caseid -a ${algo}
+  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $params.caseid -a ${algo} -b $capturebed
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${caseid}.${algo} -v ${caseid}.${algo}.vcf.gz 
   """
 }
@@ -346,14 +360,13 @@ process integrate {
   publishDir "$params.output/$params.caseid", mode: 'copy'
   input:
   set caseid,file(vcf) from vcflist
-  file 'design.txt' from design_file
   output:
-  file("${caseid}_${params.projectid}.dna.vcf.gz") into unionvcf
+  file("${caseid}_${params.seqrunid}.dna.vcf.gz") into unionvcf
   script:
   """
   source /etc/profile.d/modules.sh
   module load htslib/gcc/1.8
   bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $params.caseid
-  cp ${caseid}.union.vcf.gz ${caseid}_${params.projectid}.dna.vcf.gz
+  cp ${caseid}.union.vcf.gz ${caseid}_${params.seqrunid}.dna.vcf.gz
   """
 }
