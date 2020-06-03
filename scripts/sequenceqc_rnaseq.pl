@@ -9,7 +9,12 @@ my @files = @ARGV;
 chomp(@files);
 
 my $fileowner = $opt{user};
-my $gittag = $opt{gitdir};
+my $gittag = 'v5';
+if ($opt{gitdir}) {
+    $gittag = $opt{gitdir};
+}elsif($ENV{'gitv'}) {
+    $gittag = $ENV{'gitv'};
+}
 
 foreach my $file (@files) {
   chomp($file);
