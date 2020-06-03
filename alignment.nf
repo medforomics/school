@@ -156,7 +156,7 @@ process qc_gbam           {
   script:
   """
   bash $baseDir/process_scripts/alignment/bamqc.sh -c $capture_bed -n dna -r $index_path -b ${sbam} -p $pair_id  
-  perl $baseDir/scripts/sequenceqc_alignment_withumi.pl -r ${index_path} -e $params.version *.genomecov.txt
+  perl $baseDir/scripts/sequenceqc_dna.pl -r ${index_path} -e $params.version *.genomecov.txt
   """
 }
 
