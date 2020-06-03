@@ -1,7 +1,19 @@
 #!/usr/bin/perl 
 #check_new_run.pl
 
-my $refdir = "/project/shared/bicf_workflow_ref/human/GRCh38";
+use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
+
+my %opt = ();
+my $results = GetOptions (\%opt,'help|h','split|i=s','test|o=s','xmlcheck|u=s');
+my $opts;
+if ($opt{split}) {
+    $opts .= " -s 1"
+}if ($opt{test}) {
+    $opts .= " -t 1"
+}if ($opt{xmlcheck}) {
+    $opts .= " -x 1"
+}
+my $refdir = "/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref";
 my @scriptpath = split(/\//,$0);
 pop @scriptpath;
 pop @scriptpath;
@@ -21,7 +33,7 @@ foreach my $ss (@samplesheets) {
       system(qq{$execdir\/scripts/create_directories.sh -p $prjid -c $prodir});
       system(qq{cp $execdir\/scripts/init_workflows.sh $procbase});
       open OUT, ">$procbase\/run_$prjid.sh" or die $!;
-      print OUT qq{#!/bin/bash\n$procbase\/init_workflows.sh -p $prjid -b $execdir -c $prodir -r $refdir\n};
+      print OUT qq{#!/bin/bash\n$procbase\/init_workflows.sh -p $prjid -b $execdir -c $prodir -r $refdir $opts\n};
       close OUT;
       system("sbatch -p 32GB $procbase\/run_$prjid.sh");
   }

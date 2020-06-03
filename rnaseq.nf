@@ -183,7 +183,7 @@ process geneabund {
   file("${pair_id}.fpkm.txt") into fpkm
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/diff_exp/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam}
+  bash $baseDir/process_scripts/diff_exp/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam} -f 1
   """
 }
 

@@ -22,6 +22,10 @@ reffa=file("$params.genome/genome.fa")
 gtf_file = file("$params.genome/gencode.gtf")
 genenames = file("$params.genome/genenames.txt")
 
+glist=''
+if (params.glist) {
+   ponopt="-f $params.glist"
+}
 
 params.tfq = "${params.input}/${params.tumorid}.R{1,2}.fastq.gz"
 Channel
@@ -108,7 +112,7 @@ process geneabund {
   file("${pair_id}.fpkm.txt") into fpkm
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/diff_exp/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam}
+  bash $baseDir/process_scripts/diff_exp/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam} $glist -f 1
   """
 }
 process fb {
@@ -119,11 +123,11 @@ process fb {
   input:
   set caseid,$pair_id,file(gbam),file(gidx) from fbbam
   output:
-  set caseid,file("${caseid}.rna.vcf.gz") into fbvcf
+  set caseid,file("${caseid}_${params.seqrunid}.rna.vcf.gz") into fbvcf
   script:
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $caseid -a fb
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${caseid}.fb -v ${caseid}.fb.vcf.gz 
-  mv ${caseid}.fb.vcf.gz ${caseid}_${params.projectid}.rna.vcf.gz
+  mv ${caseid}.fb.vcf.gz ${caseid}_${params.seqrunid}.rna.vcf.gz
   """
 }

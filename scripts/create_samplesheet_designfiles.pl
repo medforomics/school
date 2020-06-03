@@ -4,20 +4,23 @@
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
 my %opt = ();
-my $results = GetOptions (\%opt,'help|h','input|i=s','output|o=s','umi|u=s','dout|d=s','prjid|p=s','outdir|f=s','outnf|n=s');
+my $results = GetOptions (\%opt,'help|h','input|i=s','output|o=s','umi|u=s',
+			  'fqout|f=s','processdir|d=s','seqrunid|p=s',
+			  'outnf|n=s','panelsdir|t=s');
 
 if ($opt{umi}) {
   open RNASS, ">$opt{umi}" or die $!;
+  $rnaseqnoumi = 1;
 }
 open SS, "<$opt{input}" or die $!;
 open SSOUT, ">$opt{output}" or die $!;
-my %sampleinfo;
-my %stype;
+
 my %spairs;
-my $prjid = $opt{prjid};
+my %stype;
+my %samples;
+
 my $outdir = $opt{outdir};
 my $outnf = $opt{outnf};
-chomp $prjid;
 while (my $line = <SS>){
   chomp($line);
   $line =~ s/\r//g;
@@ -54,11 +57,9 @@ while (my $line = <SS>){
 	  $hash{Sample_Name} =~ s/_Lib.*//;
       }
       $hash{Sample_Name} =~ s/T_RNA_panelrnaseq-\d+-\d+/T_RNA_panelrnaseq/;
-      
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
       $hash{Assay} = lc($hash{Assay});
- 
       $hash{Assay} = 'panel1385v2' if ($hash{Sample_Name} =~ m/panel1385v2/);
       $hash{Assay} = 'tspcrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq/);
       $hash{Assay} = 'idtrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq\d+/i);
@@ -67,32 +68,15 @@ while (my $line = <SS>){
       $hash{Assay} = 'pancancer' if ($hash{Sample_Name} =~ m/pancancer\d*/i);
       $hash{Assay} = 'heme' if ($hash{Sample_Name} =~ m/heme\d*/i);
 
-      unless (-e "$opt{dout}/$hash{Assay}") {
-	system(qq{mkdir $opt{dout}/$hash{Assay}});
-      }
-      my @samplename = split(/_/,$hash{Sample_Name});
       unless ($hash{Class}) {
 	$hash{Class} = 'tumor';
 	$hash{Class} = 'normal' if ($hash{Sample_Name} =~ m/_N_/);
       }
       $hash{SubjectID} = $hash{Sample_Project};
-
-      my $clinres = 'cases';
-      $hash{VcfID} = $hash{SubjectID}."_".$prjid;
-      if (($hash{Description} && $hash{Description} =~ m/research/i) ||
-	  ($hash{Sample_Name} !~ m/ORD/ && $hash{SubjectID} !~ m/GM12878|ROS/)) {
-	$clinres = 'researchCases';
-      }
-      $hash{ClinRes} = $clinres;
-      unless($opt{umi}){ #unless ($umi) {
-	$hash{Sample_Name} = $hash{Sample_Name}."_ClarityID-".$hash{Sample_ID};
-      }
       $hash{Sample_ID} = $hash{Sample_Name};
-      $stype{$hash{SubjectID}} = $hash{Case};
-      $spairs{$hash{Assay}}{$hash{SubjectID}}{lc($hash{Class})}{$hash{Sample_Name}} = 1 unless ($hash{Assay} =~ m/rna/);
-      $sampleinfo{$hash{Sample_Name}} = \%hash;
-      push @{$samples{$hash{Assay}}{$hash{SubjectID}}}, $hash{Sample_Name};
-      
+      $spairs{$hash{Assay}}{$hash{SubjectID}}{lc($hash{Class})}{$hash{Sample_Name}} = 1;
+      $stype{$hash{Assay}}{$hash{Sample_Name}} = $hash{SubjectID};
+      push @{$samples{$hash{SubjectID}}}, $hash{Sample_Name};
       my @newline;
       foreach my $j (0..$#row) {
 	push @newline, $hash{$colnames[$j]};
@@ -111,65 +95,133 @@ while (my $line = <SS>){
   }
 }
 close SSOUT;
-my %inpair;
 
+my %panelbed=("panel1385"=>"UTSW_V2_pancancer", "panel1385v2"=>"UTSW_V3_pancancer", "medexomeplus"=>"UTSW_medexomeplus", "heme"=>"UTSW_V4_heme", "pancancer"=>"UTSW_V4_pancancer", "idtrnaseq"=>"UTSW_V4_rnaseq", "solid"=>"UTSW_V4_solid");
+
+open DES, ">$opt{processdir}\/subjects.txt" or die $!;
+open CAS, ">$opt{processdir}\/lnfq.sh" or die $!;
+print CAS "#!/bin/bash\n";
+foreach $subjid (keys %samples)  {
+    system(qq{mkdir -p $opt{processdir}/analysis/$subjid});
+    my $inseqdir =  "$opt{fqout}/$opt{seqrunid}/$subjid";
+    my $outseqdir = "$opt{processdir}/analysis/$subjid/fastq";
+    system(qq{mkdir -p $outseqdir});
+    print DES $subjid,"\n";
+    foreach $samp (@{$samples{$subjid}}) {
+	print CAS "ln -s $inseqdir/$samp*_R1_*.fastq.gz $outseqdir/$samp\.R1.fastq.gz\n";
+	print CAS "ln -s $inseqdir/$samp*_R2_*.fastq.gz $outseqdir/$samp\.R2.fastq.gz\n";
+	print CAS "ln -s $inseqdir/$samp*_R1_*.fastq.gz $opt{processdir}/fastq/$samp\.R1.fastq.gz\n";
+	print CAS "ln -s $inseqdir/$samp*_R2_*.fastq.gz $opt{processdir}/fastq/$samp\.R2.fastq.gz\n";
+    }
+}
+close DES;
+
+my %inpairs;
 foreach $dtype (keys %spairs ){
-  open TNPAIR, ">$opt{dout}/$dtype/design_tumor_normal.txt" or die $!;
-  print TNPAIR join("\t",'PairID','VcfID','TumorID','NormalID','TumorBAM','NormalBAM','TumorCBAM','NormalCBAM',
+  system(qq{mkdir -p $opt{processdir}/$dtype});
+  open TNPAIR, ">$opt{processdir}/$dtype/design_tumor_normal.txt" or die $!;
+  print TNPAIR join("\t",'PairID','TumorID','NormalID','TumorBAM',
+		    'NormalBAM','TumorCBAM','NormalCBAM',
 		    'TumorGATKBAM','NormalGATKBAM'),"\n";
+  my %panel;
+  if ($dtype !~ m/rna/) {
+    $panel{capturedir} = "$opt{panelsdir}/$panelbed{$dtype}";
+    $panel{capturebed} = "$panel{capturedir}/targetpanel.bed";
+    if (-e "$panel{capturedir}/mutect2.pon.vcf.gz") {
+      $panel{mutectpon} = "$panel{capturedir}/mutect2.pon.vcf.gz";
+    }
+  }
   foreach my $subjid (keys %{$spairs{$dtype}}) {
-    my @ctypes = keys %{$spairs{$dtype}{$subjid}};
-    if ($spairs{$dtype}{$subjid}{tumor} && $spairs{$dtype}{$subjid}{normal}) {
-      my @tumors = keys %{$spairs{$dtype}{$subjid}{tumor}};
-      my @norms = keys %{$spairs{$dtype}{$subjid}{normal}};
-      my $pct = 0;
-      foreach $tid (@tumors) {
-	$inpair{$tid} = 1;
-	foreach $nid (@norms) {
-	  $inpair{$nid} = 1;
-		    my $pair_id = $subjid;
-	  if ($pct > 0) {
-	    $pair_id .= ".$pct";
-	  }
-	  print TNPAIR join("\t",$pair_id,$pair_id."_".$prjid,$tid,$nid,$tid.".bam",
-			    $nid.".bam",$tid.".consensus.bam",$nid.".consensus.bam",
-			    $tid.".final.bam",$nid.".final.bam"),"\n";
-	  $pct ++;
-	}
+    system(qq{mkdir -p $opt{processdir}/analysis/$subjid/$dtype});
+    my %vars = %panel;
+    $vars{input}="$opt{processdir}/analysis/$subjid/fastq";
+    $vars{output}="$opt{processdir}/analysis";
+    $vars{caseid} = $subjid;
+    my $pct = 0;
+    foreach $tumorid (keys %{$spairs{$dtype}{$subjid}{tumor}}) {
+      my @samp;
+      push @samp, $tumorid;
+      $vars{tumorid} = $tumorid;
+      if ($pct > 0) {
+	$vars{caseid} .= ".$pct";
       }
+      $pct ++;
+      if ($spairs{$dtype}{$subjid}{normal}) {
+	@nids = keys %{$spairs{$dtype}{$subjid}{normal}};
+	$normalid = shift @nids;
+	push @samp, $normalid;
+	$vars{normalid} = $normalid;
+	$inpairs{$tumorid} = 1;
+	$inpairs{$normalid} = 1;
+      }
+      if ($subjid =~ m/GM12878/) {
+	$vars{vcf} = join("_",$vars{caseid},$opt{seqrunid}).'.dna.vcf.gz';
+	$vars{sampid} = $tumorid;
+      }
+      $done{$tumorid} = 1;
+      print TNPAIR join("\t",$subjid,$tumorid,$vars{normalid},$tumorid.".bam",
+			$vars{normalid}.".bam",$tumorid.".consensus.bam",
+			$vars{normalid}.".consensus.bam",$tumorid.".final.bam",
+			$vars{normalid}.".final.bam"),"\n";
+      open VAR, ">$opt{processdir}/analysis/$subjid/$dtype/vars.sh" or die $!;
+      open SAMP, ">$opt{processdir}/analysis/$subjid/$dtype/samples.txt" or die $!;
+      print SAMP join("\n",@samp),"\n";
+      print VAR "#!/bin/bash\n";
+      foreach $key (keys %vars) {
+	print VAR join("=",$key,$vars{$key}),"\n";
+      }
+      close VAR;
     }
   }
-  close TNPAIR;
 }
-foreach $dtype (keys %samples) {
-  open CAS, ">$opt{dout}\/$dtype\/lnfq.sh" or die $!;
-  print CAS "#!/bin/bash\n";
-  open SSOUT, ">$opt{dout}\/$dtype\/design.txt" or die $!;
-  open TONLY, ">$opt{dout}\/$dtype\/design_tumor_only.txt" or die $!;
+
+my $load_root = "/swnas/qc_nuclia";
+my $proc_dir = "$opt{processdir}/$opt{seqrunid}";
+my $seqrunid = $opt{seqrunid};
+if ($opt{dir}) {
+  $proc_dir = $opt{dir};
+}
+my @prop = ('run.name','dmux.conversion.stats','bait.pool','project.name','sample.alignment',
+	    'sample.coverage.raw','sample.name','somatic.seq.stats','giab.snsp',
+	    'somatic.translocation');
+
+my $seqdatadir = "/project/PHG/PHG_Clinical/illumina";
+foreach $dtype (keys %stype) {
+  open SSOUT, ">$opt{processdir}\/$dtype\/design.txt" or die $!;
+  open TONLY, ">$opt{processdir}\/$dtype\/design_tumor_only.txt" or die $!;
   print SSOUT join("\t","SampleID",'FamilyID','FqR1','FqR2'),"\n";
-  print TONLY join("\t","SampleID",'VcfID','FamilyID','BAM','CBAM','GATKBAM'),"\n";
-  my %thash;
-  foreach $project (keys %{$samples{$dtype}}) {
-    my $datadir =  "/project/PHG/PHG_Clinical/illumina/$prjid/$project/";
-    foreach $samp (@{$samples{$dtype}{$project}}) {
-      my %info = %{$sampleinfo{$samp}};
-      print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outdir\/$samp\.R1.fastq.gz\n";
-      print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outdir\/$samp\.R2.fastq.gz\n";
-      print CAS "ln -s $datadir/$samp*_R1_*.fastq.gz $outnf\/$info{SubjectID}/fastq\/$samp\.R1.fastq.gz\n";
-      print CAS "ln -s $datadir/$samp*_R2_*.fastq.gz $outnf\/$info{SubjectID}/fastq\/$samp\.R2.fastq.gz\n";
-      print SSOUT join("\t",$info{Sample_Name},$info{SubjectID},
-		       "$samp\.R1.fastq.gz","$samp\.R2.fastq.gz"),"\n"; 
-      next if ($inpair{$info{Sample_Name}});
-      if ($dtype =~ m/rna/) {
-	print TONLY join("\t",$info{Sample_Name},$info{VcfID},$info{SubjectID},
-			 $info{Sample_Name}.".bam",$info{Sample_Name}.".bam",$info{Sample_Name}.".bam"),"\n";
-      }else {
-	print TONLY join("\t",$info{Sample_Name},$info{VcfID},$info{SubjectID},$info{Sample_Name}.".bam",
-			 $info{Sample_Name}.".consensus.bam",$info{Sample_Name}.".final.bam"),"\n";
-      }
+  print TONLY join("\t","SampleID",'FamilyID','BAM','CBAM','GATKBAM'),"\n";
+  foreach $sampleid (keys %{$stype{$dtype}}) {
+    my %info;
+    $caseid = $stype{$dtype}{$sampleid};
+    print SSOUT join("\t",$sampleid,$caseid,"$sampleid.R1.fastq.gz","$sampleid.R2.fastq.gz"),"\n";
+    my $casedir="$load_root/seqanalysis/$seqrunid/analysis/$caseid";
+    $info{'run.name'} = $seqrunid;	
+    $info{'dmux.conversion.stats'} = "$load_root/demultiplexing/$seqrunid/Stats/ConversionStats.xml";	
+    if ($rnaseqnoumi && $baitpool =~ m/rnaseq/) {
+      $info{'dmux.conversion.stats'} = "$load_root/demultiplexing/$seqrunid/noumi/Stats/ConversionStats.xml";
+    }
+    $info{'bait.pool'} = $dtype;
+    $info{'project.name'}=$caseid;
+    $info{'sample.name'}=$sampleid;
+    $info{'sample.alignment'} = "$casedir/$sampleid/$sampleid.sequence.stats.txt";
+    $info{'sample.coverage.raw'} = "$casedir/$sampleid/$sampleid_exoncoverage.txt";
+    if ($inpairs{$sampleid}) {
+      $info{'somatic.seq.stats'}="$casedir/dna_$seqrunid/$caseid_$seqrunid.sequence.stats.txt";
+    }else {
+      print TONLY join("\t",$sampleid,$caseid,$sampleid.".bam",$sampleid.".consensus.bam",$sampleid.".final.bam"),"\n";
+    }
+    if ($caseid =~ m/ROS1/) {
+      $info{'somatic.translocation'} = "$casedir/$sampleid/$sampleid.translocations.answer.txt";
+    }
+    if ($caseid =~ m/GM12878/) {
+      $info{'giab.snsp'} = "$casedir/$sampleid.snsp.txt";
+    }
+    open OUT, ">$proc_dir/$sampleid.properties" or die $!;
+    foreach $prop (@prop) {
+      $info{$prop} = '' unless ($info{$prop});
+      print OUT join("=",$prop,$info{$prop}),"\n";
     }
   }
-  close SSOUT;
-  close TONLY;
-  close CAS;
 }
+
