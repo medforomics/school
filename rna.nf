@@ -97,7 +97,7 @@ process alignqc {
   script:
   """
   bash $baseDir/process_scripts/alignment/bamqc.sh -p ${pair_id} -b ${bam} -n rna
-  perl $baseDir/scripts/sequenceqc_rnaseq.pl -r ${index_path} -e ${params.version} *.flagstat.txt
+  perl $baseDir/scripts/sequenceqc_rna.pl -r ${index_path} -e ${params.version} *.flagstat.txt
   """
 }
 process geneabund {
