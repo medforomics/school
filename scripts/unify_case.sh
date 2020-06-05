@@ -19,7 +19,7 @@ usage() {
   exit 1
 }
 OPTIND=1 # Reset OPTIND
-while getopts :r:n:a:p:t:m:g:v:s:k:y:j:i:x:c:d:e:b:f:h opt
+while getopts :r:n:a:p:t:m:g:v:s:k:y:j:i:x:c:d:e:b:f:l:h opt
 do
     case $opt in
         r) index_path=$OPTARG;;
@@ -41,6 +41,7 @@ do
 	j) rnaseq_translocation=$OPTARG;;
  	b) targetbed=$OPTARG;;
 	k) nucliatoken=$OPTARG;;
+	l) testdir=$OPTARG;;
 	h) usage;;
     esac
 done
@@ -262,7 +263,10 @@ echo -e "Metric,Value,Class\nTMB,${tmbval},${tmbclass}\nMSI,${msival},${msiclass
 #RUN VCF2MAF
 perl ${vepdir}/vcf2maf.pl --input ${subject}.all.vcf --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
 
-if [[ -n $archive ]]
+if [[ -n $archive ]] && [[ -z $testdir ]]
 then
     bash $baseDir/syncCase2Azure.sh ${subject} $nucliatoken
+elif [[ -n $archive ]] 
+then
+    bash $baseDir/syncCase2Azure.sh ${subject} $nucliatoken $testdir 1
 fi
