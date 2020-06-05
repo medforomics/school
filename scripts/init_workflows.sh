@@ -76,20 +76,28 @@ then
     module load bcl2fastq/2.19.1
     mkdir -p ${fqout}/${seqrunid}
     ln -s ${illumina}/${seqrunid}/* $fqout/${seqrunid}
-    mkdir -p /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$seqrunid
+    ssh answerbe@198.215.54.71 "mkdir -p /swnas/qc_nuclia/demultiplexing/$prjid"
     if [[ ${#lastline} > 0 ]]
     then
-	mkdir -p /project/PHG/PHG_BarTender/bioinformatics/demultiplexing/$seqrunid/noumi
-	bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${seqdatadir}/$seqrunid.noumi.csv --use-bases-mask Y76,I6N8,Y76 &> ${seqdatadir}/bcl2fastq_noumi_${seqrunid}.log
-	rsync -avz ${seqdatadir}/Reports ${seqdatadir}/Stats answerbe@198.215.54.71:/swnas/qc_nuclia/demultiplexing/$seqrunid/noumi
+	ssh answerbe@198.215.54.71 "mkdir -p /swnas/qc_nuclia/demultiplexing/$prjid/noumi"
+	bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${seqdatadir}/$prjid.noumi.csv --use-bases-mask Y76,I6N
+	8,Y76 &> ${seqdatadir}/bcl2fastq_noumi_${prjid}.log
+	if [[ ! -s "${seqdatadir}/Undetermined_S0_R1_001.fastq.gz" ]] || [[ ! -s "${seqdatadir}/Undetermined_S0_R2_001.fastq.gz" ]]
+	then
+	    exit
+	fi
+	rsync -avz ${seqdatadir}/Reports ${seqdatadir}/Stats answerbe@198.215.54.71:/swnas/qc_nuclia/demultiplexing/$prjid/noumi
 	mkdir -p ${seqdatadir}/noumi
 	mv ${seqdatadir}/Reports ${seqdatadir}/Stats ${seqdatadir}/noumi
     fi
     mv ${seqdatadir}/RunInfo.xml ${seqdatadir}/RunInfo.xml.ori
     perl  ${baseDir}/scripts/fix_runinfo_xml.pl $seqdatadir
-    
-    bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${newss} &> ${seqdatadir}/bcl2fastq_${seqrunid}.log
-    rsync -avz ${seqdatadir}/Reports ${seqdatadir}/Stats answerbe@198.215.54.71:/swnas/qc_nuclia/demultiplexing/$seqrunid
+    bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${newss} &> ${seqdatadir}/bcl2fastq_${prjid}.log
+    if [[ ! -s "${seqdatadir}/Undetermined_S0_R1_001.fastq.gz" ]] || [[ ! -s "${seqdatadir}/Undetermined_S0_R2_001.fastq.gz" ]]
+    then
+	exit
+    fi
+    rsync -avz ${seqdatadir}/Reports ${seqdatadir}/Stats answerbe@198.215.54.71:/swnas/qc_nuclia/demultiplexing/$prjid/
     rsync -avz --prune-empty-dirs --include "*/" --include="*.fastq.gz" --include="*.csv" --exclude="*" $seqdatadir /archive/PHG/PHG_Clinical/toarchive/seqruns/$year
     source ${baseDir}/../azure_credentials
     az storage blob upload-batch -d seqruns -s /archive/PHG/PHG_Clinical/toarchive/seqruns/${year}/${seqrunid} --destination-path ${year}/${seqrunid}
