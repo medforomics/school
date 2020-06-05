@@ -146,6 +146,7 @@ foreach $dtype (keys %spairs ){
 	$vars{caseid} .= ".$pct";
       }
       $pct ++;
+      my $normalid;
       if ($spairs{$dtype}{$subjid}{normal}) {
 	@nids = keys %{$spairs{$dtype}{$subjid}{normal}};
 	$normalid = shift @nids;
@@ -158,11 +159,14 @@ foreach $dtype (keys %spairs ){
 	$vars{vcf} = join("_",$vars{caseid},$opt{seqrunid}).'.dna.vcf.gz';
 	$vars{sampid} = $tumorid;
       }
-      $done{$tumorid} = 1;
-      print TNPAIR join("\t",$subjid,$tumorid,$vars{normalid},$tumorid.".bam",
-			$vars{normalid}.".bam",$tumorid.".consensus.bam",
-			$vars{normalid}.".consensus.bam",$tumorid.".final.bam",
-			$vars{normalid}.".final.bam"),"\n";
+      if ($vars{normalid}) {
+	print TNPAIR join("\t",$subjid,$tumorid,$vars{normalid},
+			  $tumorid.".bam",$vars{normalid}.".bam",
+			  $tumorid.".consensus.bam",
+			  $vars{normalid}.".consensus.bam",
+			  $tumorid.".final.bam",
+			  $vars{normalid}.".final.bam"),"\n";
+      }
       open VAR, ">$opt{processdir}/analysis/$subjid/$dtype/vars.sh" or die $!;
       open SAMP, ">$opt{processdir}/analysis/$subjid/$dtype/samples.txt" or die $!;
       print SAMP join("\n",@samp),"\n";
@@ -198,16 +202,16 @@ foreach $dtype (keys %stype) {
     my $casedir="$load_root/seqanalysis/$seqrunid/analysis/$caseid";
     $info{'run.name'} = $seqrunid;	
     $info{'dmux.conversion.stats'} = "$load_root/demultiplexing/$seqrunid/Stats/ConversionStats.xml";	
-    if ($rnaseqnoumi && $baitpool =~ m/rnaseq/) {
+    if ($rnaseqnoumi && $dtype =~ m/rnaseq/) {
       $info{'dmux.conversion.stats'} = "$load_root/demultiplexing/$seqrunid/noumi/Stats/ConversionStats.xml";
     }
     $info{'bait.pool'} = $dtype;
     $info{'project.name'}=$caseid;
     $info{'sample.name'}=$sampleid;
     $info{'sample.alignment'} = "$casedir/$sampleid/$sampleid.sequence.stats.txt";
-    $info{'sample.coverage.raw'} = "$casedir/$sampleid/$sampleid_exoncoverage.txt";
+    $info{'sample.coverage.raw'} = "$casedir/$sampleid/$sampleid\_exoncoverage.txt";
     if ($inpairs{$sampleid}) {
-      $info{'somatic.seq.stats'}="$casedir/dna_$seqrunid/$caseid_$seqrunid.sequence.stats.txt";
+      $info{'somatic.seq.stats'}="$casedir/dna_$seqrunid/$caseid\_$seqrunid.sequence.stats.txt";
     }else {
       print TONLY join("\t",$sampleid,$caseid,$sampleid.".bam",$sampleid.".consensus.bam",$sampleid.".final.bam"),"\n";
     }
@@ -217,7 +221,7 @@ foreach $dtype (keys %stype) {
     if ($caseid =~ m/GM12878/) {
       $info{'giab.snsp'} = "$casedir/$sampleid.snsp.txt";
     }
-    open OUT, ">$proc_dir/$sampleid.properties" or die $!;
+    open OUT, ">$opt{processdir}/$sampleid.properties" or die $!;
     foreach $prop (@prop) {
       $info{$prop} = '' unless ($info{$prop});
       print OUT join("=",$prop,$info{$prop}),"\n";

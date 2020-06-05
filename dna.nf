@@ -88,7 +88,9 @@ process dtrim_align {
   script:
   """
   subjid=${params.caseid}
-  bash $baseDir/process_scripts/cvc/dna_trim_align.sh -p ${pair_id} -r $index_path -f $alignopts $fqs
+  bash $baseDir/process_scripts/preproc_fastq/trimgalore.sh -f 1 -p ${pair_id} ${fqs}
+  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x ${pair_id}.trim.R1.fastq.gz -y ${pair_id}.trim.R2.fastq.gz $alignopts
+  #bash $baseDir/process_scripts/cvc/dna_trim_align.sh -p ${pair_id} -r $index_path -f $alignopts $fqs
   """
 }
 
