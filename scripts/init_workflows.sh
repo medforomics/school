@@ -167,10 +167,12 @@ then
     fi
 else
     while read i; do
+	caseid=$i
+	cd ${prodir}/${seqrunid}/analysis/$caseid
 	for j in */vars.sh; do #$dtype/vars.sh
 	    dtype=`echo $j |cut -f 1 -d '/'`
 	    cd ${prodir}/${seqrunid}/analysis/$caseid/$dtype
-	    cat $j > run_wkflow.sh
+	    cat vars.sh > run_wkflow.sh
 	    echo "module load nextflow/20.01.0" >> run_wkflow.sh
 	    if [[ $dtype == 'wholernaseq' ]]
 	    then
