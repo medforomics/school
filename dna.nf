@@ -95,7 +95,7 @@ new File(params.design).withReader { reader ->
 if( ! reads) { error "Didn't match any input files with entries in the design file" }
 
 process dtrim_align {
-  executor 'local'
+  queue '32GB,super'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
   input:
