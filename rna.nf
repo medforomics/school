@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 	
 params.input = './fastq'
-params.output = '.'
+params.output = './analysis'
 snpeff_vers = 'GRCh38.86';
 
 params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/rnaref/"
@@ -12,9 +12,7 @@ params.align = 'hisat'
 params.bamct = "detect"
 params.version = 'v5'
 
-params.caseid = 'test'
 params.seqrunid = 'runtest'
-params.tumorid = 'Tumor'
 
 index_path = file(params.genome)
 index_name = "genome"
@@ -26,32 +24,54 @@ glist=''
 if (params.glist) {
    ponopt="-f $params.glist"
 }
+def reads = []
 
-params.tfq = "${params.input}/${params.tumorid}.R{1,2}.fastq.gz"
-Channel
-  .fromPath(params.tfq)
-  .ifEmpty { error "Cannot find any reads matching: ${params.tfq}" }
-  .set { fqfiles }
-pnames = Channel
-  .from([params.tumorid,params.tumorid])
-  .merge( fqfiles )
-  .groupTuple(by:0)
-  .set { reads }
+if (params.caseid) {
+   params.tumorid = 'Tumor'
+   params.tfq = "${params.input}/${params.tumorid}.R{1,2}.fastq.gz"
+   reads << tuple(params.caseid,params.tumorid,file(params.tfq))
+} else {
+params.design="$params.input/design.txt"
+params.fastqs="$params.input/*.fastq.gz"
+fastqs=file(params.fastqs)
+design_file=file(params.design)
+def fileMap = [:]
+fastqs.each {
+   final fileName = it.getFileName().toString()
+   prefix = fileName.lastIndexOf('/')
+   fileMap[fileName] = it
+}
+new File(params.design).withReader { reader ->
+   def hline = reader.readLine()
+   def header = hline.split("\t")
+   cidx = header.findIndexOf{it == 'CaseID'};
+   fidx = header.findIndexOf{it == 'SampleID'};
+   oneidx = header.findIndexOf{it == 'FqR1'};
+   twoidx = header.findIndexOf{it == 'FqR2'};
+   while (line = reader.readLine()) {
+  	   def row = line.split("\t")
+      if (fileMap.get(row[oneidx]) != null) {
+     	   reads << tuple(row[cidx],row[fidx],[fileMap.get(row[oneidx]),fileMap.get(row[twoidx])])
+      }	
+   }
+}
+}
+
+if( ! reads) { error "Didn't match any input files with entries in the design file" }
 
 process rtrim {
   executor 'local'
   errorStrategy 'ignore'
   input:
-  set pair_id, file(fqs) from reads
+  set caseid,pair_id, file(fqs) from reads
   output:
-  set env(caseid),pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai") into ctbams
-  set env(caseid),pair_id, file("${pair_id}.bam") into abundbam
-  set env(caseid),pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai") into fbbam
-  set env(caseid),pair_id, file("${pair_id}.bam"),file("${pair_id}.alignerout.txt") into qcbam
-  set env(caseid), pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into fusionfq
+  set caseid,pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai") into ctbams
+  set caseid,pair_id, file("${pair_id}.bam") into abundbam
+  set caseid,pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai") into fbbam
+  set caseid,pair_id, file("${pair_id}.bam"),file("${pair_id}.alignerout.txt") into qcbam
+  set caseid, pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into fusionfq
   script:
   """
-  caseid=${params.caseid}
   bash $baseDir/process_scripts/preproc_fastq/trimgalore.sh -p ${pair_id} ${fqs}
   bash $baseDir/process_scripts/alignment/rnaseqalign.sh -a $params.align -p $pair_id -r $index_path -x ${pair_id}.trim.R1.fastq.gz -y ${pair_id}.trim.R2.fastq.gz
   """
