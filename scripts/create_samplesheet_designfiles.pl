@@ -105,13 +105,10 @@ foreach $subjid (keys %samples)  {
     system(qq{mkdir -p $opt{processdir}/analysis/$subjid});
     my $inseqdir =  "$opt{fqout}/$opt{seqrunid}/$subjid";
     my $outseqdir = "$opt{processdir}/analysis/$subjid/fastq";
-    system(qq{mkdir -p $outseqdir});
     print DES $subjid,"\n";
     foreach $samp (@{$samples{$subjid}}) {
-	print CAS "ln -s $inseqdir/$samp*_R1_*.fastq.gz $outseqdir/$samp\.R1.fastq.gz\n";
-	print CAS "ln -s $inseqdir/$samp*_R2_*.fastq.gz $outseqdir/$samp\.R2.fastq.gz\n";
-	print CAS "ln -s $inseqdir/$samp*_R1_*.fastq.gz $opt{processdir}/fastq/$samp\.R1.fastq.gz\n";
-	print CAS "ln -s $inseqdir/$samp*_R2_*.fastq.gz $opt{processdir}/fastq/$samp\.R2.fastq.gz\n";
+	print CAS "ln -fs $inseqdir/$samp*_R1_*.fastq.gz $opt{processdir}/fastq/$samp\.R1.fastq.gz\n";
+	print CAS "ln -fs $inseqdir/$samp*_R2_*.fastq.gz $opt{processdir}/fastq/$samp\.R2.fastq.gz\n";
     }
 }
 close DES;
@@ -119,64 +116,45 @@ close DES;
 my %inpairs;
 foreach $dtype (keys %spairs ){
   system(qq{mkdir -p $opt{processdir}/$dtype});
-  open TNPAIR, ">$opt{processdir}/$dtype/design_tumor_normal.txt" or die $!;
-  print TNPAIR join("\t",'PairID','TumorID','NormalID','TumorBAM',
-		    'NormalBAM','TumorCBAM','NormalCBAM',
-		    'TumorGATKBAM','NormalGATKBAM'),"\n";
-  my %panel;
+  my %vars;
   if ($dtype !~ m/rna/) {
-    $panel{capturedir} = "$opt{panelsdir}/$panelbed{$dtype}";
-    $panel{capturebed} = "$panel{capturedir}/targetpanel.bed";
-    if (-e "$panel{capturedir}/mutect2.pon.vcf.gz") {
-      $panel{mutectpon} = "$panel{capturedir}/mutect2.pon.vcf.gz";
+    $vars{capturedir} = "$opt{panelsdir}/$panelbed{$dtype}";
+    $vars{capturebed} = "$vars{capturedir}/targetpanel.bed";
+    if (-e "$vars{capturedir}/mutect2.pon.vcf.gz") {
+      $vars{mutectpon} = "$vars{capturedir}/mutect2.pon.vcf.gz";
     }
   }
+  $vars{output}="$opt{processdir}/analysis";
+  $vars{input}="$opt{processdir}/fastq";
   foreach my $subjid (keys %{$spairs{$dtype}}) {
-    system(qq{mkdir -p $opt{processdir}/analysis/$subjid/$dtype});
-    my %vars = %panel;
-    $vars{input}="$opt{processdir}/analysis/$subjid/fastq";
-    $vars{output}="$opt{processdir}/analysis";
-    $vars{caseid} = $subjid;
     my $pct = 0;
     foreach $tumorid (keys %{$spairs{$dtype}{$subjid}{tumor}}) {
-      my @samp;
-      push @samp, $tumorid;
-      $vars{tumorid} = $tumorid;
+      $caseid=$subjid;
       if ($pct > 0) {
-	$vars{caseid} .= ".$pct";
+	$caseid .= ".$pct";
       }
       $pct ++;
       my $normalid;
       if ($spairs{$dtype}{$subjid}{normal}) {
 	@nids = keys %{$spairs{$dtype}{$subjid}{normal}};
-	$normalid = shift @nids;
-	push @samp, $normalid;
-	$vars{normalid} = $normalid;
-	$inpairs{$tumorid} = 1;
-	$inpairs{$normalid} = 1;
+	foreach $normalid (@nids) {
+	  $normalid = shift @nids;
+	  $inpairs{$normalid} = [$caseid,$tumorid,$normalid];
+	  $inpairs{$tumorid} = [$caseid,$tumorid,$normalid];
+	}
       }
       if ($subjid =~ m/GM12878/) {
-	$vars{vcf} = join("_",$vars{caseid},$opt{seqrunid}).'.dna.vcf.gz';
+	$vars{vcf} = join("_",$caseid,$opt{seqrunid}).'.dna.vcf.gz';
 	$vars{sampid} = $tumorid;
       }
-      if ($vars{normalid}) {
-	print TNPAIR join("\t",$subjid,$tumorid,$vars{normalid},
-			  $tumorid.".bam",$vars{normalid}.".bam",
-			  $tumorid.".consensus.bam",
-			  $vars{normalid}.".consensus.bam",
-			  $tumorid.".final.bam",
-			  $vars{normalid}.".final.bam"),"\n";
-      }
-      open VAR, ">$opt{processdir}/analysis/$subjid/$dtype/vars.sh" or die $!;
-      open SAMP, ">$opt{processdir}/analysis/$subjid/$dtype/samples.txt" or die $!;
-      print SAMP join("\n",@samp),"\n";
-      print VAR "#!/bin/bash\n";
-      foreach $key (keys %vars) {
-	print VAR join("=",$key,$vars{$key}),"\n";
-      }
-      close VAR;
     }
   }
+  open VAR, ">$opt{processdir}/$dtype/vars.sh" or die $!;
+  print VAR "#!/bin/bash\n";
+  foreach $key (keys %vars) {
+    print VAR join("=",$key,$vars{$key}),"\n";
+  }
+  close VAR;
 }
 
 my $load_root = "/swnas/qc_nuclia";
@@ -192,16 +170,20 @@ my @prop = ('run.name','dmux.conversion.stats','bait.pool','project.name','sampl
 my $seqdatadir = "/project/PHG/PHG_Clinical/illumina";
 foreach $dtype (keys %stype) {
   open SSOUT, ">$opt{processdir}\/$dtype\/design.txt" or die $!;
-  open TONLY, ">$opt{processdir}\/$dtype\/design_tumor_only.txt" or die $!;
-  print SSOUT join("\t","SampleID",'FamilyID','FqR1','FqR2'),"\n";
-  print TONLY join("\t","SampleID",'FamilyID','BAM','CBAM','GATKBAM'),"\n";
-  foreach $sampleid (keys %{$stype{$dtype}}) {
+  print SSOUT join("\t","SampleID",'CaseID','TumorID','NormalID','FqR1','FqR2'),"\n";
+  foreach $sampleid (sort {$a cmp $b} keys %{$stype{$dtype}}) {
     my %info;
+    my $tumorid = $sampleid;
+    my $normalid = '';
     $caseid = $stype{$dtype}{$sampleid};
-    print SSOUT join("\t",$sampleid,$caseid,"$sampleid.R1.fastq.gz","$sampleid.R2.fastq.gz"),"\n";
+    if ($inpairs{$sampleid}) {
+      ($caseid,$tumorid,$normalid) = @{$inpairs{$sampleid}};
+    }
+    print SSOUT join("\t",$sampleid,$caseid,$tumorid,$normalid,
+		     "$sampleid.R1.fastq.gz","$sampleid.R2.fastq.gz"),"\n";
     my $casedir="$load_root/seqanalysis/$seqrunid/analysis/$caseid";
-    $info{'run.name'} = $seqrunid;	
-    $info{'dmux.conversion.stats'} = "$load_root/demultiplexing/$seqrunid/Stats/ConversionStats.xml";	
+    $info{'run.name'} = $seqrunid;
+    $info{'dmux.conversion.stats'} = "$load_root/demultiplexing/$seqrunid/Stats/ConversionStats.xml";
     if ($rnaseqnoumi && $dtype =~ m/rnaseq/) {
       $info{'dmux.conversion.stats'} = "$load_root/demultiplexing/$seqrunid/noumi/Stats/ConversionStats.xml";
     }
@@ -212,8 +194,6 @@ foreach $dtype (keys %stype) {
     $info{'sample.coverage.raw'} = "$casedir/$sampleid/$sampleid\_exoncoverage.txt";
     if ($inpairs{$sampleid}) {
       $info{'somatic.seq.stats'}="$casedir/dna_$seqrunid/$caseid\_$seqrunid.sequence.stats.txt";
-    }else {
-      print TONLY join("\t",$sampleid,$caseid,$sampleid.".bam",$sampleid.".consensus.bam",$sampleid.".final.bam"),"\n";
     }
     if ($caseid =~ m/ROS1/) {
       $info{'somatic.translocation'} = "$casedir/$sampleid/$sampleid.translocations.answer.txt";
@@ -228,4 +208,3 @@ foreach $dtype (keys %stype) {
     }
   }
 }
-
