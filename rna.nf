@@ -62,6 +62,7 @@ if( ! reads) { error "Didn't match any input files with entries in the design fi
 process rtrim {
   executor 'local'
   errorStrategy 'ignore'
+  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
   input:
   set caseid,pair_id, file(fqs) from reads
   output:

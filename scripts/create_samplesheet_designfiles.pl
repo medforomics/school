@@ -146,6 +146,7 @@ foreach $dtype (keys %spairs ){
       if ($subjid =~ m/GM12878/) {
 	$vars{vcf} = join("_",$caseid,$opt{seqrunid}).'.dna.vcf.gz';
 	$vars{sampid} = $tumorid;
+	$vars{bamfile} = $tumorid."/".$tumorid.".bam";
       }
     }
   }

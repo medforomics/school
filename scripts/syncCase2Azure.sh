@@ -3,10 +3,10 @@
 set -e
 caseID=$1
 nucliatoken=$2
-wrkdir=$3
+wkdir=$3
 testing=$4
 
-if [[ -z $wrkdir ]]
+if [[ -z $wkdir ]]
 then
     wkdir=/archive/PHG/PHG_Clinical
 fi
@@ -105,8 +105,11 @@ then
     fi
 fi
 
-mv $wkdir/cases/${subject} $wkdir/toarchive/caseDirs/${subject}
-mv $wkdir/casesTemp/${subject} $wkdir/cases
+if [[ -z $testing ]]
+then
+    mv $wkdir/cases/${subject} $wkdir/toarchive/caseDirs/${subject}
+    mv $wkdir/casesTemp/${subject} $wkdir/cases
+fi
 
 if [[ -z $testing ]]
 then
@@ -114,5 +117,5 @@ then
     source ${baseDir}/../azure_credentials
     az storage blob upload-batch -d seqruns -s $wkdir/cases/${subject} --destination-path ${year}/${subject}
 else
-    rsync -avz $wkdir/cases/${subject} answerbe@198.215.54.71:/swnas/cases/answer_devel
+    rsync -avz $wkdir/casesTemp/${subject} answerbe@198.215.54.71:/swnas/cases/answer_devel
 fi
