@@ -29,7 +29,7 @@ done
 
 shift $(($OPTIND -1))
 
-
+echo "*****Setting Variables******"
 if [[ -z $baseDir ]]
 then
     baseDir="/project/PHG/PHG_Clinical/devel/clinseq_workflows"
@@ -63,20 +63,27 @@ outnf="$procbase/analysis"
 workdir="$procbase/work"
 year="20${seqrunid:0:2}"
 mkdir -p /archive/PHG/PHG_Clinical/toarchive/backups/${year}
+echo "*****DONE Setting Variables******"
 
+
+echo "*****Creating Samplesheets******"
 source /etc/profile.d/modules.sh
 mdup='fgbio_umi'
 mkdir -p ${fqout}/${seqrunid}
+echo "${baseDir}/scripts/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${seqrunid} -p ${seqrunid} -f ${fqout} -n ${outnf} -t ${panelsdir} -u ${seqdatadir}/$seqrunid.noumi.csv"
 perl ${baseDir}/scripts/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${seqrunid} -p ${seqrunid} -f ${fqout} -n ${outnf} -t ${panelsdir} -u ${seqdatadir}/$seqrunid.noumi.csv
+echo "*****Done Creating Samplesheets******"
 
-lastline=`tail -n 1 ${seqdatadir}/$seqrunid.noumi.csv |grep -v Sample_ID`
+echo "*****Starting Demultiplexing******"
+lastline=`tail -n 1 ${seqdatadir}/$seqrunid.noumi.csv |cut -f 1 -d ','`
+echo $lastline
 
 if [[ -z $testing ]]
 then
     module load bcl2fastq/2.19.1
     ln -s ${illumina}/${seqrunid}/* $fqout/${seqrunid}
     ssh answerbe@198.215.54.71 "mkdir -p /swnas/qc_nuclia/demultiplexing/$prjid"
-    if [[ ${#lastline} > 0 ]]
+    if [[ $lastline != SampleID ]]
     then
 	ssh answerbe@198.215.54.71 "mkdir -p /swnas/qc_nuclia/demultiplexing/$prjid/noumi"
 	bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${seqdatadir}/$prjid.noumi.csv --use-bases-mask Y76,I6N
@@ -102,11 +109,14 @@ then
     az storage blob upload-batch -d seqruns -s /archive/PHG/PHG_Clinical/toarchive/seqruns/${year}/${seqrunid} --destination-path ${year}/${seqrunid}
 fi
 
-bash ${prodir}/${seqrunid}/lnfq.sh 
+echo "*****Done Demultiplexing******"
+
 cd ${prodir}/${seqrunid}
 bash lnfq.sh
 
 panelbed=(["panel1385"]="UTSW_V2_pancancer" ["panel1385v2"]="UTSW_V3_pancancer" ["medexomeplus"]="UTSW_medexomeplus" ["heme"]="UTSW_V4_heme" ["pancancer"]="UTSW_V4_pancancer" ["idtrnaseq"]="UTSW_V4_rnaseq" ["solid"]="UTSW_V4_solid" ["tspcrnaseq"]="TSPC" )
+
+echo "*****Checking Case Information******"
 
 while read i; do
     caseid=$i
@@ -124,6 +134,8 @@ while read i; do
 	fi
     fi
 done <subjects.txt
+
+echo "*****Creating run_workflow bash scripts******"
 
 for i in */design.txt; do
     dtype=`dirname $i`

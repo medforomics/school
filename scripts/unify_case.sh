@@ -54,10 +54,6 @@ if [[ -z $index_path ]]
 then
     index_path=/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref
 fi
-if [[ -z $targetbed ]]
-then
-    targetbed=/project/shared/bicf_workflow_ref/human/grch38_cloud/panels/UTSW_V4_heme/targetpanel.bed
-fi
 
 baseDir="`dirname \"$0\"`"
 vepdir='/project/shared/bicf_workflow_ref/vcf2maf'
@@ -70,8 +66,16 @@ fi
 
 gfopt=''
 svcalls=''
-if [[ -n ${caseID} ]]
+
+dna_runid=`ls ${caseID}*dna.vcf.gz |cut -f 1 -d '.' |cut -f 2- -d '_'`
+if [[ -n $dna_runid ]]
 then
+    subject=$caseID
+    tumor_id=`find . -name "*T_DNA*" -type d | sed 1q |cut -f 2 -d '/'`
+    rna_runid=$dna_runid
+    normal_id=`find . -name "*N_DNA*" -type d | sed 1q |cut -f 2 -d '/'`
+    rnaseq_id=`find . -name "*T_RNA*" -type d | sed 1q |cut -f 2 -d '/'`
+else
     if [[ ! -f ${caseID}.json ]]
     then
 	curl -o ${caseID}.json "https://nuclia.biohpc.swmed.edu/getSampleAndRunIds?token=$nucliatoken&projectId=$caseID"
@@ -85,6 +89,24 @@ then
     normal_id=${myarray[5]}
     rnaseq_id=${myarray[7]}
 fi
+if [[ -z $normal_id ]]
+then
+    normal_id='NA'
+fi
+
+if [[ -z $targetbed ]]
+then
+    claritypanel=`echo $tumorid |rev |cut -f 1 -d '_' |rev`
+    dtype='UTSW_V4_pancancer'
+    if [[ $claritypanel =~ heme ]]
+    then
+	dtype='UTSW_V4_heme'
+    elif [[ $claritypanel =~ panel1385v2 ]]
+    then
+	dtype='UTSW_V3_pancancer'
+    fi
+    targetbed="/project/shared/bicf_workflow_ref/human/grch38_cloud/panels/${dtype}/targetpanel.bed"
+fi
 
 if [[ -f "$tumor_id/$tumor_id.cnv.answer.txt" ]]
 then
@@ -94,7 +116,7 @@ if [[ -f  "${subject}_${dna_runid}.dna.vcf.gz" ]]
 then
     merged_vcf="${subject}_${dna_runid}.dna.vcf.gz"
 fi
-if [[ -n `ls ${subject}_${rna_runid}*rna.vcf.gz` ]]
+if [[ -f "${subject}_${rna_runid}.rna.vcf.gz" ]]
 then
     rnaseq_vcf="${subject}_${rna_runid}.rna.vcf.gz"
     rnaseq_ntct="${rnaseq_id}/${rnaseq_id}.bamreadct.txt"
@@ -128,14 +150,6 @@ tabix -f somatic_germline.vcf.gz
 
 #Identify functional splice sites
 
-if [[ -f ${rnaseq_bam} ]]
-then
-    samtools index -@ 4 ${rnaseq_bam}
-    /project/shared/bicf_workflow_ref/seqprg/bin/regtools cis-splice-effects identify somatic_germline.vcf.gz ${rnaseq_bam} ${index_path}/genome.fa ${index_path}/gencode.gtf -o ${subject}.splicevariants.txt -v ${subject}.splicevariants.vcf -s 0 -e 5 -i 5
-else
-    unset rnaseq_id
-fi
-#Filter VCF File
 icommand="perl $baseDir/integrate_vcfs.pl -s ${subject} -t $tumor_id -r $index_path"
 if [[ -n $normal_id ]]
 then 
@@ -143,8 +157,18 @@ then
 fi
 if [[ -f $rnaseq_vcf ]]
 then
-    icommand+=" -v $rnaseq_vcf -c $rnaseq_ntct -g ${subject}.splicevariants.vcf"
+    icommand+=" -v $rnaseq_vcf -c $rnaseq_ntct"
 fi
+
+if [[ -f ${rnaseq_bam} ]]
+then
+    samtools index -@ 4 ${rnaseq_bam}
+    /project/shared/bicf_workflow_ref/seqprg/bin/regtools cis-splice-effects identify somatic_germline.vcf.gz ${rnaseq_bam} ${index_path}/genome.fa ${index_path}/gencode.gtf -o ${subject}.splicevariants.txt -v ${subject}.splicevariants.vcf -s 0 -e 5 -i 5
+    icommand+="  -g ${subject}.splicevariants.vcf"
+else
+    unset rnaseq_id
+fi
+#Filter VCF File
 $icommand
 
 vcf-sort ${subject}.all.vcf | bedtools intersect -header -a stdin -b $targetbed | uniq | bgzip > ${subject}.set1.vcf.gz
@@ -158,6 +182,10 @@ then
     if [[ -n $rnaseq_id ]]
     then
 	perl ${baseDir}/add_blank_sample_vcf.pl -n $normal_id -r $rnaseq_id -v dna_${dna_runid}/${subject}.pindel.vcf.gz -o dna_${dna_runid}/${subject}.pindel.final.vcf
+	bgzip -f dna_${dna_runid}/${subject}.pindel.final.vcf
+    elif [[ $normal_id == 'NA' ]]
+    then
+	perl ${baseDir}/add_blank_sample_vcf.pl -n $normal_id -v dna_${dna_runid}/${subject}.pindel.vcf.gz -o dna_${dna_runid}/${subject}.pindel.final.vcf
 	bgzip -f dna_${dna_runid}/${subject}.pindel.final.vcf
     else
     	cp dna_${dna_runid}/${subject}.pindel.vcf.gz dna_${dna_runid}/${subject}.pindel.final.vcf.gz
@@ -174,7 +202,11 @@ then
     gfopt="${gfopt} -d dna_${dna_runid}/${subject}.delly.genefusion.txt"
     if [[ -n $rnaseq_id ]]
     then
-	perl ${baseDir}/add_blank_sample_vcf.pl -n $normal_id -r $rnaseq_id -v dna_${dna_runid}/${subject}.delly.ori.vcf.gz -o dna_${dna_runid}/${subject}.delly.final.vcf
+	perl ${baseDir}/add_blank_sample_vcf.pl -n $normal_id -r $rnaseq_id -v dna_${dna_runid}/${subject}.delly.vcf.gz -o dna_${dna_runid}/${subject}.delly.final.vcf
+	bgzip -f dna_${dna_runid}/${subject}.delly.final.vcf
+    elif [[ $normal_id == 'NA' ]]
+    then
+	perl ${baseDir}/add_blank_sample_vcf.pl -n $normal_id -v dna_${dna_runid}/${subject}.delly.vcf.gz -o dna_${dna_runid}/${subject}.delly.final.vcf
 	bgzip -f dna_${dna_runid}/${subject}.delly.final.vcf
     else
     	cp dna_${dna_runid}/${subject}.delly.vcf.gz dna_${dna_runid}/${subject}.delly.final.vcf.gz
@@ -187,7 +219,11 @@ then
     gfopt="${gfopt} -s dna_${dna_runid}/${subject}.svaba.genefusion.txt"
     if [[ -n $rnaseq_id ]]
     then
-	perl ${baseDir}/add_blank_sample_vcf.pl -n $normal_id -r $rnaseq_id -v dna_${dna_runid}/${subject}.svaba.ori.vcf.gz -o dna_${dna_runid}/${subject}.svaba.final.vcf
+	perl ${baseDir}/add_blank_sample_vcf.pl -n $normal_id -r $rnaseq_id -v dna_${dna_runid}/${subject}.svaba.vcf.gz -o dna_${dna_runid}/${subject}.svaba.final.vcf
+	bgzip -f dna_${dna_runid}/${subject}.svaba.final.vcf
+    elif [[ $normal_id == 'NA' ]]
+    then
+	perl ${baseDir}/add_blank_sample_vcf.pl -n $normal_id -v dna_${dna_runid}/${subject}.svaba.vcf.gz -o dna_${dna_runid}/${subject}.svaba.final.vcf
 	bgzip -f dna_${dna_runid}/${subject}.svaba.final.vcf
     else
     	cp dna_${dna_runid}/${subject}.svaba.vcf.gz dna_${dna_runid}/${subject}.svaba.final.vcf.gz
@@ -246,13 +282,14 @@ then
 	tmbclass='High-TMB' 
     fi
     perl $baseDir/compareTumorNormal.pl ${subject}.utswpass.vcf.gz > ${subject}.concordance.txt
+    vep_opt="--normal-id $normal_id"
 else
     tmbval=0.00
     tmbclass=UNK
 fi
 
 msiclass='MSS'
-msival=`grep -v Total ${subject}.msi |cut -f 3`
+msival=`grep -v Total dna_${dna_runid}/${subject}.msi |cut -f 3`
 if [[ $(echo "$msival >= 10" |bc -l) == 1 ]]
 then
     msiclass='MSI'
@@ -260,8 +297,9 @@ fi
 
 echo -e "Metric,Value,Class\nTMB,${tmbval},${tmbclass}\nMSI,${msival},${msiclass}" > ${subject}.TMB.csv
 
+
 #RUN VCF2MAF
-perl ${vepdir}/vcf2maf.pl --input ${subject}.all.vcf --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id --normal-id $normal_id --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
+perl ${vepdir}/vcf2maf.pl --input ${subject}.all.vcf --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id $vep_opt --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
 
 if [[ -n $archive ]] && [[ -z $testdir ]]
 then
