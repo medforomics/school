@@ -46,8 +46,30 @@ foreach $sfile (@statfiles) {
     }
   }
   unless ($hash{rawct}) {
-      $hash{rawct} = $hash{total};
+    $hash{rawct} = $hash{total};
   }
+  my %lc;
+  open DUP, "<$prefix.libcomplex.txt" or die $!;
+  while (my $line = <DUP>) {
+    chomp($line);
+    if ($line =~ m/## METRICS/) {
+      $header = <DUP>;
+      $nums = <DUP>;
+      chomp($header);
+      chomp($nums);
+      my @stats = split(/\t/,$header);
+      my @row = split(/\t/,$nums);
+      my %info;
+      foreach my $i (0..$#stats) {
+	$info{$stats[$i]} = $row[$i];
+      }
+      $lc{TOTREADSLC} += $info{UNPAIRED_READS_EXAMINED} + $info{READ_PAIRS_EXAMINED};
+      $hash{libsize} = $info{ESTIMATED_LIBRARY_SIZE};
+      $lc{TOTDUPLC} +=  $info{UNPAIRED_READ_DUPLICATES} + $info{READ_PAIR_DUPLICATES};
+    }
+  }
+  close DUP;
+  $hash{percdups} = sprintf("%.4f",$lc{TOTDUPLC}/$lc{TOTREADSLC});
   my %cov;
   open COV, "<$prefix\.genomecov.txt" or die $!;
   my $sumdepth;
@@ -91,6 +113,7 @@ foreach $sfile (@statfiles) {
   print OUT join("\n", "Sample\t".$prefix,"Total_Raw_Count\t".$hash{rawct},
 		 "On_Target\t".$hash{ontarget},"Map_Rate\t".$hash{maprate},
 		 "Properly_Paired\t".$hash{propair},
+		 "Percent_Duplicates\t".sprintf("%.2f",100*$hash{percdups}),
 		 "Percent_on_Target\t".sprintf("%.2f",100*$hash{ontarget}/$hash{rawct}),
 		 "All_Average_Depth\t".$avgdepth,"All_Median_Depth\t".$median,
 		 "Percent_over_100x\t".$hash{'perc100x'},

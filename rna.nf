@@ -117,8 +117,7 @@ process alignqc {
   file("${pair_id}.sequence.stats.txt") into alignstats
   script:
   """
-  bash $baseDir/process_scripts/alignment/bamqc.sh -p ${pair_id} -b ${bam} -n rna
-  perl $baseDir/scripts/sequenceqc_rna.pl -r ${index_path} -e ${params.version} *.flagstat.txt
+  bash $baseDir/process_scripts/alignment/bamqc.sh -p ${pair_id} -b ${bam} -n rna -e ${params.version}
   """
 }
 process geneabund {
