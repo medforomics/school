@@ -159,8 +159,7 @@ process qc_gbam           {
   file("${pair_id}*txt") into dalignstats	
   script:
   """
-  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capturebed -n dna -r $index_path -b ${gbam} -p $pair_id  
-  perl $baseDir/scripts/sequenceqc_dna.pl -r ${index_path} -e ${params.version} *.genomecov.txt
+  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capturebed -n dna -r $index_path -b ${gbam} -p $pair_id -e ${params.version} 
   """
 }
 

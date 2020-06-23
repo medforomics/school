@@ -60,14 +60,21 @@ while (my $line = <SS>){
       $hash{Sample_Project} = $hash{Project} if $hash{Project};
       $hash{Sample_Project} =~ s/\s*$//g;
       $hash{Assay} = lc($hash{Assay});
-      $hash{Assay} = 'panel1385v2' if ($hash{Sample_Name} =~ m/panel1385v2/);
-      $hash{Assay} = 'tspcrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq/);
-      $hash{Assay} = 'idtrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq\d+/i);
-      $hash{Assay} = 'wholernaseq' if ($hash{Sample_Name} =~ m/wholernaseq/);
-      $hash{Assay} = 'solid' if ($hash{Sample_Name} =~ m/solid\d*/i);
-      $hash{Assay} = 'pancancer' if ($hash{Sample_Name} =~ m/pancancer\d*/i);
-      $hash{Assay} = 'heme' if ($hash{Sample_Name} =~ m/heme\d*/i);
-
+      if ($hash{Sample_Name} =~ m/panel1385v2|rnaseq|pancancer|heme/) {
+	  $hash{Assay} = 'panel1385v2' if ($hash{Sample_Name} =~ m/panel1385v2/);
+	  $hash{Assay} = 'tspcrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq/);
+	  $hash{Assay} = 'idtrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq\d+/i);
+	  $hash{Assay} = 'wholernaseq' if ($hash{Sample_Name} =~ m/wholernaseq/);
+	  $hash{Assay} = 'pancancer' if ($hash{Sample_Name} =~ m/pancancer\d*/i);
+	  $hash{Assay} = 'heme' if ($hash{Sample_Name} =~ m/heme\d*/i);
+      }else {
+	  $hash{Assay} = 'panel1385v2' if ($hash{Assay} =~ m/panel1385v2/);
+	  $hash{Assay} = 'tspcrnaseq' if ($hash{Assay} =~ m/panelrnaseq/);
+	  $hash{Assay} = 'idtrnaseq' if ($hash{Assay} =~ m/panelrnaseq\d+/i);
+	  $hash{Assay} = 'wholernaseq' if ($hash{Assay} =~ m/wholernaseq/);
+	  $hash{Assay} = 'pancancer' if ($hash{Assay} =~ m/pancancer\d*/i);
+	  $hash{Assay} = 'heme' if ($hash{Assay} =~ m/heme\d*/i);
+      }
       unless ($hash{Class}) {
 	$hash{Class} = 'tumor';
 	$hash{Class} = 'normal' if ($hash{Sample_Name} =~ m/_N_/);

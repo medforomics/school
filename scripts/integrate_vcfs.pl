@@ -384,6 +384,6 @@ W1:while (my $line = <IN>) {
   print PASS join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$newannot,
 		  $newformat,@newgt),"\n" if ($filter eq 'PASS' || $filter eq 'FailedQC;COMMON');
   print OUT join("\t",$chrom, $pos,$id,$ref,$alt,$score,$filter,$newannot,
-		 $newformat,@newgt),"\n" if ($filter eq 'PASS' || $id =~ m/COS/ || $cancergene || $filter eq 'FailedQC;COMMON' || $filter eq 'FailedQC;LowMAF');
+		 $newformat,@newgt),"\n" if ($filter eq 'PASS' || $id =~ m/COS/ || $cancergene || $filter eq 'FailedQC;COMMON' || $filter eq 'FailedQC;LowMAF' || $filter eq 'FailedQC;StrandBias');
 }
 close IN;
