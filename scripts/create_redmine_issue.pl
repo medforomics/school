@@ -2,20 +2,12 @@
 #samplesheet2ticket.pl
 
 use JSON;
-
+use Redmine::API;
 
 my $in = shift @ARGV;
-
-my ($prefix,@ext) = split(/\./, $in);
-my $out = $prefix.".ticket.csv";
-
 open SS, "<$in" or die $!;
-open OUT, ">$out" or die $!;
-print OUT join(",","Tracker","Status","Priority","Subject","Author","Description",
-	       "Category","Start date","Parent"),"\n";
 
 my ($author, $subject, $created);
-
 my %samples;
 
 while (my $line = <SS>){
@@ -48,26 +40,39 @@ while (my $line = <SS>){
 	$hash{$colnames[$j]} = $row[$j];
       }
       $hash{SampleName} =~ s/_Lib.*//g;
+      my ($orderid,$mrn) = split(/-/,$hash{Project});
       push @{$samples{$hash{Project}}}, $hash{SampleName};
     }
   }
 }
 
-my $descr = join(" ",keys %samples);
+my $descr = join("\n",keys %samples);
 
 my %project = (id=>125,'name'=>'CLIA Lab Orders');
 my %status = (id=>1,'name'=>'New');
 my %tracker = ('id'=>18,'name'=>'CLIATask');
+my @list = ("Check NuCLIA for PASS QC","Check pipeline.txt for FAIL",
+	    "Confirm which samples have normal and RNA Samples");
+my @checklist;
+foreach my $l (@list) {
+  my %lhash = ("is_done"=>0,"subject"=>$l);
+  push @checklist, \%lhash;
+}
+my %ticket_info=(project_id=>125,status_id=>1,tracker_id=>18,
+		 subject=>$subject,description=>$descr,assigned_to_id=>55,
+		 "checklists_attributes"=>\@checklist);
 
-%ticket_info=(author=>{name=>$author},project=>\%project,status=>\%status,
-	      subject=>$subject,'description'=>$descr,'tracker'=>\%tracker)
+my $c = Redmine::API->new('auth_key' => '044bc8137f9e05ce9a2cb9f300099aab41ef667e', base_url => 'bicf.redmine.swmed.edu', trace => 1);
 
-  
-print OUT join(",","CLIA Lab Orders","New","Normal",$subject,$author,
-	       $descr,'CompPanCancer',$created,''),"\n";
+$run_issue = $c->issues->issue->create(%ticket_info);
+my %runticket = %{$run_issue};
 
 foreach $prjid (keys %samples) {
-  my $tdescr = join(" ",@{$samples{$prjid}});
-  print OUT join(",","CLIA Lab Orders","New","Normal",$prjid,$author,
-		 $tdescr,'CompPanCancer',$created,1),"\n";
+  my $tdescr = join("\n",@{$samples{$prjid}});
+  my %case=(project_id=>125,status_id=>1,tracker_id=>18,
+	    parent_issue_id=>$runticket{issue}{id},subject=>$prjid,
+	    description=>$tdescr,assigned_to_id=>55,
+	   );
+  $case_issue = $c->issues->issue->create(%case);
+  print $case_issue->{issue}{id},"\n";
 }
