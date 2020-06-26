@@ -1,6 +1,9 @@
 #!/usr/bin/perl -w
 #samplesheet2ticket.pl
 
+use JSON;
+
+
 my $in = shift @ARGV;
 
 my ($prefix,@ext) = split(/\./, $in);
@@ -52,6 +55,14 @@ while (my $line = <SS>){
 
 my $descr = join(" ",keys %samples);
 
+my %project = (id=>125,'name'=>'CLIA Lab Orders');
+my %status = (id=>1,'name'=>'New');
+my %tracker = ('id'=>18,'name'=>'CLIATask');
+
+%ticket_info=(author=>{name=>$author},project=>\%project,status=>\%status,
+	      subject=>$subject,'description'=>$descr,'tracker'=>\%tracker)
+
+  
 print OUT join(",","CLIA Lab Orders","New","Normal",$subject,$author,
 	       $descr,'CompPanCancer',$created,''),"\n";
 

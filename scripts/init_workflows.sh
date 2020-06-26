@@ -72,6 +72,7 @@ mdup='fgbio_umi'
 mkdir -p ${fqout}/${seqrunid}
 echo "${baseDir}/scripts/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${seqrunid} -p ${seqrunid} -f ${fqout} -n ${outnf} -t ${panelsdir} -u ${seqdatadir}/$seqrunid.noumi.csv"
 perl ${baseDir}/scripts/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${seqrunid} -p ${seqrunid} -f ${fqout} -n ${outnf} -t ${panelsdir} -u ${seqdatadir}/$seqrunid.noumi.csv
+perl ${baseDir}/scripts/create_redmine_issue.pl $newss
 echo "*****Done Creating Samplesheets******"
 
 echo "*****Starting Demultiplexing******"
