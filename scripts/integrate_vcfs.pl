@@ -359,10 +359,12 @@ W1:while (my $line = <IN>) {
 	  $cancergene = 1 if ($cgenelist{$gene});
       }
   }
-  if ($chrom eq 'chr5' && ($pos >=1295047 || $pos <= 1295200)) {
+  if ($chrom eq 'chr5' && ($pos >=1295047 && $pos <= 1295200)) {
       $keepforvcf = 'TERT';
-      push @newsnpeff, join("|",$alt,'intergenic','MODIFIER','TERT','',
-			    '','','promoter','','','','','','','','');
+      $diff = $pos-1294989;
+      $codon = 'c.-'.$diff.$ref."->".$alt;
+      push @newsnpeff, join("|",$alt,'intergenic','HIGH','TERT','',
+			    '','','promoter','',$codon,$codon,'','','','','');
   }
   next unless ($keepforvcf);
   $hash{ANN} = join(",",@newsnpeff);
