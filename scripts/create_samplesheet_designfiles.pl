@@ -5,8 +5,7 @@ use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
 my %opt = ();
 my $results = GetOptions (\%opt,'help|h','input|i=s','output|o=s','umi|u=s',
-			  'fqout|f=s','processdir|d=s','seqrunid|p=s',
-			  'outnf|n=s','panelsdir|t=s');
+			  'fqout|f=s','processdir|d=s','seqrunid|p=s','panelsdir|t=s');
 
 if ($opt{umi}) {
   open RNASS, ">$opt{umi}" or die $!;
@@ -19,8 +18,6 @@ my %spairs;
 my %stype;
 my %samples;
 
-my $outdir = $opt{outdir};
-my $outnf = $opt{outnf};
 while (my $line = <SS>){
   chomp($line);
   $line =~ s/\r//g;
@@ -65,15 +62,8 @@ while (my $line = <SS>){
 	  $hash{Assay} = 'tspcrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq/);
 	  $hash{Assay} = 'idtrnaseq' if ($hash{Sample_Name} =~ m/panelrnaseq\d+/i);
 	  $hash{Assay} = 'wholernaseq' if ($hash{Sample_Name} =~ m/wholernaseq/);
-	  $hash{Assay} = 'pancancer' if ($hash{Sample_Name} =~ m/pancancer\d*/i);
-	  $hash{Assay} = 'heme' if ($hash{Sample_Name} =~ m/heme\d*/i);
-      }else {
-	  $hash{Assay} = 'panel1385v2' if ($hash{Assay} =~ m/panel1385v2/);
-	  $hash{Assay} = 'tspcrnaseq' if ($hash{Assay} =~ m/panelrnaseq/);
-	  $hash{Assay} = 'idtrnaseq' if ($hash{Assay} =~ m/panelrnaseq\d+/i);
-	  $hash{Assay} = 'wholernaseq' if ($hash{Assay} =~ m/wholernaseq/);
-	  $hash{Assay} = 'pancancer' if ($hash{Assay} =~ m/pancancer\d*/i);
-	  $hash{Assay} = 'heme' if ($hash{Assay} =~ m/heme\d*/i);
+	  $hash{Assay} = 'pancancer' if ($hash{Sample_Name} =~ m/pancancer/i);
+	  $hash{Assay} = 'heme' if ($hash{Sample_Name} =~ m/heme/i);
       }
       unless ($hash{Class}) {
 	$hash{Class} = 'tumor';
