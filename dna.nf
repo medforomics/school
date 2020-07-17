@@ -318,12 +318,12 @@ process mutect {
   script:
   if ( somatic[caseid] == true ) 
   """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh $ponopt -r $index_path -p $caseid -x $tid -y $nid -t ${tid}.final.bam -n ${nid}.final.bam -a mutect
+  bash $baseDir/process_scripts/variants/somatic_vc.sh $ponopt -r $index_path -p $caseid -x $tid -y $nid -t ${tid}.final.bam -n ${nid}.final.bam -b $capturebed -a mutect
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${caseid}.mutect -v ${caseid}.mutect.vcf.gz
   """
   else
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh $ponopt -r $index_path -p $caseid -a mutect
+  bash $baseDir/process_scripts/variants/germline_vc.sh $ponopt -r $index_path -p $caseid -b $capturebed -a mutect
   bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${caseid}.mutect -v ${caseid}.mutect.vcf.gz
   """
 }
