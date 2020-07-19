@@ -129,7 +129,7 @@ process valign {
   """
 }
 
-process markdups_consensus {
+process markdups {
   errorStrategy 'ignore'
   queue '32GB,super'
   publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
@@ -148,7 +148,7 @@ process markdups_consensus {
   """
 }
 
-process qc_gbam           {
+process dna_bamqc {
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
   queue '128GB,256GB,256GBv1'
