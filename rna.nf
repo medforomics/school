@@ -22,7 +22,7 @@ genenames = file("$params.genome/genenames.txt")
 
 glist=''
 if (params.glist) {
-   ponopt="-f $params.glist"
+   glist="-f $params.glist"
 }
 def reads = []
 
@@ -132,7 +132,7 @@ process geneabund {
   file("${pair_id}.fpkm.txt") into fpkm
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/diff_exp/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam} $glist -f 1
+  bash $baseDir/process_scripts/diff_exp/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam} $glist
   """
 }
 process fb {
