@@ -60,7 +60,6 @@ new File(params.design).withReader { reader ->
 if( ! reads) { error "Didn't match any input files with entries in the design file" }
 
 process rtrim {
-  executor 'local'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
   input:
@@ -90,7 +89,6 @@ process starfusion {
   """
 }
 process bamct {
-  executor 'local'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
   input:
