@@ -5,6 +5,7 @@ params.output = './analysis'
 snpeff_vers = 'GRCh38.86';
 
 params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/rnaref/"
+params.geneinfo="/project/shared/bicf_workflow_ref/human/gene_info.human.txt"
 params.markdups="skip"
 params.stranded="0"
 params.pairs="pe"
@@ -14,6 +15,7 @@ params.version = 'v5'
 
 params.seqrunid = 'runtest'
 
+ginfo=file(params.geneinfo)
 index_path = file(params.genome)
 index_name = "genome"
 reffa=file("$params.genome/genome.fa")
@@ -130,7 +132,7 @@ process geneabund {
   file("${pair_id}.fpkm.txt") into fpkm
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/diff_exp/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam} $glist
+  bash $baseDir/process_scripts/genect_rnaseq/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam} -i $ginfo $glist
   """
 }
 process fb {
