@@ -277,7 +277,7 @@ process pindel {
   file("${caseid}.pindel.genefusion.txt") into pindelgf
   script:
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -p $caseid -l ${index_path}/itd_genes.bed -a pindel -f
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -p $caseid -l ${index_path}/itd_genes.bed -a pindel -c ${index_path}/itd_genes.bed -f
   """
 }
 
