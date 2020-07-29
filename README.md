@@ -1,4 +1,4 @@
-# Software for Clinical Health Omics Onocolgy Laboratory
+# Software for Clinical Health Omics Onocolgy Laboratories
 School is a collection of genomics analysis workflows that are used for detecting single nucleotide variants (SNVs), insertions/deletions (indels), copy number variants (CNVs) and translocations from RNA and DNA sequencing.  These workflows have been validated in a CLIA laboratory at UTSW
 
 # Nextflow Workflows
