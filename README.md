@@ -17,12 +17,13 @@ markdup_methd = picard, samtools, fgbio_umi, picard_umi and none
 ### DNA Design File 
 
 | SampleID | TumorID | NormalID | FamilyID | FqR1 | FqR2 |
-|---|---|---|---|
+|---|---|---|---|---|---|
 | Sample1 | Sample1 | Sample2 | Fam1 | Sample1.R1.fastq.gz | Sample1.R2.fastq.gz |
 | Sample2 | Sample1 | Sample2 | Fam1 | Sample2.R1.fastq.gz | Sample2.R2.fastq.gz |
 | Sample3 | Sample3 | Sample4 | Fam2 | Sample3.R1.fastq.gz | Sample3.R2.fastq.gz |
 | Sample4 | Sample3 | Sample4 | Fam2 | Sample4.R1.fastq.gz | Sample4.R2.fastq.gz |
 
+markdup_methd = picard, samtools, fgbio_umi, picard_umi and none
 
 ## Abbacus: RNASeq Workflow
 
@@ -30,4 +31,4 @@ markdup_methd = picard, samtools, fgbio_umi, picard_umi and none
 nextflow -C nextflow.config run -w workdir rnaseq.nf --design design.txt --input dir_with_fastqs --output results_output --markdups markdup_method
 ```
 
-markdup_methd = picard, samtools, fgbio_umi, picard_umi and none
+
