@@ -2,7 +2,7 @@
 
 params.input = './fastq'
 params.output = './analysis'
-snpeff_vers = 'GRCh38.86';
+params.snpeff_vers = 'GRCh38.86';
 params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
 params.virus_genome="/project/shared/bicf_workflow_ref/human_virus_genome/clinlab_idt_genomes"
 
@@ -197,7 +197,7 @@ process itdseek {
 
   script:
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -b $sbam -r $index_path -p $pair_id -l ${index_path}/itd_genes.bed -a itdseek -f
+  bash $baseDir/process_scripts/variants/svcalling.sh -b $sbam -r $index_path -p $pair_id -l ${index_path}/itd_genes.bed -a itdseek -g $params.snpeff_vers -f
   """
 }
 
@@ -277,7 +277,7 @@ process pindel {
   file("${caseid}.pindel.genefusion.txt") into pindelgf
   script:
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -p $caseid -l ${index_path}/itd_genes.bed -a pindel -c ${index_path}/itd_genes.bed -f
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -p $caseid -l ${index_path}/itd_genes.bed -a pindel -c ${index_path}/itd_genes.bed -g $params.snpeff_vers -f
   """
 }
 
@@ -297,11 +297,11 @@ process sv {
   script:				       
   if ( somatic[caseid] == true ) 
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b ${tid}.bam -n ${nid}.bam -p $caseid -a ${algo} -f 
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b ${tid}.bam -n ${nid}.bam -p $caseid -a ${algo} -g $params.snpeff_vers -f 
   """
   else 
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b ${tid}.bam -p $caseid -a ${algo} -f
+  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b ${tid}.bam -p $caseid -a ${algo} -g $params.snpeff_vers -f
   """
 }
 
@@ -319,12 +319,12 @@ process mutect {
   if ( somatic[caseid] == true ) 
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh $ponopt -r $index_path -p $caseid -x $tid -y $nid -t ${tid}.final.bam -n ${nid}.final.bam -b $capturebed -a mutect
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${caseid}.mutect -v ${caseid}.mutect.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.mutect -v ${caseid}.mutect.vcf.gz
   """
   else
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh $ponopt -r $index_path -p $caseid -b $capturebed -a mutect
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${caseid}.mutect -v ${caseid}.mutect.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.mutect -v ${caseid}.mutect.vcf.gz
   """
 }
 
@@ -345,7 +345,7 @@ process somvc {
   script:
   """
   bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $caseid -x $tid -y $nid -n ${nid}.consensus.bam -t ${tid}.consensus.bam -a ${algo} -b $capturebed
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${caseid}.${algo} -v ${caseid}.${algo}.vcf.gz
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.${algo} -v ${caseid}.${algo}.vcf.gz
   """
 }
 
@@ -362,7 +362,7 @@ process germvc {
   script:
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $caseid -a ${algo} -b $capturebed
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${caseid}.${algo} -v ${caseid}.${algo}.vcf.gz 
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.${algo} -v ${caseid}.${algo}.vcf.gz 
   """
 }
 
@@ -381,7 +381,7 @@ process germstrelka {
   script:
   """
   bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $caseid -a strelka2 -b $capturebed
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${caseid}.strelka2 -v ${caseid}.strelka2.vcf.gz 
+  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.strelka2 -v ${caseid}.strelka2.vcf.gz 
   """
 }
 
