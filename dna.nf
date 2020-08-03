@@ -252,16 +252,12 @@ process checkmates {
   errorStrategy 'ignore'
   input:
   set caseid,tid,nid,file(bam),file(bidx) from checkbams
-  file(conf) from ncmconf
   output:
   file("${caseid}*") into checkmateout
   when: somatic[caseid] == true
   script:
   """
-  source /etc/profile.d/modules.sh
-  module load python/2.7.x-anaconda git/v2.5.3
-  python /project/shared/bicf_workflow_ref/seqprg/NGSCheckMate/ncm.py -B -d ./ -bed ${index_path}/NGSCheckMate.bed -O ./ -N ${caseid}
-  perl $baseDir/scripts/sequenceqc_somatic.pl -r ${index_path} -i ${caseid}_all.txt -o ${caseid}_${params.seqrunid}.sequence.stats.txt
+  bash $baseDir/process_scripts/variants/checkmate.sh -r ${index_path} -p ${pair_id} -c ${index_path}/NGSCheckMate.bed -f
   """
 }
 
