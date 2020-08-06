@@ -257,7 +257,7 @@ process checkmates {
   when: somatic[caseid] == true
   script:
   """
-  bash $baseDir/process_scripts/variants/checkmate.sh -r ${index_path} -p ${pair_id} -c ${index_path}/NGSCheckMate.bed -f
+  bash $baseDir/process_scripts/variants/checkmate.sh -r ${index_path} -p ${caseid} -c ${index_path}/NGSCheckMate.bed -f
   """
 }
 
