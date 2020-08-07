@@ -68,6 +68,7 @@ echo "*****DONE Setting Variables******"
 
 echo "*****Creating Samplesheets******"
 source /etc/profile.d/modules.sh
+module load perl/5.28.0
 mdup='fgbio_umi'
 mkdir -p ${fqout}/${seqrunid}
 echo "${baseDir}/scripts/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${seqrunid} -p ${seqrunid} -f ${fqout} -n ${outnf} -t ${panelsdir} -u ${seqdatadir}/$seqrunid.noumi.csv"
