@@ -1,3 +1,4 @@
 azure_credentials
 scripts/backup2azure.sh
 IntellispaceDemographics
+scripts/create_redmine_issue.pl
