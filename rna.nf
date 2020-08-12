@@ -75,7 +75,7 @@ process rtrim {
   script:
   """
   bash $baseDir/process_scripts/preproc_fastq/trimgalore.sh -p ${pair_id} ${fqs}
-  bash $baseDir/process_scripts/alignment/rnaseqalign.sh -a $params.align -p $pair_id -r $index_path -x ${pair_id}.trim.R1.fastq.gz -y ${pair_id}.trim.R2.fastq.gz
+  bash $baseDir/process_scripts/alignment/rnaseqalign.sh -a $params.align -p $pair_id -r $index_path ${pair_id}.trim.R1.fastq.gz ${pair_id}.trim.R2.fastq.gz
   """
 }
 process starfusion {
