@@ -2,6 +2,8 @@
 #validation_json2txt.pl
 
 use JSON;
+use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
+
 my %opt = ();
 my $results = GetOptions (\%opt,'analdir|i=s','genelist|l=s');
 
@@ -9,7 +11,7 @@ $analdir="cases";
 if ($opt{analdir}) {
     $analdir=$opt{analdir};
 }
-$genelist='/project/shared/bicf_workflow_ref/human/grch38_cloud/panels/UTSW_V4_pancancer/genelist.txt';
+$genelist='/project/shared/bicf_workflow_ref/human/grch38_cloud/panels/UTSW_V4_heme/genelist.txt';
 if ($opt{genelist}) {
     $genelist=$opt{genelist};
 }
@@ -36,6 +38,7 @@ foreach $jsonfile (@ARGV) {
     foreach $tref (@{$jsonref->{$vtype}}) {
       my %hash = %{$tref};
       if ($vtype eq 'variants') {
+	next unless $keep{$hash{geneName}};
 	$vars{$prefix}{$hash{chrom}}{$hash{pos}} = \%hash;
       }elsif ($vtype eq 'cnvs') {
 	my @genes = @{$hash{genes}};
@@ -163,11 +166,15 @@ print OUT join("\t",'CaseID','SampleID','Gene','Reported-CN',
 	       'Reported-Cytoband','Score','CN','AbberationType',
 	       'CHROM','Start','End','Cytoband','Score'),"\n";
 foreach $caseID (keys %cnvs) {
-  my @tumordirs = `ls -d $caseID/*T_DNA_pancancer1505`;
+  my @tumordirs = `ls -d $analdir/$caseID/*T_DNA_heme183`;
   chomp(@tumordirs);
   foreach $tdir (@tumordirs) {
-    my ($pid,$tid) = split(/\//,$tdir);
-    my $cnvfile = $pid."/".$tid."/".$tid.".cnv.answer.txt";
+    my ($dir,$pid,$tid) = split(/\//,$tdir);
+    my $cnvfile = $dir."/".$pid."/".$tid."/".$tid.".cnv.answer.txt";
+    unless (-e $cnvfile) {
+	print $cnvfile,"\n";
+	next;
+    }
     open IN, "<$cnvfile" or die $!;
     my $head = <IN>;
     chomp($head);
