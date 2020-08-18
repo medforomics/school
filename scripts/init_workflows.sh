@@ -71,7 +71,6 @@ source /etc/profile.d/modules.sh
 module load perl/5.28.0
 mdup='fgbio_umi'
 mkdir -p ${fqout}/${seqrunid}
-echo "${baseDir}/scripts/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${seqrunid} -p ${seqrunid} -f ${fqout} -n ${outnf} -t ${panelsdir} -u ${seqdatadir}/$seqrunid.noumi.csv"
 perl ${baseDir}/scripts/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${seqrunid} -p ${seqrunid} -f ${fqout} -t ${panelsdir}
 perl ${baseDir}/scripts/create_redmine_issue.pl $newss
 echo "*****Done Creating Samplesheets******"
@@ -148,7 +147,9 @@ for i in */design.txt; do
     if [[ -z $testing ]]
     then
 	echo "rsync -rlptgoD --exclude=\"*fastq.gz*\" --exclude \"*work*\" --exclude=\"*bam*\" ${prodir}/${seqrunid} answerbe@198.215.54.71:/swnas/qc_nuclia/seqanalysis"  >> run_wkflow.sh
-	echo "rsync -avz --no-links --exclude=\"*fastq.gz*\" ${prodir}/${seqrunid}/analysis/${caseid} /archive/PHG/PHG_Clinical/cases/"  >> run_wkflow.sh
+	while read k; do
+	    echo "rsync -avz --no-links --exclude=\"*fastq.gz*\" ${prodir}/${seqrunid}/analysis/${k} /archive/PHG/PHG_Clinical/cases/"  >> run_wkflow.sh
+	done <subjects.txt
 	echo "cd ${prodir}/${seqrunid}" >> run_wkflow.sh
 	for j in *properties ; do
 	    echo "curl \"http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResultsWithProp?token=\${nucliatoken}&propFilePath=/swnas/qc_nuclia/seqanalysis/${seqrunid}/${j}\"" >> run_wkflow.sh

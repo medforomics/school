@@ -168,7 +168,7 @@ foreach $dtype (keys %stype) {
     $info{'sample.alignment'} = "$casedir/$sampleid/$sampleid.sequence.stats.txt";
     $info{'sample.coverage.raw'} = "$casedir/$sampleid/$sampleid\_exoncoverage.txt";
     if ($inpairs{$sampleid}) {
-      $info{'somatic.seq.stats'}="$casedir/dna_$seqrunid/$caseid\_$seqrunid.sequence.stats.txt";
+      $info{'somatic.seq.stats'}="$casedir/dna_$seqrunid/$caseid\.sequence.stats.txt";
     }
     if ($caseid =~ m/ROS1/) {
       $info{'somatic.translocation'} = "$casedir/$sampleid/$sampleid.translocations.answer.txt";
