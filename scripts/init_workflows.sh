@@ -80,7 +80,10 @@ echo "*****Starting Demultiplexing******"
 if [[ -z $testing ]]
 then
     module load bcl2fastq/2.19.1
-    ln -s ${illumina}/${seqrunid}/* $fqout/${seqrunid}
+    if [[ ! -f $fqout/${seqrunid}/RunInfo.xml ]]
+    then
+	ln -s ${illumina}/${seqrunid}/* $fqout/${seqrunid}
+    fi
     ssh answerbe@198.215.54.71 "mkdir -p /swnas/qc_nuclia/demultiplexing/$prjid"
     mv ${seqdatadir}/RunInfo.xml ${seqdatadir}/RunInfo.xml.ori
     perl  ${baseDir}/scripts/fix_runinfo_xml.pl $seqdatadir
