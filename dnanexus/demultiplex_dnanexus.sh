@@ -32,11 +32,10 @@ shift $(($OPTIND -1))
 echo "*****Setting Variables******"
 if [[ -z $baseDir ]]
 then
-    baseDir="/project/PHG/PHG_Clinical/devel/clinseq_workflows"
+    baseDir="/project/PHG/PHG_Clinical/devel/school"
 fi
-
+pendir=/project/PHG/PHG_Clinical/cloud/pending
 cd $baseDir
-
 
 illumina="/project/PHG/PHG_Illumina/BioCenter"
 fqout="/project/PHG/PHG_Clinical/illumina"
@@ -51,7 +50,6 @@ fi
 procbase="$prodir/$seqrunid";
 outnf="$procbase/analysis"
 year="20${seqrunid:0:2}"
-mkdir -p /archive/PHG/PHG_Clinical/toarchive/backups/${year}
 echo "*****DONE Setting Variables******"
 
 
@@ -59,6 +57,7 @@ echo "*****Creating Samplesheets******"
 source /etc/profile.d/modules.sh
 module load perl/5.28.0
 mdup='fgbio_umi'
+mkdir -p ${prodir}/${seqrunid}
 mkdir -p ${fqout}/${seqrunid}
 perl ${baseDir}/scripts/update_samplesheet.pl -i $oriss -o $newss
 perl ${baseDir}/scripts/create_redmine_issue.pl $newss
@@ -68,6 +67,7 @@ echo "*****Starting Demultiplexing******"
 
 if [[ -z $testing ]]
 then
+    mkdir -p /archive/PHG/PHG_Clinical/toarchive/backups/${year}
     module load bcl2fastq/2.19.1
     ln -s ${illumina}/${seqrunid}/* $fqout/${seqrunid}
     ssh answerbe@198.215.54.71 "mkdir -p /swnas/qc_nuclia/demultiplexing/$prjid"
@@ -80,16 +80,25 @@ then
     fi
     rsync -avz ${seqdatadir}/Reports ${seqdatadir}/Stats answerbe@198.215.54.71:/swnas/qc_nuclia/demultiplexing/$prjid/
     rsync -avz --prune-empty-dirs --include "*/" --include="*.fastq.gz" --include="*.csv" --exclude="*" $seqdatadir /archive/PHG/PHG_Clinical/toarchive/seqruns/$year
-    source ${baseDir}/../azure_credentials
+    source ${baseDir}/azure_credentials
     az storage blob upload-batch -d seqruns -s /archive/PHG/PHG_Clinical/toarchive/seqruns/${year}/${seqrunid} --destination-path ${year}/${seqrunid}
 fi
 
 echo "*****Done Demultiplexing******"
 
 cd ${prodir}/${seqrunid}
-find $seqdatadir -name "*.fastq.gz" -print |perl -pi -e 's/\//\t/g' |cut -f 6- |sort > sequence.files.txt
-cut -f 2 |sort -u > subjects.txt
+mkdir fastq
+find $seqdatadir -name "*.fastq.gz" -exec ln -s {} fastq \;
+find $seqdatadir -name "*.fastq.gz" -print |perl -pe 's/\//\t/g' |cut -f 6- |sort |grep -v Undetermined > sequence.files.txt
+cut -f 2 sequence.files.txt | sort -u > subjects.txt
 perl ${baseDir}/scripts/create_designfiles.pl -i $newss -o sequence.files.txt
+
+echo "*****Submitting jobs******"
+for df in *.design.txt
+do
+    wkflow="${df%.design.txt}"
+    echo "bash ${appletdir}/workflows/run_workflow.sh -d $df -w $wkflow -i fastq -p $seqrunid -o $pendir"
+done
 
 echo "*****Checking Case Information******"
 
@@ -102,9 +111,11 @@ while read i; do
 	if [[ -a $missing ]]
 	then
 	    SUBJECT="SECUREMAIL: Case Missing Data"
-	    TO="ngsclialab@UTSouthwestern.edu,Hui.Zheng@UTSouthwestern.edu,Yan.Xu@UTSouthwestern.edu"
+	    TO="ngsclialab@UTSouthwestern.edu,Hui.Zheng@UTSouthwestern.edu,Yan.Xu@UTSouthwestern.edu"x
 	    email=$baseDir"/scripts/bioinformatics_email.txt"
 	    cat $email | sed 's/Unspecified/'$i'/' | /bin/mail -s "$SUBJECT" "$TO"
 	fi
     fi
 done <subjects.txt
+
+

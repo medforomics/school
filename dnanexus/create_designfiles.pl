@@ -4,11 +4,9 @@
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
 my %opt = ();
-my $results = GetOptions (\%opt,'help|h','ss|i=s','fastqlist|o=s');
+my $results = GetOptions (\%opt,'help|h','input|i=s','fastqlist|o=s');
 
 open SS, "<$opt{input}" or die $!;
-open SSOUT, ">$opt{output}" or die $!;
-
 my %rna;
 my %dna;
 my %panelbed=("heme"=>"UTSW_V4_heme", "pancancer"=>"UTSW_V4_pancancer", "idtrnaseq"=>"UTSW_V4_rnaseq");
@@ -56,10 +54,8 @@ while (my $line = <SS>){
     }
   }
 }
-close SSOUT;
 my %fastq;
-#my %run;
-open FQLIST, "<$fastqlist" or die $!;
+open FQLIST, "<$opt{fastqlist}" or die $!;
 while (my $line = <FQLIST>) {
   chomp($line);
   my ($runid,$caseid,$fq)  = split(/\t/,$line);
@@ -71,31 +67,35 @@ while (my $line = <FQLIST>) {
     $fastq{$sampleid}{R2} = $fq;
   }
 }
-open RNA, ">rnaseq.txt" or die $!;
+open RNA, ">rna_tumor_panel.design.txt" or die $!;
 print RNA join("\t","CaseID","SampleID","FqR1","FqR2"),"\n";
 foreach my $caseid (keys %rna) {
   foreach my $sid (keys %{$rna{$caseid}}) {
     print RNA join("\t", $caseid,$sid,$fastq{$sid}{R1},$fastq{$sid}{R2}),"\n";
+    
   }
 }
-open DNAS, ">dnaseq_somatic.txt" or die $!;
+open DNAS, ">dna_somatic.design.txt" or die $!;
 print DNAS join("\t","PanelFile","CaseID","TumorID","TumorFqR1","TumorFqR2","NormalID","NormalFqR1","NormalFqR2"),"\n";
-open DNAT, ">dnaseq_tumoronly.txt" or die $!;
+open DNAT, ">dna_tumoronly.design.txt" or die $!;
 print DNAT join("\t","PanelFile","CaseID","SampleID","FqR1","FqR2"),"\n";
 foreach my $caseid (keys %dna) {
   if ($dna{$caseid}{normal}) {
     my @norms = keys %{$dna{$caseid}{normal}};
     my $nid = shift @norms;
     foreach $sid (keys %{$dna{$caseid}{tumor}}) {
-      print DNAS join("\t",$dna{$caseid}{tumor}{$sid}.".tar.gz",$caseid,$sid,$fastq{$sid}{R1},$fastq{$sid}{R2},
+      print DNAS join("\t",$dna{$caseid}{tumor}{$sid},$caseid,$sid,
+		      $fastq{$sid}{R1},$fastq{$sid}{R2},
 		      $nid,$fastq{$nid}{R1},$fastq{$nid}{R2}),"\n";
     }
     foreach $sid (@norms) {
-      print DNAT join("\t",$dna{$caseid}{tumor}{$sid}.".tar.gz",$caseid,$sid,$fastq{$sid}{R1},$fastq{$sid}{R2}),"\n";
+      print DNAT join("\t",$dna{$caseid}{tumor}{$sid},$caseid,$sid,
+		      $fastq{$sid}{R1},$fastq{$sid}{R2}),"\n";
     }
   }else {
     foreach $sid (keys %{$dna{$caseid}{tumor}}) {
-      print DNAT join("\t",$dna{$caseid}{tumor}{$sid}.".tar.gz",$caseid,$sid,$fastq{$sid}{R1},$fastq{$sid}{R2}),"\n";
+      print DNAT join("\t",$dna{$caseid}{tumor}{$sid},$caseid,$sid,
+		      $fastq{$sid}{R1},$fastq{$sid}{R2}),"\n";
     }
   }
 }
