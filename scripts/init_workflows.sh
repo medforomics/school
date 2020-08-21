@@ -122,7 +122,7 @@ while read i; do
 	    cat $email | sed 's/Unspecified/'$i'/' | /bin/mail -s "$SUBJECT" "$TO"
 	fi
     fi
-done <subjects.txt
+done <${prodir}/${seqrunid}/subjects.txt
 
 echo "*****Creating run_workflow bash scripts******"
 
@@ -130,6 +130,7 @@ for i in */design.txt; do
     dtype=`dirname $i`
     cd ${prodir}/${seqrunid}/${dtype}
     cat vars.sh > run_wkflow.sh
+    echo "source /etc/profile.d/modules.sh" >> run_wkflow.sh
     echo "module load nextflow/20.01.0" >> run_wkflow.sh
     if [[ $dtype == 'wholernaseq' ]]
     then
@@ -154,8 +155,9 @@ for i in */design.txt; do
 	    echo "rsync -avz --no-links --exclude=\"*fastq.gz*\" ${prodir}/${seqrunid}/analysis/${k} /archive/PHG/PHG_Clinical/cases/"  >> run_wkflow.sh
 	done <subjects.txt
 	echo "cd ${prodir}/${seqrunid}" >> run_wkflow.sh
-	for j in *properties ; do
-	    echo "curl \"http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResultsWithProp?token=\${nucliatoken}&propFilePath=/swnas/qc_nuclia/seqanalysis/${seqrunid}/${j}\"" >> run_wkflow.sh
+	for j in ../*properties ; do
+	    pfile=$(basename $j)
+	    echo "curl \"http://nuclia.biohpc.swmed.edu:8080/NuCLIAVault/addPipelineResultsWithProp?token=\${nucliatoken}&propFilePath=/swnas/qc_nuclia/seqanalysis/${seqrunid}/${pfile}\"" >> run_wkflow.sh
 	done
     fi
     sbatch -p 32GB,super run_wkflow.sh
