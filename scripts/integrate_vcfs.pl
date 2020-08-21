@@ -4,8 +4,10 @@
 #module load vcftools/0.1.14 samtools/1.6 bedtools/2.26.0 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
-my $results = GetOptions (\%opt,'subject|s=s','tumor|t=s','normal|n=s','refdata|r=s',
-			  'rnaseqvcf|v=s','rnaseqntct|c=s','regtools|g=s','help|h');
+my $results = GetOptions (\%opt,'subject|s=s','tumor|t=s',
+			  'normal|n=s','refdata|r=s','dnavcf|f'
+			  'rnaseqvcf|v=s','rnaseqntct|c=s',
+			  'regtools|g=s','help|h');
 
 open OM, "<$opt{refdata}\/cancer.genelist.txt" or die $!;
 while (my $line = <OM>) {
@@ -110,7 +112,7 @@ open OUT, ">$opt{subject}\.all.vcf" or die $!;
 open PASS, ">$opt{subject}\.pass.vcf" or die $!;
 
 my @sampids;
-open IN, "gunzip -c somatic_germline.vcf.gz |" or die $!;
+open IN, "gunzip -c $dnavcf |" or die $!;
 W1:while (my $line = <IN>) {
   chomp($line);
   if ($line =~ m/^#CHROM/) {
