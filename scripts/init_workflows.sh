@@ -73,6 +73,7 @@ mdup='fgbio_umi'
 mkdir -p ${fqout}/${seqrunid}
 perl ${baseDir}/scripts/create_samplesheet_designfiles.pl -i $oriss -o $newss -d ${prodir}/${seqrunid} -p ${seqrunid} -f ${fqout} -t ${panelsdir}
 perl ${baseDir}/scripts/create_redmine_issue.pl $newss
+module rm perl/5.28.0
 echo "*****Done Creating Samplesheets******"
 
 echo "*****Starting Demultiplexing******"
@@ -153,7 +154,7 @@ for i in */design.txt; do
 	echo "rsync -rlptgoD --exclude=\"*fastq.gz*\" --exclude \"*work*\" --exclude=\"*bam*\" ${prodir}/${seqrunid} answerbe@198.215.54.71:/swnas/qc_nuclia/seqanalysis"  >> run_wkflow.sh
 	while read k; do
 	    echo "rsync -avz --no-links --exclude=\"*fastq.gz*\" ${prodir}/${seqrunid}/analysis/${k} /archive/PHG/PHG_Clinical/cases/"  >> run_wkflow.sh
-	done <subjects.txt
+	done <${prodir}/${seqrunid}/subjects.txt
 	echo "cd ${prodir}/${seqrunid}" >> run_wkflow.sh
 	for j in ../*properties ; do
 	    pfile=$(basename $j)
