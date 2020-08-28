@@ -4,7 +4,7 @@
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
 my $results = GetOptions (\%opt,'outfile|o=s','rnaid|r=s',
-			  'normal|n=s','vcf|v=s','help|h');
+			  'tumor|t=s','normal|n=s','vcf|v=s','help|h');
 
 open OUT, ">$opt{outfile}" or die $!;
 
@@ -16,7 +16,17 @@ W1:while (my $line = <IN>) {
   if ($line =~ m/^#CHROM/) {
     my @header = split(/\t/,$line);
     ($chrom, $pos,$id,$ref,$alt,$score,
-     $filter,$info,$format,@gtheader) = split(/\t/, $line);
+     $filter,$info,$format,@sids) = split(/\t/, $line);
+    my @gtheader;
+    foreach my $sid (@sids) {
+      if ($sid =~ m/tumor/ && $sid ne $opt{tumor}) {
+	push @gtheader, $opt{tumor};
+      }elsif ($sid =~ m/normal/ && $sid ne $opt{normal}) {
+	push @gtheader, $opt{normal};
+      }else {
+	push @gtheader, $sid;
+      }
+    }
     %sampids = map {$_=>1} @gtheader;
     unless ($sampids{$opt{normal}}) {
       push @gtheader, $opt{normal};

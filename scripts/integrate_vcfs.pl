@@ -5,7 +5,7 @@
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
 my $results = GetOptions (\%opt,'subject|s=s','tumor|t=s',
-			  'normal|n=s','refdata|r=s','dnavcf|f'
+			  'normal|n=s','refdata|r=s','dnavcf|f=s',
 			  'rnaseqvcf|v=s','rnaseqntct|c=s',
 			  'regtools|g=s','help|h');
 
@@ -18,7 +18,7 @@ close OM;
 
 my $rnaseqid;
 if ($opt{rnaseqntct} && -e $opt{rnaseqntct}) {
-  open NRC, "<$opt{rnaseqntct}" or die $!;
+  open NRC, "gunzip -c $opt{rnaseqntct} |" or die $!;
   while (my $line = <NRC>) {
     chomp($line);
     my ($chrom,$pos,$ref,$depth,@reads) = split(/\t/,$line);
@@ -41,6 +41,7 @@ if ($opt{rnaseqntct} && -e $opt{rnaseqntct}) {
     $rnaval{$chrom}{$pos} = [\%hash,$depth];
   }
   close NRC;
+} if (-e $opt{rnaseqvcf}) {
   open RVCF, "gunzip -c $opt{rnaseqvcf} |" or die $!;
  W1:while (my $line = <RVCF>) {
     chomp($line);
@@ -112,7 +113,7 @@ open OUT, ">$opt{subject}\.all.vcf" or die $!;
 open PASS, ">$opt{subject}\.pass.vcf" or die $!;
 
 my @sampids;
-open IN, "gunzip -c $dnavcf |" or die $!;
+open IN, "gunzip -c $opt{dnavcf} |" or die $!;
 W1:while (my $line = <IN>) {
   chomp($line);
   if ($line =~ m/^#CHROM/) {

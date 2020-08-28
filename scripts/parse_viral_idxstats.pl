@@ -20,7 +20,8 @@ print OUT join("\t","SampleID","VirusName","VirusAcc","VirusDescription","ViralR
 my @idxstats = @ARGV;
 foreach $file (@idxstats) {
     open IN, "<$file" or die $!;
-    my ($sample,$filename) = split(/\//,$file);
+    my ($dir,$filename) = split(/\//,$file);
+    my ($sample,@dir) = split(/\./,$filename);
     my $header = <IN>;
     chomp($header);
     my @colnames = split(/\t/,$header);

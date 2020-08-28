@@ -3,8 +3,8 @@
 
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 my %opt = ();
-my $results = GetOptions (\%opt,'rnafile|f=s','delly|d=s','svaba|s=s','tid|t=s',
-			  'pid|p=s','datadir|r=s','pindel|i=s');
+my $results = GetOptions (\%opt,'rnafile|f=s','tid|t=s',
+			  'pid|p=s','datadir|r=s');
 
 open OM, "<$opt{datadir}/known_genefusions.txt" or die $!;
 while (my $line = <OM>) {
@@ -21,11 +21,11 @@ while (my $line = <OM>) {
 
 my %dnagf;
 
-my @files = ('delly','svaba','pindel');
+my @files = @ARGV;
 
-foreach my $method (@files) {
-  next unless (-e $opt{$method});
-  open ALG, "<$opt{$method}" or warn $!;
+foreach my $file (@files) {
+  next unless (-e $file);
+  open ALG, "<$file" or warn $!;
   my $head1 = <ALG>;
   chomp($head1);
   my ($H1,$H2,$H3,$H4,$H5,$H6,$H7,$H8,$H9,@sids) = split(/\t/,$head1);
@@ -38,7 +38,7 @@ foreach my $method (@files) {
     }
     my @deschead = split(/:/,$format);
     unless ($gene =~ m/\w+/) {
-	$gene = $gtype;
+      $gene = $gtype;
     }
     next unless $gene;
     next if ($gene =~ m/LINC00486/);
