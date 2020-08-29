@@ -99,6 +99,7 @@ if( ! reads) { error "Didn't match any input files with entries in the design fi
 
 process dtrim {
   queue '32GB,super'
+  label 'trim'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnaout", mode: 'copy'
   input:
@@ -113,6 +114,7 @@ process dtrim {
 }
 process dalign {
   queue '32GB,super'
+  label 'dnaalign'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnaout", mode: 'copy'
   input:
@@ -131,6 +133,7 @@ process dalign {
 }
 process valign {
   executor 'local'
+  label 'dnaalign'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnaout", mode: 'copy'
 
@@ -146,6 +149,7 @@ process valign {
 
 process markdups {
   errorStrategy 'ignore'
+  label 'dnaalign'
   queue '32GB,super'
   publishDir "$params.output/$caseid/dnaout", mode: 'copy'
 
@@ -165,6 +169,7 @@ process markdups {
 
 process dna_bamqc {
   errorStrategy 'ignore'
+  label 'profiling_qc'
   publishDir "$params.output/$caseid/dnaout", mode: 'copy'
   queue '128GB,256GB,256GBv1'
   input:
@@ -180,6 +185,7 @@ process dna_bamqc {
 
 process cnv {
   executor 'local'
+  label 'structuralvariant'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   input:
@@ -202,6 +208,7 @@ process cnv {
 
 process itdseek {
   executor 'local'
+  label 'structuralvariant'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   input:
@@ -218,6 +225,7 @@ process itdseek {
 
 process gatkbam {
   queue '32GB,super'
+  label 'variantcalling'
   publishDir "$params.output/$caseid/dnaout", mode: 'copy'
 
   input:
@@ -244,6 +252,7 @@ gtxbam
 
 process msi {
   executor 'local'
+  label 'profiling_qc'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   errorStrategy 'ignore'
   input:
@@ -263,6 +272,7 @@ process msi {
 
 process checkmates {
   executor 'local'
+  label 'profiling_qc'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   errorStrategy 'ignore'
   input:
@@ -278,6 +288,7 @@ process checkmates {
 
 process pindel {
   errorStrategy 'ignore'
+  label 'structuralvariant'
   queue '128GB,256GB,256GBv1'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   input:
@@ -294,6 +305,7 @@ process pindel {
 
 process sv {
   queue '32GB,super'
+  label 'structuralvariant'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
 
@@ -318,6 +330,7 @@ process sv {
 
 process mutect {
   queue '128GB,256GB,256GBv1'
+  label 'variantcalling'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
 
@@ -341,6 +354,7 @@ process mutect {
 
 process somvc {
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
+  label 'variantcalling'
   errorStrategy { sleep(Math.pow(2, task.attempt) * 200 as long); return 'retry' }
   maxErrors 20
   queue '32GB,super'
@@ -362,6 +376,7 @@ process somvc {
 
 process germvc {
   queue '32GB,super'
+  label 'variantcalling'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   input:
@@ -379,6 +394,7 @@ process germvc {
 
 process germstrelka {
   queue '32GB,super'
+  label 'variantcalling'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
 
@@ -404,6 +420,7 @@ Channel
 
 process integrate {
   executor 'local'
+  label 'variantcalling'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnavcf", mode: 'copy'
   input:

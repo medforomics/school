@@ -72,6 +72,7 @@ if( ! reads) { error "Didn't match any input files with entries in the design fi
 
 process rtrim {
   errorStrategy 'ignore'
+  label 'trim'
   publishDir "$params.output/$caseid/rnaout", mode: 'copy'
   input:
   set caseid,sampleid, file(fqs) from reads
@@ -112,6 +113,7 @@ process starfusion {
 process bamct {
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/rnaout", mode: 'copy'
+  label 'profiling_qc'
   before_script:
 	- export PATH=/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/:$PATH
   input:
@@ -129,6 +131,7 @@ process bamct {
 process alignqc {
   executor 'local'
   errorStrategy 'ignore'
+  label 'profiling_qc'
   publishDir "$params.output/$caseid/rnaout", mode: 'copy'
 
   input:
@@ -160,6 +163,7 @@ process geneabund {
 process fb {
   queue '32GB'
   errorStrategy 'ignore'
+  label 'variantcalling'
   publishDir "$params.output/$caseid/rnavcf", mode: 'copy'
 
   input:
