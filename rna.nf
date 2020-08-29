@@ -6,7 +6,7 @@ snpeff_vers = 'GRCh38.86';
 
 params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/rnaref/"
 params.geneinfo="/project/shared/bicf_workflow_ref/human/gene_info.human.txt"
-params.markdups="skip"
+
 params.stranded="0"
 params.pairs="pe"
 params.align = 'hisat'
@@ -26,6 +26,15 @@ glist=''
 if (params.glist) {
    glist="-f $params.glist"
 }
+umiopt=''
+if (params.umi) {
+   umiopt=" -u"
+}
+repoDir=$baseDir
+if (params.docker) {
+   repoDir=$params.docker
+}
+
 def reads = []
 
 if (params.caseid) {
@@ -33,121 +42,133 @@ if (params.caseid) {
    params.tfq = "${params.input}/${params.tumorid}.R{1,2}.fastq.gz"
    reads << tuple(params.caseid,params.tumorid,file(params.tfq))
 } else {
-params.design="$params.input/design.txt"
-params.fastqs="$params.input/*.fastq.gz"
-fastqs=file(params.fastqs)
-design_file=file(params.design)
-def fileMap = [:]
-fastqs.each {
+  params.design="$params.input/design.txt"
+  params.fastqs="$params.input/*.fastq.gz"
+  fastqs=file(params.fastqs)
+  design_file=file(params.design)
+  def fileMap = [:]
+  fastqs.each {
    final fileName = it.getFileName().toString()
    prefix = fileName.lastIndexOf('/')
    fileMap[fileName] = it
-}
-new File(params.design).withReader { reader ->
-   def hline = reader.readLine()
-   def header = hline.split("\t")
-   cidx = header.findIndexOf{it == 'CaseID'};
-   fidx = header.findIndexOf{it == 'SampleID'};
-   oneidx = header.findIndexOf{it == 'FqR1'};
-   twoidx = header.findIndexOf{it == 'FqR2'};
-   while (line = reader.readLine()) {
-  	   def row = line.split("\t")
-      if (fileMap.get(row[oneidx]) != null) {
-     	   reads << tuple(row[cidx],row[fidx],[fileMap.get(row[oneidx]),fileMap.get(row[twoidx])])
-      }	
    }
-}
+   new File(params.design).withReader { reader ->
+       def hline = reader.readLine()
+       def header = hline.split("\t")
+       cidx = header.findIndexOf{it == 'CaseID'};
+       fidx = header.findIndexOf{it == 'SampleID'};
+       oneidx = header.findIndexOf{it == 'FqR1'};
+       twoidx = header.findIndexOf{it == 'FqR2'};
+       while (line = reader.readLine()) {
+  	   def row = line.split("\t")
+      	   if (fileMap.get(row[oneidx]) != null) {
+     	      reads << tuple(row[cidx],row[fidx],[fileMap.get(row[oneidx]),fileMap.get(row[twoidx])])
+      	   }	
+       }
+   }
 }
 
 if( ! reads) { error "Didn't match any input files with entries in the design file" }
 
 process rtrim {
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$caseid/rnaout", mode: 'copy'
   input:
-  set caseid,pair_id, file(fqs) from reads
+  set caseid,sampleid, file(fqs) from reads
   output:
-  set caseid,pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai") into ctbams
-  set caseid,pair_id, file("${pair_id}.bam") into abundbam
-  set caseid,pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai") into fbbam
-  set caseid,pair_id, file("${pair_id}.bam"),file("${pair_id}.alignerout.txt") into qcbam
-  set caseid, pair_id, file("${pair_id}.trim.R1.fastq.gz"),file("${pair_id}.trim.R2.fastq.gz") into fusionfq
+  set caseid, sampleid, file("${sampleid}.trim.R1.fastq.gz"),file("${sampleid}.trim.R2.fastq.gz") into fusionfq
+  set caseid, sampleid, [file("${sampleid}.trim.R1.fastq.gz"),file("${sampleid}.trim.R2.fastq.gz")] into treads
   script:
   """
-  bash $baseDir/process_scripts/preproc_fastq/trimgalore.sh -p ${pair_id} ${fqs}
-  bash $baseDir/process_scripts/alignment/rnaseqalign.sh -a $params.align -p $pair_id -r $index_path ${pair_id}.trim.R1.fastq.gz ${pair_id}.trim.R2.fastq.gz
+  bash $repoDir/process_scripts/preproc_fastq/trimgalore.sh -p ${sampleid} ${fqs}
+  """
+}
+process ralign {
+  errorStrategy 'ignore'
+  publishDir "$params.output/$caseid/rnaout", mode: 'copy'
+  input:
+  set caseid,sampleid, file(fqs) from rreads
+  output:
+  set caseid,sampleid, file("${sampleid}.bam") into abundbam
+  set caseid,sampleid, file("${sampleid}.bam"),file("${sampleid}.bam.bai") into fbbam
+  set caseid,sampleid, file("${sampleid}.bam"),file("${sampleid}.alignerout.txt") into qcbam
+  script:
+  """
+  bash $repoDir/process_scripts/alignment/rnaseqalign.sh -a $params.align -p $sampleid -r $index_path $umiopt ${fqs}
   """
 }
 process starfusion {
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$caseid/rnaout", mode: 'copy'
   input:
-  set caseid,pair_id, file(fq1), file(fq2) from fusionfq
+  set caseid,sampleid, file(fq1), file(fq2) from fusionfq
   output:
-  file("${pair_id}*txt") into fusionout
+  file("${sampleid}*txt") into fusionout
   script:
   """
-  bash $baseDir/process_scripts/alignment/starfusion.sh -p ${pair_id} -r ${index_path} -a ${fq1} -b ${fq2} -m trinity -f
+  bash $repoDir/process_scripts/alignment/starfusion.sh -p ${sampleid} -r ${index_path} -a ${fq1} -b ${fq2} -f
   """
 }
 process bamct {
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$caseid/rnaout", mode: 'copy'
+  before_script:
+	- export PATH=/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/:$PATH
   input:
-  set caseid,pair_id, file(rbam),file(ridx) from ctbams
+  set caseid,sampleid, file(rbam),file(ridx) from ctbams
   output:
-  file("${pair_id}.bamreadct.txt") into ctreads
+  file("${sampleid}.bamreadcount.txt.gz") into ctreads
   when:
   params.bamct == "detect"
   script:
   """
-  /project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/bam-readcount -w 0 -q 0 -b 25 -f ${index_path}/genome.fa $rbam > ${pair_id}.bamreadct.txt
+  bam-readcount -w 0 -q 0 -b 25 -f ${index_path}/genome.fa ${rbam} > ${sampleid}.bamreadcount.txt
+  gzip ${sampleid}.bamreadcount.txt
   """
 }
 process alignqc {
   executor 'local'
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$caseid/rnaout", mode: 'copy'
 
   input:
-  set caseid,pair_id, file(bam), file(hsout) from qcbam
+  set caseid,sampleid, file(bam), file(hsout) from qcbam
   
   output:
-  set file("${pair_id}_fastqc.zip"),file("${pair_id}_fastqc.html") into fastqc
-  file("${pair_id}.sequence.stats.txt") into alignstats
+  set file("${sampleid}_fastqc.zip"),file("${sampleid}_fastqc.html") into fastqc
+  file("${sampleid}.sequence.stats.txt") into alignstats
   script:
   """
-  bash $baseDir/process_scripts/alignment/bamqc.sh -p ${pair_id} -b ${bam} -n rna -e ${params.version}
+  bash $repoDir/process_scripts/alignment/bamqc.sh -p ${sampleid} -b ${bam} -n rna -e ${params.version}
   """
 }
 process geneabund {
   errorStrategy 'ignore'
   executor 'local'
-  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$caseid/rnaout", mode: 'copy'
   input:
-  set caseid,pair_id, file(sbam) from abundbam
+  set caseid,sampleid, file(sbam) from abundbam
   output:
-  file("${pair_id}.cts")  into counts
-  file("${pair_id}_stringtie") into strcts
-  file("${pair_id}.fpkm.txt") into fpkm
+  file("${sampleid}.cts")  into counts
+  file("${sampleid}_stringtie") into strcts
+  file("${sampleid}.fpkm.txt") into fpkm
   """
   source /etc/profile.d/modules.sh
-  bash $baseDir/process_scripts/genect_rnaseq/geneabundance.sh -s $params.stranded -g ${gtf_file} -p ${pair_id} -b ${sbam} -i $ginfo $glist
+  bash $repoDir/process_scripts/genect_rnaseq/geneabundance.sh -s ${params.stranded} -g ${gtf_file} -p ${sampleid} -b ${sbam} -i ${ginfo} ${glist}
   """
 }
 process fb {
   queue '32GB'
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid", mode: 'copy'
+  publishDir "$params.output/$caseid/rnavcf", mode: 'copy'
 
   input:
-  set caseid,$pair_id,file(gbam),file(gidx) from fbbam
+  set caseid,$sampleid,file(gbam),file(gidx) from fbbam
   output:
-  set caseid,file("${caseid}_${params.seqrunid}.rna.vcf.gz") into fbvcf
+  set caseid,file("${caseid}.fb*vcf.gz") into fbvcf
   script:
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $caseid -a fb
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $snpeff_vers -r $index_path -p ${caseid}.fb -v ${caseid}.fb.vcf.gz 
-  mv ${caseid}.fb.vcf.gz ${caseid}_${params.seqrunid}.rna.vcf.gz
+  bash $repoDir/process_scripts/variants/germline_vc.sh -r ${index_path} -p ${caseid} -a fb
+  bash $repoDir/process_scripts/variants/uni_norm_annot.sh -g ${snpeff_vers} -r ${index_path} -p ${caseid}.fb -v ${caseid}.fb.vcf.gz 
   """
 }

@@ -34,7 +34,10 @@ alignopts = ''
 if (params.markdups == 'fgbio_umi') {
    alignopts='-u'
 }
-
+repoDir=$baseDir
+if (params.docker) {
+   repoDir=$params.docker
+}
 ponopt=''
 if (params.pon) {
    ponopt="-q $params.pon"
@@ -59,12 +62,12 @@ if (params.caseid) {
    }
 
 } else {
-params.design="$params.input/design.txt"
-params.fastqs="$params.input/*.fastq.gz"
-fastqs=file(params.fastqs)
-design_file=file(params.design)
-def fileMap = [:]
-fastqs.each {
+  params.design="$params.input/design.txt"
+  params.fastqs="$params.input/*.fastq.gz"
+  fastqs=file(params.fastqs)
+  design_file=file(params.design)
+  def fileMap = [:]
+  fastqs.each {
    final fileName = it.getFileName().toString()
    prefix = fileName.lastIndexOf('/')
    fileMap[fileName] = it
@@ -94,124 +97,136 @@ new File(params.design).withReader { reader ->
 
 if( ! reads) { error "Didn't match any input files with entries in the design file" }
 
-process dtrim_align {
+process dtrim {
   queue '32GB,super'
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$caseid/dnaout", mode: 'copy'
   input:
-  set caseid,pair_id, file(fqs) from reads
+  set caseid,sampleid, file(fqs) from reads
   set caseid,tid,nid from ids
   output:
-  set caseid,tid,nid,pair_id, file("${pair_id}.bam") into mdupbam
-  set caseid,pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai"),file("${pair_id}.trimreport.txt") into qcbam
-  set caseid,pair_id, file("${pair_id}.bam") into virusalign
-  set caseid,pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai") into cnvbam
-  set caseid,pair_id, file("${pair_id}.bam"),file("${pair_id}.bam.bai") into itdbam
-  set caseid,tid,nid,file("${pair_id}.bam"), file("${pair_id}.bam.bai") into oribam
+  set caseid,tid,nid,sampleid,file(${sampleid}.trim.R1.fastq.gz ),file(${sampleid}.trim.R2.fastq.gz),file("${sampleid}.trimreport.txt") into treads
   script:
   """
-  bash $baseDir/process_scripts/preproc_fastq/trimgalore.sh -f -p ${pair_id} ${fqs}
-  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $pair_id -x ${pair_id}.trim.R1.fastq.gz -y ${pair_id}.trim.R2.fastq.gz $alignopts
+  bash $baseDir/process_scripts/preproc_fastq/trimgalore.sh -f -p ${sampleid} ${fqs}
+  """
+}
+process dalign {
+  queue '32GB,super'
+  errorStrategy 'ignore'
+  publishDir "$params.output/$caseid/dnaout", mode: 'copy'
+  input:
+  set caseid,tid,nid,sampleid,file(fq1),file(fq2),file(trimout) from treads
+  output:
+  set caseid,tid,nid,sampleid, file("${sampleid}.bam") into mdupbam
+  set caseid,sampleid, file("${sampleid}.bam"),file("${sampleid}.bam.bai"),file(trimout) into qcbam
+  set caseid,sampleid,file("${sampleid}.bam") into virusalign
+  set caseid,sampleid,file("${sampleid}.bam"),file("${sampleid}.bam.bai") into cnvbam
+  set caseid,sampleid,file("${sampleid}.bam"),file("${sampleid}.bam.bai") into itdbam
+  set caseid,tid,nid,file("${sampleid}.bam"), file("${sampleid}.bam.bai") into oribam
+  script:
+  """
+  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $sampleid -x ${fq1} -y ${fq2} $alignopts
   """
 }
 process valign {
   executor 'local'
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$caseid/dnaout", mode: 'copy'
 
   input:
-  set caseid,pair_id, file(sbam) from virusalign
+  set caseid,sampleid, file(sbam) from virusalign
   output:
-  file("${pair_id}.viral.seqstats.txt") into viralseqstats
+  file("${sampleid}.viral.seqstats.txt") into viralseqstats
   script:
   """
-  bash $baseDir/process_scripts/alignment/virusalign.sh -b ${pair_id}.bam -p ${pair_id} -r $virus_index_path -f
+  bash $baseDir/process_scripts/alignment/virusalign.sh -b ${sampleid}.bam -p ${sampleid} -r $virus_index_path -f
   """
 }
 
 process markdups {
   errorStrategy 'ignore'
   queue '32GB,super'
-  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$caseid/dnaout", mode: 'copy'
 
   input:
-  set caseid,tid,nid,pair_id, file(sbam) from mdupbam
+  set caseid,tid,nid,sampleid, file(sbam) from mdupbam
   output:
-  set caseid,tid,nid,pair_id, file("${pair_id}.consensus.bam"),file("${pair_id}.consensus.bam.bai") into togatkbam
-  set caseid,tid,nid,file("${pair_id}.consensus.bam"),file("${pair_id}.consensus.bam.bai") into consbam
+  set caseid,tid,nid,sampleid, file("${sampleid}.consensus.bam"),file("${sampleid}.consensus.bam.bai") into togatkbam
+  set caseid,tid,nid,file("${sampleid}.consensus.bam"),file("${sampleid}.consensus.bam.bai") into consbam
   script:
   """
-  bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $pair_id -r $index_path
+  bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $sampleid -r $index_path
 
-  mv ${pair_id}.dedup.bam ${pair_id}.consensus.bam
-  mv ${pair_id}.dedup.bam.bai ${pair_id}.consensus.bam.bai
+  mv ${sampleid}.dedup.bam ${sampleid}.consensus.bam
+  mv ${sampleid}.dedup.bam.bai ${sampleid}.consensus.bam.bai
   """
 }
 
 process dna_bamqc {
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$caseid/dnaout", mode: 'copy'
   queue '128GB,256GB,256GBv1'
   input:
-  set caseid,pair_id, file(gbam),file(idx),file(trimreport) from qcbam
+  set caseid,sampleid, file(gbam),file(idx),file(trimreport) from qcbam
   output:
   file("*fastqc*") into fastqc
-  file("${pair_id}*txt") into dalignstats	
+  file("${sampleid}*txt") into dalignstats	
   script:
   """
-  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capturebed -n dna -r $index_path -b ${gbam} -p $pair_id -e ${params.version} 
+  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capturebed -n dna -r $index_path -b ${gbam} -p $sampleid -e ${params.version} 
   """
 }
 
 process cnv {
   executor 'local'
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   input:
-  set caseid,pair_id,file(sbam),file(sidx) from cnvbam
+  set caseid,sampleid,file(sbam),file(sidx) from cnvbam
 
   output:
-  file("${pair_id}.call.cns") into cns
-  file("${pair_id}.cns") into cnsori
-  file("${pair_id}.cnr") into cnr
-  file("${pair_id}.answerplot*") into cnvansplot
-  file("${pair_id}.*txt") into cnvtxt
-  file("${pair_id}.cnv*pdf") into cnvpdf
+  file("${sampleid}.call.cns") into cns
+  file("${sampleid}.cns") into cnsori
+  file("${sampleid}.cnr") into cnr
+  file("${sampleid}.answerplot*") into cnvansplot
+  file("${sampleid}.*txt") into cnvtxt
+  file("${sampleid}.cnv*pdf") into cnvpdf
   when:
   skipCNV == false
   script:
   """
-  bash $baseDir/process_scripts/variants/cnvkit.sh -r $index_path -b $sbam -p $pair_id -d $capturedir
+  bash $baseDir/process_scripts/variants/cnvkit.sh -r $index_path -b $sbam -p $sampleid -d $capturedir
   """
 }
 
 process itdseek {
   executor 'local'
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   input:
-  set caseid,pair_id,file(sbam),file(sidx) from itdbam
+  set caseid,sampleid,file(sbam),file(sidx) from itdbam
 
   output:
-  file("${pair_id}.itdseek_tandemdup.vcf.gz") into itdseekvcf
+  file("${sampleid}.itdseek_tandemdup.vcf.gz") into itdseekvcf
 
   script:
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -b $sbam -r $index_path -p $pair_id -l ${index_path}/itd_genes.bed -a itdseek -g $params.snpeff_vers -f
+  bash $baseDir/process_scripts/variants/svcalling.sh -b $sbam -r $index_path -p $sampleid -l ${index_path}/itd_genes.bed -a itdseek -g $params.snpeff_vers -f
   """
 }
 
 process gatkbam {
   queue '32GB,super'
-  publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
+  publishDir "$params.output/$caseid/dnaout", mode: 'copy'
 
   input:
-  set caseid,tid,nid,pair_id, file(sbam),file(idx) from togatkbam
+  set caseid,tid,nid,sampleid, file(sbam),file(idx) from togatkbam
   output:
-  set caseid,tid,nid,file("${pair_id}.final.bam"),file("${pair_id}.final.bam.bai") into gtxbam
+  set caseid,tid,nid,file("${sampleid}.final.bam"),file("${sampleid}.final.bam.bai") into gtxbam
   script:
   """
-  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r $index_path -p $pair_id
+  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r $index_path -p $sampleid
   """
 }
 
@@ -229,7 +244,7 @@ gtxbam
 
 process msi {
   executor 'local'
-  publishDir "$params.output/$caseid/dna_$params.seqrunid", mode: 'copy'
+  publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   errorStrategy 'ignore'
   input:
   set caseid,tid,nid,file(ssbam),file(ssidx) from msibam
@@ -248,7 +263,7 @@ process msi {
 
 process checkmates {
   executor 'local'
-  publishDir "$params.output/$caseid/dna_$params.seqrunid", mode: 'copy'
+  publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   errorStrategy 'ignore'
   input:
   set caseid,tid,nid,file(bam),file(bidx) from checkbams
@@ -264,7 +279,7 @@ process checkmates {
 process pindel {
   errorStrategy 'ignore'
   queue '128GB,256GB,256GBv1'
-  publishDir "$params.output/$caseid/dna_$params.seqrunid", mode: 'copy'
+  publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   input:
   set caseid,tid,nid,file(ssbam),file(ssidx) from pindelbam
   output:
@@ -280,7 +295,7 @@ process pindel {
 process sv {
   queue '32GB,super'
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/dna_$params.seqrunid", mode: 'copy'
+  publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
 
   input:
   set caseid,tid,nid,file(ssbam),file(ssidx) from svbam
@@ -304,7 +319,7 @@ process sv {
 process mutect {
   queue '128GB,256GB,256GBv1'
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/dna_$params.seqrunid", mode: 'copy'
+  publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
 
   input:
   set caseid,tid,nid,file(ssbam),file(ssidx) from mutectbam
@@ -325,7 +340,7 @@ process mutect {
 }
 
 process somvc {
-  publishDir "$params.output/$caseid/dna_$params.seqrunid", mode: 'copy'
+  publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   errorStrategy { sleep(Math.pow(2, task.attempt) * 200 as long); return 'retry' }
   maxErrors 20
   queue '32GB,super'
@@ -348,7 +363,7 @@ process somvc {
 process germvc {
   queue '32GB,super'
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/dna_$params.seqrunid", mode: 'copy'
+  publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   input:
   set caseid,tid,nid,file(gbam),file(gidx) from germbam
   each algo from fpalgo
@@ -365,7 +380,7 @@ process germvc {
 process germstrelka {
   queue '32GB,super'
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/dna_$params.seqrunid", mode: 'copy'
+  publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
 
   input:
   set caseid,tid,nid,file(gbam),file(gidx) from strelkabam
@@ -390,7 +405,7 @@ Channel
 process integrate {
   executor 'local'
   errorStrategy 'ignore'
-  publishDir "$params.output/$caseid", mode: 'copy'
+  publishDir "$params.output/$caseid/dnavcf", mode: 'copy'
   input:
   set caseid,file(vcf) from vcflist
   output:
