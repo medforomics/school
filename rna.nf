@@ -30,9 +30,9 @@ umiopt=''
 if (params.umi) {
    umiopt=" -u"
 }
-repoDir=$baseDir
-if (params.docker) {
-   repoDir=$params.docker
+repoDir=workflow.projectDir
+if (params.repoDir) {
+   repoDir=params.repoDir
 }
 
 def reads = []
@@ -74,58 +74,60 @@ process rtrim {
   errorStrategy 'ignore'
   label 'trim'
   publishDir "$params.output/$caseid/rnaout", mode: 'copy'
+
   input:
   set caseid,sampleid, file(fqs) from reads
   output:
-  set caseid, sampleid, file("${sampleid}.trim.R1.fastq.gz"),file("${sampleid}.trim.R2.fastq.gz") into fusionfq
-  set caseid, sampleid, [file("${sampleid}.trim.R1.fastq.gz"),file("${sampleid}.trim.R2.fastq.gz")] into treads
+  set caseid,sampleid,file("${sampleid}.trim.R1.fastq.gz"),file("${sampleid}.trim.R2.fastq.gz") into fusionfq
+  set caseid,sampleid,file("${sampleid}.trim.R*.fastq.gz") into treads
+
   script:
   """
-  bash $repoDir/process_scripts/preproc_fastq/trimgalore.sh -p ${sampleid} ${fqs}
+  bash ${repoDir}/process_scripts/preproc_fastq/trimgalore.sh -p ${sampleid} ${fqs}
   """
 }
 process ralign {
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/rnaout", mode: 'copy'
   input:
-  set caseid,sampleid, file(fqs) from rreads
+  set caseid,sampleid, file(fqs) from treads
   output:
-  set caseid,sampleid, file("${sampleid}.bam") into abundbam
-  set caseid,sampleid, file("${sampleid}.bam"),file("${sampleid}.bam.bai") into fbbam
-  set caseid,sampleid, file("${sampleid}.bam"),file("${sampleid}.alignerout.txt") into qcbam
+  set caseid,sampleid,file("${sampleid}.bam") into abundbam
+  set caseid,sampleid,file("${sampleid}.bam"),file("${sampleid}.bam.bai") into fbbam
+  set caseid,sampleid,file("${sampleid}.bam"),file("${sampleid}.bam.bai") into ctbam
+  set caseid,sampleid,file("${sampleid}.bam"),file("${sampleid}.alignerout.txt") into qcbam
   script:
   """
-  bash $repoDir/process_scripts/alignment/rnaseqalign.sh -a $params.align -p $sampleid -r $index_path $umiopt ${fqs}
+  bash ${repoDir}/process_scripts/alignment/rnaseqalign.sh -a $params.align -p $sampleid -r $index_path $umiopt ${fqs}
   """
 }
 process starfusion {
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/rnaout", mode: 'copy'
   input:
-  set caseid,sampleid, file(fq1), file(fq2) from fusionfq
+  set caseid,sampleid,file(fq1), file(fq2) from fusionfq
   output:
   file("${sampleid}*txt") into fusionout
   script:
   """
-  bash $repoDir/process_scripts/alignment/starfusion.sh -p ${sampleid} -r ${index_path} -a ${fq1} -b ${fq2} -f
+  bash ${repoDir}/process_scripts/alignment/starfusion.sh -p ${sampleid} -r ${index_path} -a ${fq1} -b ${fq2} -f
   """
 }
 process bamct {
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/rnaout", mode: 'copy'
   label 'profiling_qc'
-  before_script:
-	- export PATH=/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/:$PATH
   input:
-  set caseid,sampleid, file(rbam),file(ridx) from ctbams
+  set caseid,sampleid,file(rbam),file(ridx) from ctbam
   output:
   file("${sampleid}.bamreadcount.txt.gz") into ctreads
   when:
   params.bamct == "detect"
   script:
   """
+  export PATH=/project/shared/bicf_workflow_ref/seqprg/bam-readcount/bin/:$PATH
   bam-readcount -w 0 -q 0 -b 25 -f ${index_path}/genome.fa ${rbam} > ${sampleid}.bamreadcount.txt
-  gzip ${sampleid}.bamreadcount.txt
+  pigz ${sampleid}.bamreadcount.txt
   """
 }
 process alignqc {
@@ -135,14 +137,14 @@ process alignqc {
   publishDir "$params.output/$caseid/rnaout", mode: 'copy'
 
   input:
-  set caseid,sampleid, file(bam), file(hsout) from qcbam
+  set caseid,sampleid,file(bam),file(hsout) from qcbam
   
   output:
   set file("${sampleid}_fastqc.zip"),file("${sampleid}_fastqc.html") into fastqc
   file("${sampleid}.sequence.stats.txt") into alignstats
   script:
   """
-  bash $repoDir/process_scripts/alignment/bamqc.sh -p ${sampleid} -b ${bam} -n rna -e ${params.version}
+  bash ${repoDir}/process_scripts/alignment/bamqc.sh -p ${sampleid} -b ${bam} -n rna -e ${params.version}
   """
 }
 process geneabund {
@@ -156,8 +158,7 @@ process geneabund {
   file("${sampleid}_stringtie") into strcts
   file("${sampleid}.fpkm.txt") into fpkm
   """
-  source /etc/profile.d/modules.sh
-  bash $repoDir/process_scripts/genect_rnaseq/geneabundance.sh -s ${params.stranded} -g ${gtf_file} -p ${sampleid} -b ${sbam} -i ${ginfo} ${glist}
+  bash ${repoDir}/process_scripts/genect_rnaseq/geneabundance.sh -s ${params.stranded} -g ${gtf_file} -p ${sampleid} -b ${sbam} -i ${ginfo} ${glist}
   """
 }
 process fb {
@@ -172,7 +173,8 @@ process fb {
   set caseid,file("${caseid}.fb*vcf.gz") into fbvcf
   script:
   """
-  bash $repoDir/process_scripts/variants/germline_vc.sh -r ${index_path} -p ${caseid} -a fb
-  bash $repoDir/process_scripts/variants/uni_norm_annot.sh -g ${snpeff_vers} -r ${index_path} -p ${caseid}.fb -v ${caseid}.fb.vcf.gz 
+  export biohpc=1
+  bash ${repoDir}/process_scripts/variants/germline_vc.sh -r ${index_path} -p ${caseid} -a fb
+  bash ${repoDir}/process_scripts/variants/uni_norm_annot.sh -g ${snpeff_vers} -r ${index_path} -p ${caseid}.fb -v ${caseid}.fb.vcf.gz 
   """
 }

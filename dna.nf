@@ -34,9 +34,9 @@ alignopts = ''
 if (params.markdups == 'fgbio_umi') {
    alignopts='-u'
 }
-repoDir=$baseDir
-if (params.docker) {
-   repoDir=$params.docker
+repoDir=workflow.projectDir
+if (params.repoDir) {
+   repoDir=params.repoDir
 }
 ponopt=''
 if (params.pon) {
@@ -106,10 +106,10 @@ process dtrim {
   set caseid,sampleid, file(fqs) from reads
   set caseid,tid,nid from ids
   output:
-  set caseid,tid,nid,sampleid,file(${sampleid}.trim.R1.fastq.gz ),file(${sampleid}.trim.R2.fastq.gz),file("${sampleid}.trimreport.txt") into treads
+  set caseid,tid,nid,sampleid,file("${sampleid}.trim.R1.fastq.gz"),file("${sampleid}.trim.R2.fastq.gz"),file("${sampleid}.trimreport.txt") into treads
   script:
   """
-  bash $baseDir/process_scripts/preproc_fastq/trimgalore.sh -f -p ${sampleid} ${fqs}
+  bash ${repoDir}/process_scripts/preproc_fastq/trimgalore.sh -f -p ${sampleid} ${fqs}
   """
 }
 process dalign {
@@ -128,7 +128,7 @@ process dalign {
   set caseid,tid,nid,file("${sampleid}.bam"), file("${sampleid}.bam.bai") into oribam
   script:
   """
-  bash $baseDir/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $sampleid -x ${fq1} -y ${fq2} $alignopts
+  bash ${repoDir}/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $sampleid -x ${fq1} -y ${fq2} $alignopts
   """
 }
 process valign {
@@ -143,7 +143,7 @@ process valign {
   file("${sampleid}.viral.seqstats.txt") into viralseqstats
   script:
   """
-  bash $baseDir/process_scripts/alignment/virusalign.sh -b ${sampleid}.bam -p ${sampleid} -r $virus_index_path -f
+  bash ${repoDir}/process_scripts/alignment/virusalign.sh -b ${sampleid}.bam -p ${sampleid} -r $virus_index_path -f
   """
 }
 
@@ -160,7 +160,7 @@ process markdups {
   set caseid,tid,nid,file("${sampleid}.consensus.bam"),file("${sampleid}.consensus.bam.bai") into consbam
   script:
   """
-  bash $baseDir/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $sampleid -r $index_path
+  bash ${repoDir}/process_scripts/alignment/markdups.sh -a $params.markdups -b $sbam -p $sampleid -r $index_path
 
   mv ${sampleid}.dedup.bam ${sampleid}.consensus.bam
   mv ${sampleid}.dedup.bam.bai ${sampleid}.consensus.bam.bai
@@ -179,7 +179,7 @@ process dna_bamqc {
   file("${sampleid}*txt") into dalignstats	
   script:
   """
-  bash $baseDir/process_scripts/alignment/bamqc.sh -c $capturebed -n dna -r $index_path -b ${gbam} -p $sampleid -e ${params.version} 
+  bash ${repoDir}/process_scripts/alignment/bamqc.sh -c $capturebed -n dna -r $index_path -b ${gbam} -p $sampleid -e ${params.version} 
   """
 }
 
@@ -202,7 +202,7 @@ process cnv {
   skipCNV == false
   script:
   """
-  bash $baseDir/process_scripts/variants/cnvkit.sh -r $index_path -b $sbam -p $sampleid -d $capturedir
+  bash ${repoDir}/process_scripts/variants/cnvkit.sh -r $index_path -b $sbam -p $sampleid -d $capturedir
   """
 }
 
@@ -219,7 +219,7 @@ process itdseek {
 
   script:
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -b $sbam -r $index_path -p $sampleid -l ${index_path}/itd_genes.bed -a itdseek -g $params.snpeff_vers -f
+  bash ${repoDir}/process_scripts/variants/svcalling.sh -b $sbam -r $index_path -p $sampleid -l ${index_path}/itd_genes.bed -a itdseek -g $params.snpeff_vers -f
   """
 }
 
@@ -234,7 +234,7 @@ process gatkbam {
   set caseid,tid,nid,file("${sampleid}.final.bam"),file("${sampleid}.final.bam.bai") into gtxbam
   script:
   """
-  bash $baseDir/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r $index_path -p $sampleid
+  bash ${repoDir}/process_scripts/variants/gatkrunner.sh -a gatkbam -b $sbam -r $index_path -p $sampleid
   """
 }
 
@@ -262,11 +262,11 @@ process msi {
   script:
   if ( somatic[caseid] == true )
   """
-  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $caseid -b ${tid}.bam -n ${nid}.bam -c $capturebed
+  bash ${repoDir}/process_scripts/variants/msisensor.sh -r ${index_path} -p $caseid -b ${tid}.bam -n ${nid}.bam -c $capturebed
   """
   else
   """
-  bash $baseDir/process_scripts/variants/msisensor.sh -r ${index_path} -p $caseid -b ${tid}.bam -c $capturebed
+  bash ${repoDir}/process_scripts/variants/msisensor.sh -r ${index_path} -p $caseid -b ${tid}.bam -c $capturebed
   """
 }
 
@@ -282,7 +282,7 @@ process checkmates {
   when: somatic[caseid] == true
   script:
   """
-  bash $baseDir/process_scripts/variants/checkmate.sh -r ${index_path} -p ${caseid} -c ${index_path}/NGSCheckMate.bed -f
+  bash ${repoDir}/process_scripts/variants/checkmate.sh -r ${index_path} -p ${caseid} -c ${index_path}/NGSCheckMate.bed -f
   """
 }
 
@@ -299,7 +299,7 @@ process pindel {
   file("${caseid}.pindel.genefusion.txt") into pindelgf
   script:
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -p $caseid -l ${index_path}/itd_genes.bed -a pindel -c ${index_path}/itd_genes.bed -g $params.snpeff_vers -f
+  bash ${repoDir}/process_scripts/variants/svcalling.sh -r $index_path -p $caseid -l ${index_path}/itd_genes.bed -a pindel -c ${index_path}/itd_genes.bed -g $params.snpeff_vers -f
   """
 }
 
@@ -320,11 +320,11 @@ process sv {
   script:				       
   if ( somatic[caseid] == true ) 
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b ${tid}.bam -n ${nid}.bam -p $caseid -a ${algo} -g $params.snpeff_vers -f 
+  bash ${repoDir}/process_scripts/variants/svcalling.sh -r $index_path -x ${tid} -y ${nid} -b ${tid}.bam -n ${nid}.bam -p $caseid -a ${algo} -g $params.snpeff_vers -f 
   """
   else 
   """
-  bash $baseDir/process_scripts/variants/svcalling.sh -r $index_path -b ${tid}.bam -p $caseid -a ${algo} -g $params.snpeff_vers -f
+  bash ${repoDir}/process_scripts/variants/svcalling.sh -r $index_path -b ${tid}.bam -p $caseid -a ${algo} -g $params.snpeff_vers -f
   """
 }
 
@@ -342,13 +342,13 @@ process mutect {
   script:
   if ( somatic[caseid] == true ) 
   """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh $ponopt -r $index_path -p $caseid -x $tid -y $nid -t ${tid}.final.bam -n ${nid}.final.bam -b $capturebed -a mutect
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.mutect -v ${caseid}.mutect.vcf.gz
+  bash ${repoDir}/process_scripts/variants/somatic_vc.sh $ponopt -r $index_path -p $caseid -x $tid -y $nid -t ${tid}.final.bam -n ${nid}.final.bam -b $capturebed -a mutect
+  bash ${repoDir}/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.mutect -v ${caseid}.mutect.vcf.gz
   """
   else
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh $ponopt -r $index_path -p $caseid -b $capturebed -a mutect
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.mutect -v ${caseid}.mutect.vcf.gz
+  bash ${repoDir}/process_scripts/variants/germline_vc.sh $ponopt -r $index_path -p $caseid -b $capturebed -a mutect
+  bash ${repoDir}/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.mutect -v ${caseid}.mutect.vcf.gz
   """
 }
 
@@ -369,8 +369,8 @@ process somvc {
   somatic[caseid] == true
   script:
   """
-  bash $baseDir/process_scripts/variants/somatic_vc.sh -r $index_path -p $caseid -x $tid -y $nid -n ${nid}.consensus.bam -t ${tid}.consensus.bam -a ${algo} -b $capturebed
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.${algo} -v ${caseid}.${algo}.vcf.gz
+  bash ${repoDir}/process_scripts/variants/somatic_vc.sh -r $index_path -p $caseid -x $tid -y $nid -n ${nid}.consensus.bam -t ${tid}.consensus.bam -a ${algo} -b $capturebed
+  bash ${repoDir}/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.${algo} -v ${caseid}.${algo}.vcf.gz
   """
 }
 
@@ -387,8 +387,8 @@ process germvc {
   set caseid,file("${caseid}.${algo}.ori.vcf.gz") into germori
   script:
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $caseid -a ${algo} -b $capturebed
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.${algo} -v ${caseid}.${algo}.vcf.gz 
+  bash ${repoDir}/process_scripts/variants/germline_vc.sh -r $index_path -p $caseid -a ${algo} -b $capturebed
+  bash ${repoDir}/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.${algo} -v ${caseid}.${algo}.vcf.gz 
   """
 }
 
@@ -407,8 +407,8 @@ process germstrelka {
   somatic[caseid] == false
   script:
   """
-  bash $baseDir/process_scripts/variants/germline_vc.sh -r $index_path -p $caseid -a strelka2 -b $capturebed
-  bash $baseDir/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.strelka2 -v ${caseid}.strelka2.vcf.gz 
+  bash ${repoDir}/process_scripts/variants/germline_vc.sh -r $index_path -p $caseid -a strelka2 -b $capturebed
+  bash ${repoDir}/process_scripts/variants/uni_norm_annot.sh -g $params.snpeff_vers -r $index_path -p ${caseid}.strelka2 -v ${caseid}.strelka2.vcf.gz 
   """
 }
 
@@ -431,7 +431,7 @@ process integrate {
   """
   source /etc/profile.d/modules.sh
   module load htslib/gcc/1.8
-  bash $baseDir/process_scripts/variants/union.sh -r $index_path -p $caseid
+  bash ${repoDir}/process_scripts/variants/union.sh -r $index_path -p $caseid
   cp ${caseid}.union.vcf.gz ${caseid}_${params.seqrunid}.dna.vcf.gz
   """
 }
