@@ -3,6 +3,11 @@
 params.input = './fastq'
 params.output = './analysis'
 
+repoDir=workflow.projectDir
+if (params.repoDir) {
+   repoDir=params.repoDir
+}
+
 def somatic = [:]
 def ids = []
 def reads = []
@@ -39,8 +44,8 @@ if ( params.caseid ) {
       tidx = header.findIndexOf{it == 'TumorID'};
       nidx = header.findIndexOf{it == 'NormalID'};
       fidx = header.findIndexOf{it == 'SampleID'};
-      oneidx = header.findIndexOf{it == 'FQR1'};
-      twoidx = header.findIndexOf{it == 'FQR2'};
+      oneidx = header.findIndexOf{it == 'FqR1'};
+      twoidx = header.findIndexOf{it == 'FqR2'};
       while (line = reader.readLine()) {
     	   def row = line.split("\t")
       if (fileMap.get(row[oneidx]) != null) {
@@ -63,6 +68,7 @@ process dtrim_align {
    executor 'local'
    echo true
    errorStrategy 'ignore'
+   label 'trim'
    publishDir "$params.output/$caseid/$pair_id", mode: 'copy'
    input:
    set caseid,pair_id,file(fqs) from reads
@@ -72,13 +78,13 @@ process dtrim_align {
    script:  
    if ( somatic[caseid] == true )
    """
-   echo somatic $caseid $normalid $tumorid $pair_id $fqs
+   echo $repoDir somatic $caseid $normalid $tumorid $pair_id $fqs
    touch ${pair_id}.txt
    zcat $fqs >${pair_id}.twice.txt
    """
    else
    """
-   echo tumoronly $caseid 'nonormal' $tumorid $pair_id $fqs
+   echo $repoDir tumoronly $caseid 'nonormal' $tumorid $pair_id $fqs
    touch ${pair_id}.txt
    zcat $fqs >${pair_id}.twice.txt
    """
@@ -99,6 +105,6 @@ process runVC {
    stdout into result3
    script:  
    """
-   echo $caseid $tid $nid $ssbam $ssidx
+   echo $repoDir $caseid $tid $nid $ssbam $ssidx
    """
 }
