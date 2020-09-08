@@ -426,12 +426,10 @@ process integrate {
   input:
   set caseid,file(vcf) from vcflist
   output:
-  file("${caseid}_${params.seqrunid}.dna.vcf.gz") into unionvcf
+  file("${caseid}.union.vcf.gz") into unionvcf
   script:
   """
-  source /etc/profile.d/modules.sh
-  module load htslib/gcc/1.8
   bash ${repoDir}/process_scripts/variants/union.sh -r $index_path -p $caseid
-  cp ${caseid}.union.vcf.gz ${caseid}_${params.seqrunid}.dna.vcf.gz
+  #cp ${caseid}.union.vcf.gz ${caseid}.dna.vcf.gz
   """
 }

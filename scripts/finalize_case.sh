@@ -16,6 +16,7 @@ while getopts :n:r:y:a:p:d:t:g:b:k:l:h opt
 do
     case $opt in
         n) caseID=$OPTARG;;
+ 	b) targetbed=$OPTARG;;
         r) index_path=$OPTARG;;
 	p) seqrunid=$OPTARG;;
 	d) casedir=$OPTARG;;
@@ -23,7 +24,6 @@ do
 	a) archive=$OPTARG;;
         t) tumor_id=$OPTARG;;
         g) normal_id=$OPTARG;;
- 	b) targetbed=$OPTARG;;
 	k) nucliatoken=$OPTARG;;
 	l) testdir=$OPTARG;;
 	h) usage;;
@@ -38,12 +38,16 @@ if [[ -z $index_path ]]
 then
     index_path=/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref
 fi
+if [[ -z $targetbed ]]
+then
+    targetbed=/project/shared/bicf_workflow_ref/human/grch38_cloud/panels/UTSW_V4_pancancer/targetpanel.bed
+fi
+
 dna_ref_path=$index_path
 if [[ -z $rna_ref_path ]]
 then
     rna_ref_path="${index_path}/../rnaref"
 fi
-
 baseDir="`dirname \"$0\"`"
 cd $casedir
 echo "*****Set File Variables******"
@@ -65,9 +69,9 @@ do
 	rnaseq_bam="rnaout/${rnaseq_id}.bam"
 	rnaseq_translocation="rnaout/${rnaseq_id}.translocations.answer.txt"
 	gfopt="${gfopt} -f ${rnaseq_translocation}"
-    elif [[ $bamf =~ 'N_DNA' ]]
+    elif [[ $bamf =~ 'N_DNA' ]] && [[ $bamf =~ 'consensus' ]]
     then
-	normal_id=$sid
+	normal_id="${fname%.consensus.bam}"
     fi
 done
 
@@ -169,9 +173,8 @@ do
     elif [[ $normal_id == 'NA' ]]
     then
 	perl ${baseDir}/add_blank_sample_vcf.pl -t $tumor_id -n $normal_id -v dnacallset/${caseID}.${c}.vcf.gz -o dnacallset/${caseID}.${c}.final.vcf
-	bgzip -f dnacallset/${caseID}.${c}.final.vcf
     else
-    	zcat dnacallset/${caseID}.${c}.vcf.gz | perl -pe 's/${caseID}.tumor/${tumor_id}/g' | perl -pe 's/${caseID}.normal/${normal_id}/g' > dnacallset/${caseID}.${c}.final.vcf.gz
+    	zcat dnacallset/${caseID}.${c}.vcf.gz | perl -pe 's/${caseID}.tumor/${tumor_id}/g' | perl -pe 's/${caseID}.normal/${normal_id}/g' > dnacallset/${caseID}.${c}.final.vcf
     fi
     bgzip -f dnacallset/${caseID}.${c}.final.vcf
     tabix dnacallset/${caseID}.${c}.final.vcf.gz
@@ -229,69 +232,69 @@ echo -e "Metric,Value,Class\nTMB,${tmbval},${tmbclass}\nMSI,${msival},${msiclass
 #RUN VCF2MAF
 perl ${vepdir}/vcf2maf.pl --input ${caseID}.all.vcf --output ${caseID}.maf --species homo_sapiens --ncbi-build GRCh38 --ref-fasta ${vepdir}/.vep/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa --filter-vcf ${vepdir}/.vep/homo_sapiens/ExAC_nonTCGA.r0.3.1.sites.vep.vcf.gz --cache-version 91 --vep-path ${vepdir}/variant_effect_predictor --tumor-id $tumor_id $vep_opt --custom-enst ${vepdir}/data/isoform_overrides_uniprot --custom-enst ${vepdir}/data/isoform_overrides_at_mskcc --maf-center http://www.utsouthwestern.edu/sites/genomics-molecular-pathology/ --vep-data ${vepdir}/.vep
 
+if [[ -n $testdir ]]
+then
+    wkdir=$testdir
+    testing=1
+else
+    wkdir=/archive/PHG/PHG_Clinical
+fi
+mkdir -p ${wkdir}/cases/${caseID}
+if [[ -f ${caseID}.vcf.gz ]]
+then
+    cp ${caseID}.vcf.gz ${wkdir}/cases/${caseID}
+    cp ${caseID}.maf ${wkdir}/cases/${caseID}
+    cp ${caseID}.viral_results.txt ${wkdir}/cases/${caseID}
+    cp ${caseID}.TMB.csv ${wkdir}/cases/${caseID}
+fi
+if [[ -f ${caseID}.mutational_signature.txt ]]
+then
+    cp ${caseID}.mutational_signature.txt ${wkdir}/cases/${caseID}
+    cp ${caseID}.mutational_signature.png ${wkdir}/cases/${caseID}
+fi
+if [[ -f  dnacallset/${caseID}.cnv.answer.txt ]]
+then
+    mkdir -p ${wkdir}/cases/${caseID}/${tumor_id}
+    cp dnacallset/${caseID}.answerplot.cnr ${wkdir}/cases/${caseID}/${tumor_id}/${tumor_id}.answerplot.cnr
+    cp dnacallset/${caseID}.answerplot.cns ${wkdir}/cases/${caseID}/${tumor_id}/${tumor_id}.answerplot.cns
+    cp dnacallset/${caseID}.cnv.answer.txt ${wkdir}/cases/${caseID}/${tumor_id}/${tumor_id}.cnv.answer.txt
+    cp dnacallset/${caseID}.ballelefreq.txt ${wkdir}/cases/${caseID}/${tumor_id}/${tumor_id}.ballelefreq.txt
+fi
+if [[ -f ${caseID}.translocations.answer.txt ]]
+then
+    cp ${caseID}.translocations.answer.txt ${wkdir}/cases/${caseID}
+fi
+if [[ -f dnaout/${tumor_id}.consensus.bam ]]
+then
+    cp dnaout/${tumor_id}.consensus.bam ${wkdir}/cases/${caseID}/${tumor_id}/${tumor_id}.bam
+    samtools index -@ 4 ${wkdir}/cases/${caseID}/${tumor_id}/${tumor_id}.bam
+fi
+if [[ -f dnaout/${normal_id}.consensus.bam ]]
+then
+    mkdir -p ${wkdir}/cases/${caseID}/${normal_id}
+    cp ${caseID}.concordance.txt ${wkdir}/cases/${caseID}
+    cp ${caseID}.utswpass.somatic.vcf* ${wkdir}/cases/${caseID}
+    if [[ -f ${wkdir}/cases/${caseID}/${caseID}.utswpass.somatic.vcf.gz ]]
+    then
+	gunzip ${wkdir}/cases/${caseID}/${caseID}.utswpass.somatic.vcf.gz
+    fi
+    cp dnaout/${normal_id}.consensus.bam ${wkdir}/cases/${caseID}/${normal_id}/${normal_id}.bam
+    samtools index -@ 4 ${wkdir}/cases/${caseID}/${normal_id}/${normal_id}.bam
+fi	   
+if [[ -f rnaout/${rnaseq_id}.bam ]]
+then
+    mkdir -p ${wkdir}/cases/${caseID}/${rnaseq_id}
+    cp rnaout/${rnaseq_id}.bam ${wkdir}/cases/${caseID}/${rnaseq_id}
+    samtools index -@ 4 ${wkdir}/cases/${caseID}/${rnaseq_id}/${rnaseq_id}.bam
+    cp rnaout/${rnaseq_id}.cts ${wkdir}/cases/${caseID}/${rnaseq_id}
+    cp rnaout/${rnaseq_id}.fpkm.txt ${wkdir}/cases/${caseID}/${rnaseq_id}
+    if [[ ! -f ${caseID}.translocations.answer.txt ]]
+    then
+        cp rnaout/${rnaseq_id}.translocations.answer.txt ${wkdir}/cases/${caseID}/${rnaseq_id}
+    fi
+fi
 if [[ -n $archive ]]
 then
-    if [[ -n $testdir ]]
-    then
-	wkdir=$testdir
-	testing=1
-    else
-	wkdir=/archive/PHG/PHG_Clinical
-    fi
-    mkdir -p ${wkdir}/cases/${caseID}
-    if [[ -f ${caseID}.vcf.gz ]]
-    then
-	cp ${caseID}.vcf.gz ${wkdir}/cases/${caseID}
-	cp ${caseID}.maf ${wkdir}/cases/${caseID}
-	cp ${caseID}.viral_results.txt ${wkdir}/cases/${caseID}
-	cp ${caseID}.TMB.csv ${wkdir}/cases/${caseID}
-    fi
-    if [[ -f ${caseID}.mutational_signature.txt ]]
-    then
-	cp ${caseID}.mutational_signature.txt ${wkdir}/cases/${caseID}
-	cp ${caseID}.mutational_signature.png ${wkdir}/cases/${caseID}
-    fi
-    if [[ -f  dnacallset/${caseID}.cnv.answer.txt ]]
-    then
-	mkdir -p ${wkdir}/cases/${caseID}/${tumor_id}
-	cp dnacallset/${caseID}.answerplot.cnr ${wkdir}/cases/${caseID}/${tumor_id}/${tumor_id}.answerplot.cnr
-	cp dnacallset/${caseID}.answerplot.cns ${wkdir}/cases/${caseID}/${tumor_id}/${tumor_id}.answerplot.cns
-	cp dnacallset/${caseID}.cnv.answer.txt ${wkdir}/cases/${caseID}/${tumor_id}/${tumor_id}.cnv.answer.txt
-	cp dnacallset/${caseID}.ballelefreq.txt ${wkdir}/cases/${caseID}/${tumor_id}/${tumor_id}.ballelefreq.txt
-    fi
-    if [[ -f ${caseID}.translocations.answer.txt ]]
-    then
-	cp ${caseID}.translocations.answer.txt ${wkdir}/cases/${caseID}
-    fi
-    if [[ -f dnaout/${tumor_id}.consensus.bam ]]
-    then
-	cp dnaout/${tumor_id}.consensus.bam ${wkdir}/cases/${caseID}/${tumor_id}/${tumor_id}.bam
-	samtools index -@ 4 ${wkdir}/cases/${caseID}/${tumor_id}/${tumor_id}.bam
-    fi
-    if [[ -f dnaout/${normal_id}.consensus.bam ]]
-    then
-	mkdir -p ${wkdir}/cases/${caseID}/${normal_id}
-	cp ${caseID}.concordance.txt ${wkdir}/cases/${caseID}
-	cp ${caseID}.utswpass.somatic.vcf* ${wkdir}/cases/${caseID}
-	if [[ -f ${wkdir}/cases/${caseID}/${caseID}.utswpass.somatic.vcf.gz ]]
-	then
-	    gunzip ${wkdir}/cases/${caseID}/${caseID}.utswpass.somatic.vcf.gz
-	fi
-	cp dnaout/${normal_id}.consensus.bam ${wkdir}/cases/${caseID}/${normal_id}/${normal_id}.bam
-	samtools index -@ 4 ${wkdir}/cases/${caseID}/${normal_id}/${normal_id}.bam
-    fi	   
-    if [[ -f rnaout/${rnaseq_id}.bam ]]
-    then
-	mkdir -p ${wkdir}/cases/${caseID}/${rnaseq_id}
-	cp rnaout/${rnaseq_id}.bam ${wkdir}/cases/${caseID}/${rnaseq_id}
-	samtools index -@ 4 ${wkdir}/cases/${caseID}/${rnaseq_id}/${rnaseq_id}.bam
-	cp rnaout/${rnaseq_id}.cts ${wkdir}/cases/${caseID}/${rnaseq_id}
-	cp rnaout/${rnaseq_id}.fpkm.txt ${wkdir}/cases/${caseID}/${rnaseq_id}
-	if [[ ! -f ${caseID}.translocations.answer.txt ]]
-	then
-            cp rnaout/${rnaseq_id}.translocations.answer.txt ${wkdir}/cases/${caseID}/${rnaseq_id}
-	fi
-    fi
     if [[ -z $testing ]]
     then
 	mv $casedir $wkdir/toarchive/caseDirs/${caseID}

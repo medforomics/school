@@ -41,7 +41,7 @@ if ($opt{rnaseqntct} && -e $opt{rnaseqntct}) {
     $rnaval{$chrom}{$pos} = [\%hash,$depth];
   }
   close NRC;
-} if (-e $opt{rnaseqvcf}) {
+} if ($opt{rnaseqvcf} && -e $opt{rnaseqvcf}) {
   open RVCF, "gunzip -c $opt{rnaseqvcf} |" or die $!;
  W1:while (my $line = <RVCF>) {
     chomp($line);
@@ -225,50 +225,26 @@ W1:while (my $line = <IN>) {
   }
   @tumormaf = @{$gtinfo{$opt{tumor}}{MAF}};
   @tumoraltct = split(/,/,$gtinfo{$opt{tumor}}{AO});
-  
   if (exists $hash{INDEL}) {
-      $hash{TYPE} = 'indel';
+    $hash{TYPE} = 'indel';
   }
   $hash{TYPE} = 'ambi' unless ($hash{"TYPE"});
   next if ($tumoraltct[0] eq '.');
   $hash{AF} = join(",",@tumormaf);
   my @callers;
-  if ($hash{CallSet} && $hash{CallSet} =~ m/\// || $hash{SomaticCallSet} && $hash{SomaticCallSet} =~ m/\//) {
-      my @callinfo ;
-      @callinfo = split(/\|/, $hash{CallSet}) if ($hash{CallSet});
-      if ($hash{SomaticCallSet}) {
-	  @callinfo = (@callinfo, split(/\|/, $hash{SomaticCallSet}));
-      }
-      foreach $cinfo (@callinfo) {
-	  my ($caller, $alt, @samafinfo) = split(/\//,$cinfo);
-	  push @callers, $caller;
-      }
-      $hash{CallSet} = join(",",@callinfo);
-      $hash{CallSet} =~ s/\//\|/g;
-  } elsif ($hash{CallSet} && $hash{CallSet} =~ m/\|/ || $hash{SomaticCallSet} && $hash{SomaticCallSet} =~ m/\|/) {
-      my @callinfo ;
-      @callinfo = split(/,/, $hash{CallSet}) if ($hash{CallSet});
-      if ($hash{SomaticCallSet}) {
-	  @callinfo = (@callinfo, split(/,/, $hash{SomaticCallSet}));
-      }
-      foreach $cinfo (@callinfo) {
-	  my ($caller, $alt, @samafinfo) = split(/\|/,$cinfo);
-	  push @callers, $caller;
-      }
-      $hash{CallSet} = join(",",@callinfo);
-  } else {
-      if ($hash{CallSet}) {
-	  @callers = (@callers, split(/\,/, $hash{CallSet}));
-      }
-      if ($hash{SomaticCallSet}) {
-	  @callers = (@callers, split(/\,/, $hash{SomaticCallSet}));
-      }
-      $hash{CallSet} = join(",",@callers);
+  if ($hash{CallSet} && $hash{CallSet} =~ m/\|/) {
+    my @callinfo ;
+    @callinfo = split(/,/, $hash{CallSet}) if ($hash{CallSet});
+    foreach $cinfo (@callinfo) {
+      my ($caller, $alt, @samafinfo) = split(/\|/,$cinfo);
+      push @callers, $caller;
+    }
+    $hash{CallSet} = join(",",@callinfo);
   }
   if (($id =~ m/COS/ && $cosmicsubj >= 5) || $hash{OncoKBHotspot}) {
-      $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 3);
-      $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.05);
-      $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.1 && $hash{TYPE} ne 'snp');
+    $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 3);
+    $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.05);
+    $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.1 && $hash{TYPE} ne 'snp');
   }else {
     $fail{'OneCaller'} = 1 if (scalar(@callers) < 2);
     $fail{'LowAltCt'} = 1 if ($tumoraltct[0] < 8);
@@ -276,13 +252,16 @@ W1:while (my $line = <IN>) {
     $fail{'LowMAF'} = 1 if ($tumormaf[0] < 0.10 && $hash{TYPE} ne 'snp');
   }
   if ($hash{CallSetInconsistent} && $hash{TYPE} ne 'snp') {
-       $fail{'InDelInconsistentCall'} = 1;
+    $fail{'InDelInconsistentCall'} = 1;
   }
   if ($hash{RepeatType} && $hash{RepeatType} =~ m/Simple_repeat/ && $tumormaf[0] < 0.15) {
-      $fail{'InRepeat'} = 1;
+    $fail{'InRepeat'} = 1;
   }
   delete $hash{SOMATIC};
   $hash{SS} = 5  unless ($hash{SS});
+  if ($pos == 11130747) {
+    warn "Debugging\n";
+  }
   if ($opt{normal} && $gtinfo{$opt{normal}} && exists $gtinfo{$opt{normal}}{MAF}) {
       @normalmaf = @{$gtinfo{$opt{normal}}{MAF}};
       $hash{NormalAF} = $normalmaf[0];
