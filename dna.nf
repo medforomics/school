@@ -5,15 +5,19 @@ params.output = './analysis'
 params.snpeff_vers = 'GRCh38.86';
 params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
 params.virus_genome="/project/shared/bicf_workflow_ref/human_virus_genome/clinlab_idt_genomes"
-
+params.platypus='skip'
 params.markdups='fgbio_umi'
 params.version = 'v4'
 params.seqrunid = 'runtest'
 
 somatic = false
+
 fpalgo = ['fb', 'platypus']
+if (params.platypus == 'skip') {
+   fpalgo = ['fb]
+}
 svalgo = ['delly', 'svaba']
-ssalgo = ['strelka2','shimmer']
+ssalgo = ['strelka2']
 ncmconf = file("$params.genome/ncm.conf")
 reffa=file("$params.genome/genome.fa")
 dbsnp="$params.genome/dbSnp.vcf.gz"
