@@ -15,7 +15,7 @@ somatic = false
 fpalgo = ['fb', 'platypus']
 ssalgo = ['strelka2','shimmer']
 if (params.platypus == 'skip') {
-   fpalgo = ['fb]
+   fpalgo = ['fb']
    ssalgo = ['strelka2']
 }
 
