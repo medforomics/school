@@ -32,7 +32,7 @@ shift $(($OPTIND -1))
 echo "*****Setting Variables******"
 if [[ -z $baseDir ]]
 then
-    baseDir="/project/PHG/PHG_Clinical/devel/clinseq_workflows"
+    baseDir="/project/PHG/PHG_Clinical/devel/school"
 fi
 
 cd $baseDir
@@ -132,16 +132,16 @@ for i in */design.txt; do
     cd ${prodir}/${seqrunid}/${dtype}
     cat vars.sh > run_wkflow.sh
     echo "source /etc/profile.d/modules.sh" >> run_wkflow.sh
-    echo "module load nextflow/20.01.0" >> run_wkflow.sh
+    echo "module load nextflow/20.01.0 singularity/3.5.3" >> run_wkflow.sh
     if [[ $dtype == 'wholernaseq' ]]
     then
-	echo "nextflow -C ${baseDir}/nextflow.config run -w $workdir ${baseDir}/rna.nf --input \$input --output \$output --seqrunid $seqrunid --design.txt --bamct skip --version $gittag --genome $rna_ref_path -resume" >> run_wkflow.sh
+	echo "nextflow -C ${baseDir}/nextflow.docker.config run -w $workdir ${baseDir}/rna.nf --input \$input --output \$output --seqrunid $seqrunid --design.txt --bamct skip --version $gittag --genome $rna_ref_path -resume" >> run_wkflow.sh
     elif [[ $dtype =~ 'rna' ]]
     then
 	genelist="${panelsdir}/${panelbed[${dtype}]}/genelist.txt"
-	echo "nextflow -C ${baseDir}/nextflow.config run -w $workdir ${baseDir}/rna.nf --input \$input --output \$output --design design.txt --seqrunid $seqrunid --version $gittag  --genome $rna_ref_path --glist $genelist -resume" >> run_wkflow.sh
+	echo "nextflow -C ${baseDir}/nextflow.docker.config run -w $workdir ${baseDir}/rna.nf --input \$input --output \$output --design design.txt --seqrunid $seqrunid --version $gittag  --genome $rna_ref_path --glist $genelist -resume" >> run_wkflow.sh
     else
-	echo "nextflow -C ${baseDir}/nextflow.config run -w $workdir ${baseDir}/dna.nf --input \$input --output \$output --design design.txt --seqrunid $seqrunid --pon \$mutectpon --capture \$capturebed --capturedir \$capturedir --version $gittag --genome $dna_ref_path -resume" >> run_wkflow.sh
+	echo "nextflow -C ${baseDir}/nextflow.docker.config run -w $workdir ${baseDir}/dna.nf --input \$input --output \$output --design design.txt --seqrunid $seqrunid --pon \$mutectpon --capture \$capturebed --capturedir \$capturedir --version $gittag --genome $dna_ref_path -resume" >> run_wkflow.sh
 	if [[ `grep GM12878 design.txt` ]]
 	then
 	    caseid=`grep GM12878 design.txt |cut -f 2`

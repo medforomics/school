@@ -17,7 +17,6 @@ OPTIND=1 # Reset OPTIND
 while getopts :r:p:t:b:c:x:h opt
 do
     case $opt in
-        r) index_path=$OPTARG;;
         p) seqrunid=$OPTARG;;
         c) prodir=$OPTARG;;
 	b) baseDir=$OPTARG;;
@@ -56,7 +55,6 @@ echo "*****DONE Setting Variables******"
 echo "*****Creating Samplesheets******"
 source /etc/profile.d/modules.sh
 module load perl/5.28.0
-mdup='fgbio_umi'
 mkdir -p ${prodir}/${seqrunid}
 mkdir -p ${fqout}/${seqrunid}
 perl ${baseDir}/scripts/update_samplesheet.pl -i $oriss -o $newss
@@ -69,16 +67,19 @@ if [[ -z $testing ]]
 then
     mkdir -p /archive/PHG/PHG_Clinical/toarchive/backups/${year}
     module load bcl2fastq/2.19.1
-    ln -s ${illumina}/${seqrunid}/* $fqout/${seqrunid}
-    ssh answerbe@198.215.54.71 "mkdir -p /swnas/qc_nuclia/demultiplexing/$prjid"
+    if [[ ! -f $fqout/${seqrunid}/RunInfo.xml ]]
+    then
+	ln -s ${illumina}/${seqrunid}/* $fqout/${seqrunid}
+    fi
+    ssh answerbe@198.215.54.71 "mkdir -p /swnas/qc_nuclia/demultiplexing/$seqrunid"
     mv ${seqdatadir}/RunInfo.xml ${seqdatadir}/RunInfo.xml.ori
     perl  ${baseDir}/scripts/fix_runinfo_xml.pl $seqdatadir
-    bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${newss} &> ${seqdatadir}/bcl2fastq_${prjid}.log
+    bcl2fastq --barcode-mismatches 0 -o ${seqdatadir} --no-lane-splitting --runfolder-dir ${seqdatadir} --sample-sheet ${newss} &> ${seqdatadir}/bcl2fastq_${seqrunid}.log
     if [[ ! -s "${seqdatadir}/Undetermined_S0_R1_001.fastq.gz" ]] || [[ ! -s "${seqdatadir}/Undetermined_S0_R2_001.fastq.gz" ]]
     then
 	exit
     fi
-    rsync -avz ${seqdatadir}/Reports ${seqdatadir}/Stats answerbe@198.215.54.71:/swnas/qc_nuclia/demultiplexing/$prjid/
+    rsync -avz ${seqdatadir}/Reports ${seqdatadir}/Stats answerbe@198.215.54.71:/swnas/qc_nuclia/demultiplexing/$seqrunid/
     rsync -avz --prune-empty-dirs --include "*/" --include="*.fastq.gz" --include="*.csv" --exclude="*" $seqdatadir /archive/PHG/PHG_Clinical/toarchive/seqruns/$year
     source ${baseDir}/azure_credentials
     az storage blob upload-batch -d seqruns -s /archive/PHG/PHG_Clinical/toarchive/seqruns/${year}/${seqrunid} --destination-path ${year}/${seqrunid}
@@ -91,13 +92,13 @@ mkdir fastq
 find $seqdatadir -name "*.fastq.gz" -exec ln -s {} fastq \;
 find $seqdatadir -name "*.fastq.gz" -print |perl -pe 's/\//\t/g' |cut -f 6- |sort |grep -v Undetermined > sequence.files.txt
 cut -f 2 sequence.files.txt | sort -u > subjects.txt
-perl ${baseDir}/scripts/create_designfiles.pl -i $newss -o sequence.files.txt
+perl ${baseDir}/dnanexus/create_designfiles.pl -i $newss -o sequence.files.txt
 
 echo "*****Submitting jobs******"
 for df in *.design.txt
 do
     wkflow="${df%.design.txt}"
-    echo "bash ${appletdir}/workflows/run_workflow.sh -d $df -w $wkflow -i fastq -p $seqrunid -o $pendir"
+    echo "bash ${baseDir}/dnanexus/run_workflow.sh -d $df -w $wkflow -i fastq -p $seqrunid -o $pendir"
 done
 
 echo "*****Checking Case Information******"

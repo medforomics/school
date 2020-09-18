@@ -4,7 +4,8 @@
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
 
 my %opt = ();
-my $results = GetOptions (\%opt,'help|h','split|i=s','test|o=s','xmlcheck|u=s');
+my $results = GetOptions (\%opt,'help|h','split|i=s','test|o=s',
+			  'xmlcheck|u=s','cloud|c');
 my $opts;
 if ($opt{split}) {
     $opts .= " -s 1"
@@ -30,11 +31,19 @@ foreach my $ss (@samplesheets) {
   unless (-e "/project/PHG/PHG_Clinical/illumina/sample_sheets/$fname") {
       system("cp $ss /project/PHG/PHG_Clinical/illumina/sample_sheets/$fname");
       system("source /etc/profile.d/modules.sh");
-      system(qq{$execdir\/scripts/create_directories.sh -p $prjid -c $prodir});
-      system(qq{cp $execdir\/scripts/init_workflows.sh $procbase});
-      open OUT, ">$procbase\/run_$prjid.sh" or die $!;
-      print OUT qq{#!/bin/bash\n$procbase\/init_workflows.sh -p $prjid -b $execdir -c $prodir -r $refdir $opts\n};
-      close OUT;
-      system("sbatch -p 32GB $procbase\/run_$prjid.sh");
+      if ($opt{cloud}) {
+	  system(qq{cp $execdir\/dnanexus/init_dnanexus.sh $procbase});
+	  open OUT, ">$procbase\/run_$prjid.sh" or die $!;
+	  print OUT qq{#!/bin/bash\n$procbase\/init_dnanexus.sh -p $prjid -b $execdir -c $prodir $opts\n};
+	  close OUT;
+	  system("sbatch -p 32GB $procbase\/run_$prjid.sh");
+      } else {
+	  system(qq{$execdir\/utsw_biohpc/create_directories.sh -p $prjid -c $prodir});
+	  system(qq{cp $execdir\/utsw_biohpc/init_workflows.sh $procbase});
+	  open OUT, ">$procbase\/run_$prjid.sh" or die $!;
+	  print OUT qq{#!/bin/bash\n$procbase\/init_workflows.sh -p $prjid -b $execdir -c $prodir -r $refdir $opts\n};
+	  close OUT;
+	  system("sbatch -p 32GB $procbase\/run_$prjid.sh");
+      }
   }
 }
