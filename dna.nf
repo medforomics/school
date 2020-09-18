@@ -13,11 +13,13 @@ params.seqrunid = 'runtest'
 somatic = false
 
 fpalgo = ['fb', 'platypus']
+ssalgo = ['strelka2','shimmer']
 if (params.platypus == 'skip') {
    fpalgo = ['fb]
+   ssalgo = ['strelka2']
 }
+
 svalgo = ['delly', 'svaba']
-ssalgo = ['strelka2']
 ncmconf = file("$params.genome/ncm.conf")
 reffa=file("$params.genome/genome.fa")
 dbsnp="$params.genome/dbSnp.vcf.gz"
