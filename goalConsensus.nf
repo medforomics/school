@@ -120,18 +120,32 @@ process dalign {
   input:
   set caseid,tid,nid,sampleid,file(fq1),file(fq2),file(trimout) from treads
   output:
-  set caseid,tid,nid,sampleid, file("${sampleid}.bam") into mdupbam
-  set caseid,sampleid, file("${sampleid}.bam"),file("${sampleid}.bam.bai"),file(trimout) into qcbam
   set caseid,sampleid,file("${sampleid}.bam") into virusalign
   set caseid,sampleid,file("${sampleid}.bam"),file("${sampleid}.bam.bai") into cnvbam
-  set caseid,sampleid,file("${sampleid}.abra2.bam"),file("${sampleid}.abra2.bam.bai") into itdbam
-  set caseid,tid,nid,file("${sampleid}.abra2.bam"), file("${sampleid}.abra2.bam.bai") into oribam
+  set caseid,sampleid, file("${sampleid}.bam"),file("${sampleid}.bam.bai"),file(trimout) into qcbam
+  set caseid,tid,nid,sampleid,file("${sampleid}.bam"),file("${sampleid}.bam.bai") into align
   script:
   """
   bash ${repoDir}/process_scripts/alignment/dnaseqalign.sh -r $index_path -p $sampleid -x ${fq1} -y ${fq2} $alignopts
-  bash ${repoDir}/process_scripts/alignment/abra2.sh -r $index_path -p $sampleid -b ${sampleid} -c ${capturebed}
   """
 }
+process abra2 {
+  queue '32GB,super'
+  label 'abra2'
+  errorStrategy 'ignore'
+  publishDir "$params.output/$caseid/dnaout", mode: 'copy'
+  input:
+  set caseid,tid,nid,sampleid,file(sbam),file(bai) from align
+  output:
+  set caseid,sampleid,file("${sampleid}.abra2.bam"),file("${sampleid}.abra2.bam.bai") into itdbam
+  set caseid,tid,nid,file("${sampleid}.abra2.bam"), file("${sampleid}.abra2.bam.bai") into oribam
+  set caseid,tid,nid,sampleid, file("${sampleid}.abra2.bam"),file("${sampleid}.abra2.bam.bai") into mdupbam
+  script:
+  """
+  bash ${repoDir}/process_scripts/alignment/abra2.sh -r $index_path -p $sampleid -b ${sbam} -c ${capturebed}
+  """
+}
+
 process valign {
   executor 'local'
   label 'dnaalign'

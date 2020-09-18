@@ -88,6 +88,7 @@ process rtrim {
 }
 process ralign {
   errorStrategy 'ignore'
+  label 'ralign'
   publishDir "$params.output/$caseid/rnaout", mode: 'copy'
   input:
   set caseid,sampleid, file(fqs) from treads
@@ -103,6 +104,7 @@ process ralign {
 }
 process starfusion {
   errorStrategy 'ignore'
+  label 'starfusion'
   publishDir "$params.output/$caseid/rnaout", mode: 'copy'
   input:
   set caseid,sampleid,file(fq1), file(fq2) from fusionfq
@@ -150,6 +152,7 @@ process alignqc {
 process geneabund {
   errorStrategy 'ignore'
   executor 'local'
+  label 'geneabund'
   publishDir "$params.output/$caseid/rnaout", mode: 'copy'
   input:
   set caseid,sampleid, file(sbam) from abundbam
