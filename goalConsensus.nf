@@ -11,9 +11,9 @@ params.version = 'v4'
 params.seqrunid = 'runtest'
 
 somatic = false
-fpalgo = ['fb', 'platypus']
+fpalgo = ['fb']
 svalgo = ['delly', 'svaba']
-ssalgo = ['strelka2','shimmer']
+ssalgo = ['strelka2']
 ncmconf = file("$params.genome/ncm.conf")
 reffa=file("$params.genome/genome.fa")
 dbsnp="$params.genome/dbSnp.vcf.gz"
@@ -123,6 +123,7 @@ process dalign {
   set caseid,sampleid,file("${sampleid}.bam") into virusalign
   set caseid,sampleid,file("${sampleid}.bam"),file("${sampleid}.bam.bai") into cnvbam
   set caseid,sampleid, file("${sampleid}.bam"),file("${sampleid}.bam.bai"),file(trimout) into qcbam
+  set caseid,tid,nid,file("${sampleid}.bam"), file("${sampleid}.bam.bai") into oribam
   set caseid,tid,nid,sampleid,file("${sampleid}.bam"),file("${sampleid}.bam.bai") into align
   script:
   """
@@ -137,12 +138,16 @@ process abra2 {
   input:
   set caseid,tid,nid,sampleid,file(sbam),file(bai) from align
   output:
-  set caseid,sampleid,file("${sampleid}.abra2.bam"),file("${sampleid}.abra2.bam.bai") into itdbam
-  set caseid,tid,nid,file("${sampleid}.abra2.bam"), file("${sampleid}.abra2.bam.bai") into oribam
-  set caseid,tid,nid,sampleid, file("${sampleid}.abra2.bam"),file("${sampleid}.abra2.bam.bai") into mdupbam
+  set caseid,sampleid,file("${sampleid}.bam"),file("${sampleid}.bam.bai") into itdbam
+  set caseid,tid,nid,file("${sampleid}.bam"), file("${sampleid}.bam.bai") into abrabam
+  set caseid,tid,nid,sampleid, file("${sampleid}.bam"),file("${sampleid}.bam.bai") into mdupbam
   script:
   """
   bash ${repoDir}/process_scripts/alignment/abra2.sh -r $index_path -p $sampleid -b ${sbam} -c ${capturebed}
+  mv ${sbam} ${sampleid}.ori.bam
+  mv ${bai} ${sampleid}.ori.bai
+  mv ${sampleid}.abra2.bam  ${sampleid}.bam
+  mv ${sampleid}.abra2.bam.bai  ${sampleid}.bam.bai
   """
 }
 
@@ -255,7 +260,11 @@ process gatkbam {
 
 oribam
    .groupTuple(by:[0,1,2])
-   .into { svbam; msibam; }
+   .into { msibam; }
+
+abrabam
+   .groupTuple(by:[0,1,2])
+   .into { svbam; }
 
 consbam
    .groupTuple(by:[0,1,2])
