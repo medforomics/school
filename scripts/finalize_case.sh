@@ -76,7 +76,7 @@ do
 done
 
 dnavcf="dnavcf/${caseID}.union.vcf.gz"
-cnv_answer="dnaout/$tumor_id.cnv.answer.txt"
+cnv_answer="dnacallset/$tumor_id.cnv.answer.txt"
 
 echo $caseID $tumor_id $dnavcf 
 echo "*****Load Data into NuCLIA******"
@@ -121,7 +121,7 @@ fi
 if [[ -f $rnavcf ]]
 then
     samtools index -@ 4 ${rnaseq_bam}
-    /project/shared/bicf_workflow_ref/seqprg/bin/regtools cis-splice-effects identify ${dnavcf} ${rnaseq_bam} ${index_path}/genome.fa ${index_path}/gencode.gtf -o ${caseID}.splicevariants.txt -v ${caseID}.splicevariants.vcf -s 0 -e 5 -i 5
+    /project/shared/bicf_workflow_ref/seqprg/bin/regtools cis-splice-effects identify ${dnavcf} ${rnaseq_bam} ${dna_ref_path}/genome.fa ${rna_ref_path}/gencode.gtf -o ${caseID}.splicevariants.txt -v ${caseID}.splicevariants.vcf -s 0 -e 5 -i 5
     icommand+=" -v $rnavcf -c $rnaseq_ntct -g ${caseID}.splicevariants.vcf"
 else
     unset rnaseq_id
@@ -136,7 +136,7 @@ echo "*****Evaluating ITDs******"
 if [[ -f "dnacallset/${caseID}.pindel_tandemdup.vcf.gz" ]]
 then
     itdpindel_vcf="dnacallset/${caseID}.pindel_tandemdup.vcf.gz"
-    gfopt="${gfopt} -i dnacallset/${caseID}.pindel.genefusion.txt"
+    gfopt="${gfopt} dnacallset/${caseID}.pindel.genefusion.txt"
 fi
 if [[ -f "dnacallset/${tumor_id}.itdseek_tandemdup.vcf.gz" ]]
 then

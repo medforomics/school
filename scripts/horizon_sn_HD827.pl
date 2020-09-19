@@ -7,7 +7,7 @@ while (my $line = <GLIST>) {
     $keep{$line} = 1;
 }
 
-open REF, "<HD827_variant_annotation_COSMICv85_dbSNPv151.txt" or die $!;
+open REF, "</project/shared/bicf_workflow_ref/human/grch38_cloud/giab_ref/HD827_variant_annotation_COSMICv85_dbSNPv151.txt" or die $!;
 $header = <REF>;
 chomp($header);
 my @colnames = split(/\t/,$header);
@@ -24,7 +24,7 @@ while (my $line = <REF>) {
     $info{$hash{CHROM}}{$hash{POS}} = [$hash{Ref},$hash{Alt},$hash{'T-OAF'},$hash{'Notes'}];
 }
 
-open OUT, ">Horizon.csv" or die $!;
+open OUT, ">HD827_sn.csv" or die $!;
 print OUT join(",",'Sample','LociGRCh38','ID',
 	       'Gene','Nucleotide','AminoAcid','Effect','Ref','Alt',
 	       'T-EAF','T-OAF','T-DP','Notes'),"\n";
@@ -103,7 +103,7 @@ foreach $vcf (@vcffiles) {
 
 foreach $chrom (keys %missing) {
     foreach $pos (keys %{$missing{$chrom}}) {
-	print join("\t",$chrom,$pos,$missing{$chrom}{$pos}{Gene},
+	print OUT join("\t",$chrom,$pos,$missing{$chrom}{$pos}{Gene},
 		   $missing{$chrom}{$pos}{COSM90AA},
 		   $missing{$chrom}{$pos}{'T-OAF'},
 		   $missing{$chrom}{$pos}{Notes}),"\n";

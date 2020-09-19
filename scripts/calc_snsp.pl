@@ -72,16 +72,13 @@ while (my $line = <IN>) {
     $vartype = 'indel' if (length($ant) != length($ref));
   }
   if ($hash{REFREP} && $hash{REFREP} =~ m/^\d$/) {
-      $numreps= (split(/,/,$hash{REFREP}))[0];
-      next if $numreps > 1;
+    $numreps= (split(/,/,$hash{REFREP}))[0];
+    next if $numreps > 1;
   }
   my @callers;
-  if ($hash{CallSet} && $hash{CallSet} =~ m/\// || $hash{SomaticCallSet} && $hash{SomaticCallSet} =~ m/\//) {
+  if ($hash{CallSet} && $hash{CallSet} =~ m/\//) {
     my @callinfo ;
-    @callinfo = split(/|/, $hash{CallSet}) if ($hash{CallSet});
-    if ($hash{SomaticCallSet}) {
-      @callinfo = split(/|/, $hash{SomaticCallSet}) if ($hash{SomaticCallSet});
-    }
+    @callinfo = split(/|/, $hash{CallSet});
     foreach $cinfo (@callinfo) {
       my ($caller, $alt, @samafinfo) = split(/\//,$cinfo);
       push @callers, $caller;
@@ -90,47 +87,38 @@ while (my $line = <IN>) {
   } elsif ($hash{CallSet} && $hash{CallSet} =~ m/\|/ || $hash{SomaticCallSet} && $hash{SomaticCallSet} =~ m/\|/) {
     my @callinfo ;
     @callinfo = split(/,/, $hash{CallSet}) if ($hash{CallSet});
-    if ($hash{SomaticCallSet}) {
-      @callinfo = split(/,/, $hash{SomaticCallSet}) if ($hash{SomaticCallSet});
-    }
     foreach $cinfo (@callinfo) {
       my ($caller, $alt, @samafinfo) = split(/\|/,$cinfo);
       push @callers, $caller;
     }
     $hash{CallSet} = join(",",@callinfo);
-  } else {
-    if ($hash{CallSet}) {
-      @callers = (@callers, split(/\,/, $hash{CallSet}));
-    }
-    if ($hash{SomaticCallSet}) {
-      @callers = (@callers, split(/\,/, $hash{SomaticCallSet}));
-    }
+  }  elsif ($hash{CallSet}) {
+    @callers = (@callers, split(/\,/, $hash{CallSet}));
   }
   $is_gs = 1;
   if ($maf < 0.05 || ($maf < 0.10  && $vartype ne 'snp')) {
-      $reason{$chrom}{$pos}{$ref}{$alt} = 'LowAF';
-      $is_gs = 0;
+    $reason{$chrom}{$pos}{$ref}{$alt} = 'LowAF';
+    $is_gs = 0;
   }elsif ($hash{CallSetInconsistent} && $vartype ne 'snp') {
-      $reason{$chrom}{$pos}{$ref}{$alt} = 'Inconsistent';
-      $is_gs = 0;
+    $reason{$chrom}{$pos}{$ref}{$alt} = 'Inconsistent';
+    $is_gs = 0;
   }elsif ($hash{RepeatType} && $hash{RepeatType} =~ m/Simple_repeat/ && $maf < 0.15) {
-      $reason{$chrom}{$pos}{$ref}{$alt} = 'InRepeat';
-      $is_gs = 0;
-  } elsif (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i || $hash{strandBias} || (($hash{SAP} && $hash{SAP} > 20) && ((exists $hash{SAF} && $hash{SAF}< 1 & $hash{SRF} > 10) || (exists $hash{SAR} && $hash{SAR}< 1 & $hash{SRR} > 10))))
-  {
-      $reason{$chrom}{$pos}{$ref}{$alt} = 'StrandBias';
-      $is_gs = 0;
+    $reason{$chrom}{$pos}{$ref}{$alt} = 'InRepeat';
+    $is_gs = 0;
+  } elsif (($hash{FS} && $hash{FS} > 60) || $filter =~ m/strandBias/i || $hash{strandBias} || (($hash{SAP} && $hash{SAP} > 20) && ((exists $hash{SAF} && $hash{SAF}< 1 & $hash{SRF} > 10) || (exists $hash{SAR} && $hash{SAR}< 1 & $hash{SRR} > 10)))) {
+    $reason{$chrom}{$pos}{$ref}{$alt} = 'StrandBias';
+    $is_gs = 0;
   } elsif ($id =~ m/COS/ && $cosmicsubj >= 5) {
-      if ($dp < 20 || $altct < 3) {
-	  $reason{$chrom}{$pos}{$ref}{$alt} = 'LowCoverage';
-	  $is_gs = 0;
-      }
-  } elsif  (scalar(@callers) < 2) {
-      $reason{$chrom}{$pos}{$ref}{$alt} = 'OneCaller';
-      $is_gs = 0;
-  } elsif ($dp < 20 || $altct < 8) {
+    if ($dp < 20 || $altct < 3) {
       $reason{$chrom}{$pos}{$ref}{$alt} = 'LowCoverage';
       $is_gs = 0;
+    }
+  } elsif  (scalar(@callers) < 2) {
+    $reason{$chrom}{$pos}{$ref}{$alt} = 'OneCaller';
+    $is_gs = 0;
+  } elsif ($dp < 20 || $altct < 8) {
+    $reason{$chrom}{$pos}{$ref}{$alt} = 'LowCoverage';
+    $is_gs = 0;
   }
   my %sinfo;
   %chash = map {$_=>1} @callers;
@@ -172,6 +160,7 @@ foreach $loci (keys %status) {
     foreach (@allcallers) {
       if ($callers{$_}){
 	$cat{$chrom}{$pos}{$ref}{$alt}{$_} = 'tp';
+	print join(":","TP",$chrom,$pos,$ref,$alt,$reason{$chrom}{$pos}{$ref}{$alt}),"\n" if ($_ eq 'genomeseer');
       } else {
 	$cat{$chrom}{$pos}{$ref}{$alt}{$_} = 'fn' unless ($trueset < 2);
 	print join(":","FN",$chrom,$pos,$ref,$alt,$reason{$chrom}{$pos}{$ref}{$alt}),"\n" if ($_ eq 'genomeseer');
