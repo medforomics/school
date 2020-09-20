@@ -138,7 +138,7 @@ process dalign {
   """
 }
 process valign {
-  executor 'local'
+  queue '32GB,super'
   label 'dnaalign'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnaout", mode: 'copy'
@@ -190,7 +190,7 @@ process dna_bamqc {
 }
 
 process cnv {
-  executor 'local'
+  queue '32GB,super'
   label 'structuralvariant'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
@@ -213,7 +213,7 @@ process cnv {
 }
 
 process itdseek {
-  executor 'local'
+  queue '32GB,super'
   label 'structuralvariant'
   errorStrategy 'ignore'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
@@ -257,7 +257,7 @@ gtxbam
    .set { mutectbam }
 
 process msi {
-  executor 'local'
+  queue '32GB,super'
   label 'profiling_qc'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   errorStrategy 'ignore'
@@ -277,7 +277,7 @@ process msi {
 }
 
 process checkmates {
-  executor 'local'
+   queue '32GB,super'
   label 'profiling_qc'
   publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
   errorStrategy 'ignore'
