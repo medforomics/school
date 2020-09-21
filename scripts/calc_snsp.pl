@@ -10,7 +10,7 @@ my $fn = 'fn.vcf';
 my $run = $input;
 $run =~ s/\.eval.vcf//;
 
-my @allcallers = ('strelka2','fb','platypus','gatk','genomeseer','union');
+my @allcallers = ('strelka2','fb','platypus','mutect','pindel','genomeseer','union');
 foreach ((@allcallers)) {
   $fn{'snp'}{$_} = 0;
   $fn{'indel'}{$_} = 0;
@@ -202,15 +202,28 @@ foreach (@allcallers) {
   $fp{'snp'}{$_} = 0 unless $fp{'snp'}{$_};
   $fp{'indel'}{$_} = 0 unless $fp{'indel'}{$_};
   $fn{'indel'}{$_} = 0 unless $fn{'indel'}{$_};
-  next unless ($tp{'snp'}{$_});
-  next unless ($tp{'indel'}{$_});
-  $sn_snp = sprintf("%.1f",100*$tp{'snp'}{$_}/($tp{'snp'}{$_}+$fn{'snp'}{$_}));
-  $sn_indel = sprintf("%.1f",100*$tp{'indel'}{$_}/($tp{'indel'}{$_}+$fn{'indel'}{$_}));
-  $sn_total = sprintf("%.1f",100*($tp{'snp'}{$_}+$tp{'indel'}{$_})/($tp{'snp'}{$_}+$fn{'snp'}{$_}+$tp{'indel'}{$_}+$fn{'indel'}{$_}));
-  $sp_total = sprintf("%.1f",100*($tp{'snp'}{$_}+$tp{'indel'}{$_})/($tp{'snp'}{$_}+$fp{'snp'}{$_}+$tp{'indel'}{$_}+$fp{'indel'}{$_}));
-  $sp_snp =   sprintf("%.1f",100*$tp{'snp'}{$_}/($tp{'snp'}{$_}+$fp{'snp'}{$_}));
-  $sp_indel = sprintf("%.1f",100*$tp{'indel'}{$_}/($tp{'indel'}{$_}+$fp{'indel'}{$_}));
-  
+  #next unless ($tp{'snp'}{$_});
+  #next unless ($tp{'indel'}{$_});
+  $snsnvtotal = $tp{'snp'}{$_};
+  $snindeltotal=$tp{'indel'}{$_};
+  if ($snsnvtotal) {
+      $sn_snp = sprintf("%.1f",100*$tp{'snp'}{$_}/($tp{'snp'}{$_}+$fn{'snp'}{$_}));
+      $sp_snp =   sprintf("%.1f",100*$tp{'snp'}{$_}/($tp{'snp'}{$_}+$fp{'snp'}{$_}));
+  } else {
+      $sn_snp = 0;
+      $sp_snp = 0;
+  }
+  if ($snindeltotal) {
+      $sn_indel = sprintf("%.1f",100*$tp{'indel'}{$_}/($tp{'indel'}{$_}+$fn{'indel'}{$_}));
+      $sp_indel = sprintf("%.1f",100*$tp{'indel'}{$_}/($tp{'indel'}{$_}+$fp{'indel'}{$_}));
+  } else {
+      $sn_indel = 0;
+      $sp_indel = 0;
+  }
+  if ($tp{'snp'}{$_}+$tp{'indel'}{$_}) {
+      $sn_total = sprintf("%.1f",100*($tp{'snp'}{$_}+$tp{'indel'}{$_})/($tp{'snp'}{$_}+$fn{'snp'}{$_}+$tp{'indel'}{$_}+$fn{'indel'}{$_}));
+      $sp_total = sprintf("%.1f",100*($tp{'snp'}{$_}+$tp{'indel'}{$_})/($tp{'snp'}{$_}+$fp{'snp'}{$_}+$tp{'indel'}{$_}+$fp{'indel'}{$_}));
+  }
   print OUT join("\t",$run,$_,$tp{'snp'}{$_},$fp{'snp'}{$_},$fn{'snp'}{$_},
 		 $tp{'indel'}{$_},$fp{'indel'}{$_},$fn{'indel'}{$_},
 		 $sn_snp,$sn_indel,$sn_total,$sp_snp,$sp_indel,$sp_total),"\n";

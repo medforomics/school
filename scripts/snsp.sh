@@ -45,11 +45,11 @@ module load samtools/gcc/1.8 htslib/gcc/1.8 bedtools/2.26.0 vcftools/0.1.14 bcft
 cut -f 1,2,3 ${index_path}/gencode.CDS.bed |grep ^chr > gencode.cds.bed 
 
 bedtools intersect -header -a ${index_path}/giab3.vcf.gz -b ${tpanel} | bedtools intersect -v -header -a stdin -b ${index_path}/HLA_HG38.bed | bedtools intersect -header -a stdin -b ${index_path}/giab3_platinum2.hg38.highConf.bed | bedtools intersect -header -a stdin -b gencode.cds.bed | vcf-sort | uniq | /project/shared/bicf_workflow_ref/seqprg/vt/vt decompose_blocksub - -a -o giab3.utswcoding.vcf
-bgzip giab3.utswcoding.vcf
-tabix giab3.utswcoding.vcf.gz
+bgzip -f giab3.utswcoding.vcf
+tabix -f giab3.utswcoding.vcf.gz
 bedtools intersect -header -a ${index_path}/platinum_v2.vcf.gz -b ${tpanel} | bedtools intersect -v -header -a stdin -b ${index_path}/HLA_HG38.bed | bedtools intersect -header -a stdin -b ${index_path}/giab3_platinum2.hg38.highConf.bed  | bedtools intersect -header -a stdin -b gencode.cds.bed | vcf-sort | uniq | /project/shared/bicf_workflow_ref/seqprg/vt/vt decompose_blocksub - -a -o platinum_v2.utswcoding.vcf
-bgzip platinum_v2.utswcoding.vcf
-tabix platinum_v2.utswcoding.vcf.gz
+bgzip -f platinum_v2.utswcoding.vcf
+tabix -f platinum_v2.utswcoding.vcf.gz
 bedtools intersect -header -a ${vcf} -b ${tpanel} | bedtools intersect -v -header -a stdin -b ${index_path}/HLA_HG38.bed | bedtools intersect -header -a stdin -b ${index_path}/giab3_platinum2.hg38.highConf.bed  | bedtools intersect -header -a stdin -b gencode.cds.bed | vcf-sort |uniq | bgzip > ${id}.utswcoding.vcf.gz
 tabix ${id}.utswcoding.vcf.gz
 
