@@ -163,7 +163,7 @@ then
 fi
 
 echo "*****Adding SVs******"
-svcallers="delly svaba.sv"
+svcallers="delly svaba"
 for c in $svcallers
 do	 
     gfopt="${gfopt} dnacallset/${caseID}.${c}.genefusion.txt"
