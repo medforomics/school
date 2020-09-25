@@ -33,6 +33,9 @@ foreach my $file (@files) {
   while (my $line = <ALG>) {
     chomp($line);
     my ($chr1,$p1,$chr2,$p2,$effect,$gene,$gtype,$filter,$format,@gts) = split(/\t/,$line);
+    if ($p1 == 6304747) {
+	warn "Debugging\n";
+    }
     if ($filter =~ m/LOWMAPQ|LowQual/i) {
       $filter = 'FailedQC;'.$filter;
     }
@@ -58,8 +61,6 @@ foreach my $file (@files) {
 	$rgene="intergenic";
     }
     next if ($done{$lbkpnt}{$rbkpnt});
-    $done{$lbkpnt}{$rbkpnt} = 1;
-    $done{$rbkpnt}{$lbkpnt} = 1;
     if ($chr1 eq $chr2) {
       $chrtype = 'INTRACHROMOSOMAL';
       $chrdistance = abs($p2 - $p1);
@@ -88,13 +89,15 @@ foreach my $file (@files) {
       }
     }
     next unless $hash{tumor};
-    next if ($dnagf{$lgene}{$rgene} && $hash{tumor}{DNAReads} ne '.' && $dnagf{$lgene}{$rgene}{DNAReads} > $hash{tumor}{DNAReads});
+    next if ($dnagf{$lgene}{$rgene} && $hash{tumor}{DNAReads} ne '.' && $dnagf{$lgene}{$rgene}{DNAReads} > $hash{tumor}{DNAReads} && $rgene ne 'intergenic');
     $dnagf{$lgene}{$rgene} = $hash{tumor};
     my %filter = map {$_=>1} split(";",$hash{tumor}{Filter});
     $ss = 'Somatic';
     if ($hash{normal} && $hash{normal} ne '.' && $hash{normal} > 10) {
 	$ss = 'Germline';
     }
+    $done{$lbkpnt}{$rbkpnt} = 1;
+    $done{$rbkpnt}{$lbkpnt} = 1;
     $dnagf{$lgene}{$rgene}{NormalDNAReads} = $hash{normal};
     $dnagf{$lgene}{$rgene}{SomaticStatus} = $ss;
   }

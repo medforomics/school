@@ -149,7 +149,8 @@ then
     tabix -f $itdseeker_vcf
     bcftools view -Oz -o itdpindel.vcf.gz -s $tumor_id $itdpindel_vcf
     tabix itdpindel.vcf.gz
-    bcftools concat -Oz -o itd.vcf.gz itdpindel.vcf.gz  $itdseeker_vcf
+    zcat $itdseeker_vcf | perl -pe 's/MAF,Number=1,Type=Integer/MAF,Number=1,Type=Float/' |bgzip > idtseek.vcf.gz
+    vcf-concat itdpindel.vcf.gz  itdseek.vcf.gz |bgzip > itd.vcf.gz 
     perl $baseDir/itdvcf2cnv.pl $tumor_id itd.vcf.gz
     cat ${tumor_id}.dupcnv.txt >> $cnv_answer
 elif [[ -f $itdpindel_vcf ]]
