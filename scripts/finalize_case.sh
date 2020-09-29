@@ -301,7 +301,7 @@ then
 	mv $casedir $wkdir/toarchive/caseDirs/${caseID}
 	rsync -avz $wkdir/cases/${caseID} answerbe@198.215.54.71:/swnas/cases
 	source ${baseDir}/../azure_credentials
-	az storage blob upload-batch -d cases -s $wkdir/cases/${caseID} --destination-path ${year}/${caseID}
+	az storage blob upload-batch -d cases -s $wkdir/cases/${caseID} --destination-path ${year}/${caseID} >  /archive/PHG/PHG_Clinical/toarchive/transfer_logs/${year}/${seqrunid}/${caseID}.log
     else
 	rsync -avz $wkdir/cases/${caseID} answerbe@198.215.54.71:/swnas/cases/answer_devel
     fi

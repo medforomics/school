@@ -49,6 +49,8 @@ fi
 procbase="$prodir/$seqrunid";
 outnf="$procbase/analysis"
 year="20${seqrunid:0:2}"
+mkdir -p /archive/PHG/PHG_Clinical/toarchive/backups/${year}
+mkdir -p /archive/PHG/PHG_Clinical/toarchive/transfer_logs/${year}/${seqrunid}/
 echo "*****DONE Setting Variables******"
 
 
@@ -82,7 +84,7 @@ then
     rsync -avz ${seqdatadir}/Reports ${seqdatadir}/Stats answerbe@198.215.54.71:/swnas/qc_nuclia/demultiplexing/$seqrunid/
     rsync -avz --prune-empty-dirs --include "*/" --include="*.fastq.gz" --include="*.csv" --exclude="*" $seqdatadir /archive/PHG/PHG_Clinical/toarchive/seqruns/$year
     source ${baseDir}/azure_credentials
-    az storage blob upload-batch -d seqruns -s /archive/PHG/PHG_Clinical/toarchive/seqruns/${year}/${seqrunid} --destination-path ${year}/${seqrunid}
+    az storage blob upload-batch -d seqruns -s /archive/PHG/PHG_Clinical/toarchive/seqruns/${year}/${seqrunid} --destination-path ${year}/${seqrunid} > /archive/PHG/PHG_Clinical/toarchive/transfer_logs/${year}/${seqrunid}/seqruns2azure.log
 fi
 
 echo "*****Done Demultiplexing******"

@@ -92,4 +92,4 @@ mv /archive/PHG/PHG_Clinical/casesTemp/${myarray[1]} /archive/PHG/PHG_Clinical/c
 rsync -avz /archive/PHG/PHG_Clinical/cases/${myarray[1]} answerbe@198.215.54.71:/swnas/cases
 
 cd /archive/PHG/PHG_Clinical/cases
-az storage blob upload-batch -d cases -s ${myarray[1]} --destination-path ${myarray[1]} 
+az storage blob upload-batch -d cases -s /archive/PHG/PHG_Clinical/cases/${myarray[1]} --destination-path ${year}/${myarray[1]} > /archive/PHG/PHG_Clinical/toarchive/transfer_logs/${year}/${seqrunid}/${caseID}.log

@@ -115,7 +115,7 @@ if [[ -z $testing ]]
 then
     rsync -avz $wkdir/cases/${subject} answerbe@198.215.54.71:/swnas/cases
     source ${baseDir}/../azure_credentials
-    az storage blob upload-batch -d seqruns -s $wkdir/cases/${subject} --destination-path ${year}/${subject}
+    az storage blob upload-batch -d seqruns -s $wkdir/cases/${subject} --destination-path ${year}/${subject} >  /archive/PHG/PHG_Clinical/toarchive/transfer_logs/${year}/${seqrunid}/${caseID}.log
 else
     rsync -avz $wkdir/casesTemp/${subject} answerbe@198.215.54.71:/swnas/cases/answer_devel
 fi
