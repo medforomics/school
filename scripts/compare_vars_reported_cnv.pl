@@ -4,7 +4,7 @@
 use JSON;
 
 my %keep;
-open OM, "</project/shared/bicf_workflow_ref/human/grch38_cloud/panels/UTSW_V4_pancancer/genelist.txt" or die $!;
+open OM, "</project/shared/bicf_workflow_ref/human/grch38_cloud/panels/UTSW_V4_heme/genelist.txt" or die $!;
 while (my $line = <OM>) {
     chomp($line);
     $keep{$line} = 1;

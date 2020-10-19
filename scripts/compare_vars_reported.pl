@@ -62,6 +62,7 @@ print FUS join("\t",'CaseID','Reported-FusionName',
 
 foreach $caseID (keys %cases) {
   my $fusionfile = $analdir."/".$caseID."/".$caseID.".translocations.answer.txt";
+  print $fusionfile,"\n";
   open IN, "<$fusionfile" or die $!;
   my $head = <IN>;
   chomp($head);
@@ -166,47 +167,41 @@ print OUT join("\t",'CaseID','SampleID','Gene','Reported-CN',
 	       'Reported-Cytoband','Score','CN','AbberationType',
 	       'CHROM','Start','End','Cytoband','Score'),"\n";
 foreach $caseID (keys %cnvs) {
-  my @tumordirs = `ls -d $analdir/$caseID/*T_DNA_heme183`;
-  chomp(@tumordirs);
-  foreach $tdir (@tumordirs) {
-    my ($dir,$pid,$tid) = split(/\//,$tdir);
-    my $cnvfile = $dir."/".$pid."/".$tid."/".$tid.".cnv.answer.txt";
-    unless (-e $cnvfile) {
-	print $cnvfile,"\n";
-	next;
+  my $cnvfile = `ls $analdir/$caseID/dnacallset/*T_DNA_heme183.cnv.answer.txt`;
+  print $cnvfile,"\n";
+  my @filename = split(/\//,$cnvfile);
+  my $tid = (split(/\./,$filename[-1]))[0];
+  open IN, "<$cnvfile" or die $!;
+  my $head = <IN>;
+  chomp($head);
+  my @colnames = split(/\t/,$head);
+  my %results;
+  while (my $line = <IN>) {
+    chomp($line);
+    my @row = split(/\t/,$line);
+    my %hash;
+    foreach my $i (0..$#row) {
+      $hash{$colnames[$i]} = $row[$i];
     }
-    open IN, "<$cnvfile" or die $!;
-    my $head = <IN>;
-    chomp($head);
-    my @colnames = split(/\t/,$head);
-    my %results;
-    while (my $line = <IN>) {
-      chomp($line);
-      my @row = split(/\t/,$line);
-      my %hash;
-      foreach my $i (0..$#row) {
-	$hash{$colnames[$i]} = $row[$i];
-      }
-      my $g = $hash{Gene};
-      $results{$g} = 1;
-      if ($cnvs{$caseID}{$g}) {
-	print OUT join("\t",$caseID,$tid,$g,$cnvs{$caseID}{$g}{'copyNumber'},
-		       $cnvs{$caseID}{$g}{'aberrationType'},
-		       $cnvs{$caseID}{$g}{chrom},$cnvs{$caseID}{$g}{start},
-		       $cnvs{$caseID}{$g}{end},$cnvs{$caseID}{$g}{cytoband},
-		       $cnvs{$caseID}{$g}{score},$hash{CN},
-		       $hash{'Abberation Type'},$hash{Chromosome},$hash{Start},
-		       $hash{End},$hash{CytoBand},$hash{Score}),"\n";
-      }
-    }
-    foreach $g (keys %{$cnvs{$caseID}}) {
-      next if $results{$g};
+    my $g = $hash{Gene};
+    $results{$g} = 1;
+    if ($cnvs{$caseID}{$g}) {
       print OUT join("\t",$caseID,$tid,$g,$cnvs{$caseID}{$g}{'copyNumber'},
 		     $cnvs{$caseID}{$g}{'aberrationType'},
 		     $cnvs{$caseID}{$g}{chrom},$cnvs{$caseID}{$g}{start},
 		     $cnvs{$caseID}{$g}{end},$cnvs{$caseID}{$g}{cytoband},
-		     $cnvs{$caseID}{$g}{score}),"\n";
+		     $cnvs{$caseID}{$g}{score},$hash{CN},
+		     $hash{'Abberation Type'},$hash{Chromosome},$hash{Start},
+		     $hash{End},$hash{CytoBand},$hash{Score}),"\n";
     }
+  }
+  foreach $g (keys %{$cnvs{$caseID}}) {
+    next if $results{$g};
+    print OUT join("\t",$caseID,$tid,$g,$cnvs{$caseID}{$g}{'copyNumber'},
+		   $cnvs{$caseID}{$g}{'aberrationType'},
+		   $cnvs{$caseID}{$g}{chrom},$cnvs{$caseID}{$g}{start},
+		   $cnvs{$caseID}{$g}{end},$cnvs{$caseID}{$g}{cytoband},
+		   $cnvs{$caseID}{$g}{score}),"\n";
   }
 }
 close OUT;
