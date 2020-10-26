@@ -1,0 +1,10 @@
+Dear UTSW Team, 
+
+A Clinical Case has failed on DNA Nexus
+
+JobID: Unspecified
+Please check this job.
+Please do not respond to this e-mail. 
+
+Sincerely, 
+NGS Bioinformatics Team
