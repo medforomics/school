@@ -1,3 +1,0 @@
-ls -d ../cases/3*/ORD*T_DNA_panel1385 | awk -F '/|-' '{print "curl --user \"bcantarel:muffin79\" -H \"Content-Type:application/xml\" -X PUT -d @"$3"-"$4".clarity.xml https://utsw.claritylims.com/api/v2/projects/"$5'} |sh
-
-ls -d complete/3*/ORD*_T_DNA_panel1385 |awk -F '/|-' '{print "curl --user \"bcantarel:muffin79" --request GET https://utsw.claritylims.com/api/v2/projects/"$4,">","deve/"$2"-"$3".clarity.xml"}'

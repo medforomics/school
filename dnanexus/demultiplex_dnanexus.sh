@@ -1,1 +1,0 @@
-init_dnanexus.sh

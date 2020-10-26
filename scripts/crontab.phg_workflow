@@ -1,1 +1,0 @@
-0 * * * * perl /project/PHG/PHG_Clinical/clinseq_workflows/scripts/check_new_run.pl

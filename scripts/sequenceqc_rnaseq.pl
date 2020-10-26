@@ -1,1 +1,0 @@
-sequenceqc_rna.pl
