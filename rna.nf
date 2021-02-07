@@ -162,6 +162,7 @@ process geneabund {
   file("${sampleid}.fpkm.txt") into fpkm
   """
   bash ${repoDir}/process_scripts/genect_rnaseq/geneabundance.sh -s ${params.stranded} -g ${gtf_file} -p ${sampleid} -b ${sbam} -i ${ginfo} ${glist}
+  bash ${repoDir}/process_scripts/genect_rnaseq/exonskipping.sh -g ${gtf_file} -p ${sampleid} -b ${sbam} -r ${index_path}
   """
 }
 process fb {
