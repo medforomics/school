@@ -160,6 +160,7 @@ process geneabund {
   file("${sampleid}.cts")  into counts
   file("${sampleid}_stringtie") into strcts
   file("${sampleid}.fpkm.txt") into fpkm
+  file("${sampleid}.exonskip.answer.txt") into exonskip
   """
   bash ${repoDir}/process_scripts/genect_rnaseq/geneabundance.sh -s ${params.stranded} -g ${gtf_file} -p ${sampleid} -b ${sbam} -i ${ginfo} ${glist}
   bash ${repoDir}/process_scripts/genect_rnaseq/exonskipping.sh -g ${gtf_file} -p ${sampleid} -b ${sbam} -r ${index_path}
