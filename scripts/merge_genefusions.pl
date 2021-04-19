@@ -33,9 +33,6 @@ foreach my $file (@files) {
   while (my $line = <ALG>) {
     chomp($line);
     my ($chr1,$p1,$chr2,$p2,$effect,$gene,$gtype,$filter,$format,@gts) = split(/\t/,$line);
-    if ($p1 == 6304747) {
-	warn "Debugging\n";
-    }
     if ($filter =~ m/LOWMAPQ|LowQual/i) {
       $filter = 'FailedQC;'.$filter;
     }
@@ -89,7 +86,9 @@ foreach my $file (@files) {
       }
     }
     next unless $hash{tumor};
-    next if ($dnagf{$lgene}{$rgene} && $hash{tumor}{DNAReads} ne '.' && $dnagf{$lgene}{$rgene}{DNAReads} > $hash{tumor}{DNAReads} && $rgene ne 'intergenic');
+    next if ($hash{tumor}{DNAReads} eq'.');
+    next if ($dnagf{$lgene}{$rgene} && $dnagf{$lgene}{$rgene}{Filter} eq 'PASS' && $hash{tumor}{Filter} ne 'PASS');
+    next if ($dnagf{$lgene}{$rgene} && $dnagf{$lgene}{$rgene}{DNAReads} > $hash{tumor}{DNAReads});
     $dnagf{$lgene}{$rgene} = $hash{tumor};
     my %filter = map {$_=>1} split(";",$hash{tumor}{Filter});
     $ss = 'Somatic';
@@ -149,9 +148,7 @@ foreach my $lgene (sort {$a cmp $b} keys %dnagf) {
     my $fname = $dnagf{$lgene}{$rgene}{FusionName};
     next if ($reported{$lgene}{$rgene});
     next unless ($known{$fname} ||  $dnagf{$lgene}{$rgene}{DNAReads} > 20);
-    my ($lchr,$lpos) = split(/:/,$dnagf{$lgene}{$rgene}{LeftBreakpoint});
-    my ($rchr,$rpos) = split(/:/,$dnagf{$lgene}{$rgene}{RightBreakpoint});
-    next if ($lchr eq $rchr && abs($lpos-$rpos) < 9999);
+    next if ($dnagf{$lgene}{$rgene}{'ChrType'} eq 'INTRACHROMOSOMAL' && $dnagf{$lgene}{$rgene}{'ChrDistance'} < 9999);
     my @line;
     foreach (@outcol) {
       $dnagf{$lgene}{$rgene}{$_} = '' unless $dnagf{$lgene}{$rgene}{$_};

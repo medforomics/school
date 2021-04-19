@@ -6,14 +6,15 @@ params.snpeff_vers = 'GRCh38.86';
 params.genome="/project/shared/bicf_workflow_ref/human/grch38_cloud/dnaref"
 params.virus_genome="/project/shared/bicf_workflow_ref/human_virus_genome/clinlab_idt_genomes"
 
-params.markdups='fgbio_umi'
+params.markdups='picard'
 params.version = 'v4'
 params.seqrunid = 'runtest'
 
 somatic = false
 fpalgo = ['fb']
-svalgo = ['delly', 'svaba']
 ssalgo = ['strelka2']
+svalgo = ['delly', 'svaba']
+
 ncmconf = file("$params.genome/ncm.conf")
 reffa=file("$params.genome/genome.fa")
 dbsnp="$params.genome/dbSnp.vcf.gz"
@@ -150,23 +151,6 @@ process abra2 {
   mv ${sampleid}.abra2.bam.bai  ${sampleid}.bam.bai
   """
 }
-
-process valign {
-  executor 'local'
-  label 'dnaalign'
-  errorStrategy 'ignore'
-  publishDir "$params.output/$caseid/dnaout", mode: 'copy'
-
-  input:
-  set caseid,sampleid, file(sbam) from virusalign
-  output:
-  file("${sampleid}.viral.seqstats.txt") into viralseqstats
-  script:
-  """
-  bash ${repoDir}/process_scripts/alignment/virusalign.sh -b ${sampleid}.bam -p ${sampleid} -r $virus_index_path -f
-  """
-}
-
 process markdups {
   errorStrategy 'ignore'
   label 'dnaalign'
@@ -291,22 +275,6 @@ process msi {
   else
   """
   bash ${repoDir}/process_scripts/variants/msisensor.sh -r ${index_path} -p $caseid -b ${tid}.bam -c $capturebed
-  """
-}
-
-process checkmates {
-  executor 'local'
-  label 'profiling_qc'
-  publishDir "$params.output/$caseid/dnacallset", mode: 'copy'
-  errorStrategy 'ignore'
-  input:
-  set caseid,tid,nid,file(bam),file(bidx) from checkbams
-  output:
-  file("${caseid}*") into checkmateout
-  when: somatic[caseid] == true
-  script:
-  """
-  bash ${repoDir}/process_scripts/variants/checkmate.sh -r ${index_path} -p ${caseid} -c ${index_path}/NGSCheckMate.bed -f
   """
 }
 
