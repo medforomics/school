@@ -1,10 +1,10 @@
 FROM broadinstitute/gatk:4.1.4.0
 LABEL Author="Jeremy Mathews" \
-      Maintainer="b.cantarel@gmail.com"
+      Maintainer="genome.school@gmail.com"
 
 # install additional requirements
 RUN apt-get update; apt-get install -y build-essential checkinstall; apt-get upgrade; \
-    apt-get install -y libreadline-gplv2-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev zlib1g-dev liblzma-dev libcurl4-gnutls-dev libncurses5-dev wget unzip git default-jre default-jdk r-base cpanminus pigz
+    apt-get install -y --allow-unauthenticated libreadline-gplv2-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev zlib1g-dev liblzma-dev libcurl4-gnutls-dev libncurses5-dev wget unzip git default-jre default-jdk r-base cpanminus pigz
 
 
 # Make destination and work directory
@@ -19,7 +19,7 @@ RUN cd /usr/src; wget https://www.python.org/ftp/python/2.7.18/Python-2.7.18.tgz
     cd Python-2.7.18; \
     ./configure --enable-optimizations; \
     make altinstall;
-RUN cd /usr/src; wget https://bootstrap.pypa.io/get-pip.py; \
+RUN cd /usr/src; wget https://bootstrap.pypa.io/pip/2.7/get-pip.py; \
     python2.7 get-pip.py;
 RUN ln -sf /usr/local/bin/python2.7 /opt/miniconda/envs/gatk/bin/python
 
@@ -125,9 +125,9 @@ RUN cd /opt; wget https://github.com/bcantarel/Shimmer/archive/v0.1.2.zip; \
 # Install Scripts
 ENV repodir /seqprg
 RUN mkdir -p /seqprg; \
-    cd /seqprg; wget https://github.com/bcantarel/process_scripts/archive/version_1.0.9.tar.gz; tar xvfz version_1.0.9.tar.gz; \
-    #git clone -b version_1.0.9 --single-branch --recursive https://github.com/bcantarel/process_scripts.git; \
-    mv process_scripts-version_1.0.9 process_scripts; cd process_scripts; \
+    cd /seqprg; wget https://github.com/bcantarel/process_scripts/archive/version_1.1.5.tar.gz; tar xvfz version_1.1.5.tar.gz; \
+    #git clone -b version_1.1.5 --single-branch --recursive https://github.com/bcantarel/process_scripts.git; \
+    mv process_scripts-version_1.1.5 process_scripts; cd process_scripts; \
     cp -r alignment/* /usr/local/bin/; \
     cp -r variants/* /usr/local/bin/
 

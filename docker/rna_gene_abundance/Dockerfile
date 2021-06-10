@@ -1,6 +1,6 @@
 FROM ubuntu:16.04
 LABEL Author="Jeremy Mathews" \
-      Maintainer="b.cantarel@gmail.com"
+      Maintainer="genome.school@gmail.com"
 
 
 #install additional requirements
@@ -51,9 +51,9 @@ RUN cd /opt; wget https://github.com/arq5x/bedtools2/releases/download/v2.30.0/b
 
 ENV repodir /seqprg
 RUN mkdir -p /seqprg; \
-    cd /seqprg; wget https://github.com/bcantarel/process_scripts/archive/version_1.1.2.tar.gz; tar xvfz version_1.1.2.tar.gz; \
-    #git clone -b version_1.1.2 --single-branch --recursive https://github.com/bcantarel/process_scripts.git; \
-    mv process_scripts-version_1.1.2 process_scripts; cd process_scripts; \
+    cd /seqprg; wget https://github.com/bcantarel/process_scripts/archive/version_1.1.5.tar.gz; tar xvfz version_1.1.5.tar.gz; \
+    #git clone -b version_1.1.5 --single-branch --recursive https://github.com/bcantarel/process_scripts.git; \
+    mv process_scripts-version_1.1.5 process_scripts; cd process_scripts; \
     cp -r genect_rnaseq/* /usr/local/bin/
 
 ENV isdocker 1
