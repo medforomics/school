@@ -1,0 +1,10 @@
+{
+    "captureBed": "goal_core497.hg38.bed",
+    "itdBed": "itd_genes.bed",
+    "mutectPon": "mutect2.pon.vcf.gz",
+    "captureDir": "capture_dir",
+    "markdupsAlg": "picard",
+    "svAlgos": "delly svaba cnvkit itdseek",
+    "snvIndelAlgos": "mutect pindel strelka2 platypus fb",
+    "snpEff": "GRCh38.86"
+}
