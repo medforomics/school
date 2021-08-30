@@ -38,6 +38,12 @@ RUN cd /opt; wget ftp://ftp.ccb.jhu.edu/pub/infphilo/hisat2/downloads/hisat2-2.1
     make; \
     cp -r hisat* /usr/local/bin;
 
+# Install PICARD
+RUN cd /opt/bin; wget https://github.com/broadinstitute/picard/releases/download/2.21.7/picard.jar; \
+    cp -R /opt/bin/* /usr/local/bin/; \
+    chmod +x /usr/local/bin/picard.jar;
+ENV PICARD "/usr/local/bin"
+
 # Install Scripts
 ENV repodir /seqprg
 RUN mkdir -p /seqprg; \
